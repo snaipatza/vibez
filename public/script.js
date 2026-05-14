@@ -628,15 +628,24 @@ function initEventListeners() {
     if (adModal) adModal.addEventListener('click', e => { if (e.target === adModal) closeAdModal(); });
 
     // Chat toggle
-    document.getElementById('toggleChat').addEventListener('click', () => {
-        const panel = document.getElementById('chatPanel');
-        panel.classList.toggle('hidden');
-        panel.classList.toggle('visible');
-    });
-    document.getElementById('closeChatBtn').addEventListener('click', () => {
-        document.getElementById('chatPanel').classList.add('hidden');
-        document.getElementById('chatPanel').classList.remove('visible');
-    });
+    const toggleChatBtn = document.getElementById('toggleChat');
+    const closeChatBtn = document.getElementById('closeChatBtn');
+    if (toggleChatBtn) {
+        toggleChatBtn.addEventListener('click', () => {
+            const panel = document.getElementById('chatPanel');
+            if (!panel || panel.classList.contains('chat-inline')) return;
+            panel.classList.toggle('hidden');
+            panel.classList.toggle('visible');
+        });
+    }
+    if (closeChatBtn) {
+        closeChatBtn.addEventListener('click', () => {
+            const panel = document.getElementById('chatPanel');
+            if (!panel || panel.classList.contains('chat-inline')) return;
+            panel.classList.add('hidden');
+            panel.classList.remove('visible');
+        });
+    }
 
     // Emoji picker
     document.getElementById('emojiBtn').addEventListener('click', e => {

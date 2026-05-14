@@ -239,36 +239,34 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Chat -->
-                <div class="chat-panel" id="chatPanel">
-                    <div class="chat-header">
-                        <h3><i class="fas fa-comments"></i> Live Chat</h3>
-                        <div class="chat-header-actions">
-                            <button class="icon-btn-sm" id="closeChatBtn"><i class="fas fa-times"></i></button>
-                        </div>
-                    </div>
-                    <div class="chat-messages" id="chatMessages"></div>
-                    <div class="chat-input-area">
-                        <div class="emoji-picker" id="emojiPicker">
-                            <div class="emoji-grid">
-                                <button onclick="insertEmoji('😀')">😀</button><button onclick="insertEmoji('😂')">😂</button>
-                                <button onclick="insertEmoji('🔥')">🔥</button><button onclick="insertEmoji('❤️')">❤️</button>
-                                <button onclick="insertEmoji('🎵')">🎵</button><button onclick="insertEmoji('🎉')">🎉</button>
-                                <button onclick="insertEmoji('💜')">💜</button><button onclick="insertEmoji('🤩')">🤩</button>
-                                <button onclick="insertEmoji('👏')">👏</button><button onclick="insertEmoji('💃')">💃</button>
-                                <button onclick="insertEmoji('🕺')">🕺</button><button onclick="insertEmoji('🎧')">🎧</button>
-                                <button onclick="insertEmoji('🎤')">🎤</button><button onclick="insertEmoji('⚡')">⚡</button>
-                                <button onclick="insertEmoji('✨')">✨</button><button onclick="insertEmoji('🙌')">🙌</button>
+                        <div class="chat-panel chat-inline" id="chatPanel">
+                            <div class="chat-header">
+                                <h3><i class="fas fa-comments"></i> Live Chat</h3>
+                                <div class="chat-header-actions">
+                                    <button class="icon-btn-sm" id="closeChatBtn" style="display:none"><i class="fas fa-times"></i></button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="chat-input-wrapper">
-                            <button class="tts-btn" id="ttsToggleBtn" title="เปิด/ปิด TTS" style="display:none"><i class="fas fa-volume-up"></i></button>
-                            <button class="emoji-btn" id="emojiBtn"><i class="fas fa-smile"></i></button>
-                            <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" maxlength="300">
-                            <button class="chat-send-btn" id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+                            <div class="chat-messages" id="chatMessages"></div>
+                            <div class="chat-input-area">
+                                <div class="emoji-picker" id="emojiPicker">
+                                    <div class="emoji-grid">
+                                        <button onclick="insertEmoji('😀')">😀</button><button onclick="insertEmoji('😂')">😂</button>
+                                        <button onclick="insertEmoji('🔥')">🔥</button><button onclick="insertEmoji('❤️')">❤️</button>
+                                        <button onclick="insertEmoji('🎵')">🎵</button><button onclick="insertEmoji('🎉')">🎉</button>
+                                        <button onclick="insertEmoji('💜')">💜</button><button onclick="insertEmoji('🤩')">🤩</button>
+                                        <button onclick="insertEmoji('👏')">👏</button><button onclick="insertEmoji('💃')">💃</button>
+                                        <button onclick="insertEmoji('🕺')">🕺</button><button onclick="insertEmoji('🎧')">🎧</button>
+                                        <button onclick="insertEmoji('🎤')">🎤</button><button onclick="insertEmoji('⚡')">⚡</button>
+                                        <button onclick="insertEmoji('✨')">✨</button><button onclick="insertEmoji('🙌')">🙌</button>
+                                    </div>
+                                </div>
+                                <div class="chat-input-wrapper">
+                                    <button class="tts-btn" id="ttsToggleBtn" title="เปิด/ปิด TTS" style="display:none"><i class="fas fa-volume-up"></i></button>
+                                    <button class="emoji-btn" id="emojiBtn"><i class="fas fa-smile"></i></button>
+                                    <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" maxlength="300">
+                                    <button class="chat-send-btn" id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

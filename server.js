@@ -8,10 +8,11 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const avatarUploadDir = path.join(__dirname, 'public', 'uploads', 'avatars');
+const avatarUploadDir = path.join(db.dataDir || __dirname, 'uploads', 'avatars');
 fs.mkdirSync(avatarUploadDir, { recursive: true });
 
 app.use(express.json({ limit: '3mb' }));
+app.use('/uploads/avatars', express.static(avatarUploadDir));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     secret: 'vibez-super-secret-2024',
@@ -51,7 +52,8 @@ function saveAvatarImage(userId, imageData) {
 }
 
 app.post('/api/register', async (req, res) => {
-    const { username, password } = req.body;
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '').trim();
     if (!username || !password) return res.status(400).json({ error: 'กรุณากรอก username และ password' });
     if (username.length < 3) return res.status(400).json({ error: 'Username ต้องมีอย่างน้อย 3 ตัวอักษร' });
     if (password.length < 6) return res.status(400).json({ error: 'Password ต้องมีอย่างน้อย 6 ตัวอักษร' });
@@ -69,7 +71,8 @@ app.post('/api/register', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '').trim();
     if (!username || !password) return res.status(400).json({ error: 'กรุณากรอกข้อมูล' });
     const user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(username);
     if (!user || !(await bcrypt.compare(password, user.password_hash)))

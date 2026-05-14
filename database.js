@@ -1,9 +1,22 @@
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 
-const db = new Database(path.join(__dirname, 'vibez.db'));
+const dataDir = process.env.DATABASE_DIR || process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
+fs.mkdirSync(dataDir, { recursive: true });
+
+const dbPath = path.join(dataDir, 'vibez.db');
+const bundledDbPath = path.join(__dirname, 'vibez.db');
+if (dbPath !== bundledDbPath && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
+    fs.copyFileSync(bundledDbPath, dbPath);
+}
+
+const db = new Database(dbPath);
+db.dataDir = dataDir;
+db.dbPath = dbPath;
 db.pragma('journal_mode = WAL');
+console.log(`Database path: ${dbPath}`);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (

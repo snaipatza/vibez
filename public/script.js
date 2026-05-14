@@ -27,16 +27,47 @@ const fakeTracks = [
 ];
 
 // ── YOUTUBE IFRAME API CALLBACK ────────────────────────────────────────
-function onYouTubeIframeAPIReady() {
+function isYouTubeApiReady() {
+    return !!(window.YT && window.YT.Player);
+}
+
+function markYouTubeApiReady() {
     ytApiReady = true;
     ytApiReadyWaiters.splice(0).forEach(resolve => resolve());
 }
 
+function onYouTubeIframeAPIReady() {
+    markYouTubeApiReady();
+}
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+function ensureYouTubeApiScript() {
+    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) return;
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+}
+
 function waitForYouTubeApi() {
-    if (ytApiReady) return Promise.resolve(true);
+    if (ytApiReady || isYouTubeApiReady()) {
+        markYouTubeApiReady();
+        return Promise.resolve(true);
+    }
+    ensureYouTubeApiScript();
     return new Promise(resolve => {
-        const timer = setTimeout(() => resolve(false), 8000);
+        const poll = setInterval(() => {
+            if (!isYouTubeApiReady()) return;
+            clearInterval(poll);
+            clearTimeout(timer);
+            markYouTubeApiReady();
+            resolve(true);
+        }, 100);
+        const timer = setTimeout(() => {
+            clearInterval(poll);
+            resolve(false);
+        }, 8000);
         ytApiReadyWaiters.push(() => {
+            clearInterval(poll);
             clearTimeout(timer);
             resolve(true);
         });

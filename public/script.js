@@ -104,7 +104,7 @@ function setupUserUI() {
     const roleLabels = { dj: '🎧 DJ', mod: '🛡️ Moderator', admin: '🔰 Admin', vip: '⭐ VIP', user: 'Online' };
     const roleEl = document.getElementById('sidebarRole');
     roleEl.textContent = roleLabels[currentUser.role] || 'Online';
-    if (currentUser.role === 'dj' || currentUser.role === 'admin') {
+    if (currentUser.role === 'dj') {
         roleEl.style.color = 'var(--accent-cyan)';
         // Show DJ stop button
         const stopBtn = document.getElementById('ytStopBtn');
@@ -434,7 +434,7 @@ async function pollNowPlaying() {
             setNowPlayingUI(data.title || 'Unknown', data.artist || '');
 
             // Listener: สร้าง player เริ่มที่ elapsed position
-            if (currentUser?.role !== 'dj' && currentUser?.role !== 'admin') {
+            if (currentUser?.role !== 'dj') {
                 createYTPlayer(data.youtube_id, data.elapsed_seconds || 0);
             }
             setPlayingUI(!!data.is_playing);
@@ -778,7 +778,7 @@ function renderQueue(queue) {
         return;
     }
 
-    const isDJ = currentUser?.role === 'dj' || currentUser?.role === 'admin';
+    const isDJ = currentUser?.role === 'dj';
 
     list.innerHTML = queue.map((item, i) => {
         const isYT = !!item.youtube_id;

@@ -22,7 +22,7 @@ function requireAuth(req, res, next) {
 }
 function requireDJ(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (req.session.role !== 'dj' && req.session.role !== 'admin') return res.status(403).json({ error: 'เฉพาะ DJ/Admin เท่านั้น' });
+    if (req.session.role !== 'dj') return res.status(403).json({ error: 'เฉพาะ DJ เท่านั้น' });
     next();
 }
 function requireAdmin(req, res, next) {

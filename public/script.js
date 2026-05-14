@@ -17,6 +17,11 @@ let currentYtId = null;
 let syncInProgress = false;
 let ytApiReadyWaiters = [];
 let pendingYtPlayback = null;
+let queueIsFull = false;
+
+function avatarUrl(seed) {
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || 'guest')}`;
+}
 
 const fakeTracks = [
     { title: 'Midnight Groove', artist: 'DJ VIBEZ ft. Luna',    duration: '4:12', seed: 'album1' },
@@ -94,8 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── USER UI ────────────────────────────────────────────────────────────
 function setupUserUI() {
     document.getElementById('sidebarUsername').textContent = currentUser.username;
-    document.getElementById('userAvatarImg').src =
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.username)}`;
+    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed || currentUser.username);
 
     const roleLabels = { dj: '🎧 DJ', mod: '🛡️ Moderator', admin: '🔰 Admin', vip: '⭐ VIP', user: 'Online' };
     const roleEl = document.getElementById('sidebarRole');
@@ -127,6 +131,55 @@ function setupUserUI() {
         await api('/api/logout', 'POST');
         window.location.href = '/login.html';
     });
+
+    initProfileSettings();
+}
+
+function initProfileSettings() {
+    const modal = document.getElementById('profileModal');
+    const input = document.getElementById('avatarSeedInput');
+    const preview = document.getElementById('profilePreview');
+    const openBtn = document.getElementById('profileBtn');
+    const closeButtons = [
+        document.getElementById('closeProfileModal'),
+        document.getElementById('cancelProfileBtn')
+    ];
+
+    const setPreview = () => { preview.src = avatarUrl(input.value.trim() || currentUser.username); };
+    const openModal = () => {
+        input.value = currentUser.avatar_seed || currentUser.username;
+        setPreview();
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        input.focus();
+    };
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    openBtn.addEventListener('click', openModal);
+    closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    input.addEventListener('input', setPreview);
+    document.getElementById('randomAvatarBtn').addEventListener('click', () => {
+        input.value = `${currentUser.username}-${Math.random().toString(36).slice(2, 8)}`;
+        setPreview();
+    });
+    document.getElementById('saveProfileBtn').addEventListener('click', saveProfileSettings);
+}
+
+async function saveProfileSettings() {
+    const input = document.getElementById('avatarSeedInput');
+    const avatarSeed = input.value.trim();
+    const data = await api('/api/me', 'PATCH', { avatar_seed: avatarSeed });
+    if (data.error) { showToast('error', data.error); return; }
+
+    currentUser.avatar_seed = data.avatar_seed;
+    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed);
+    document.getElementById('profileModal').classList.remove('active');
+    showToast('success', 'บันทึกโปรไฟล์แล้ว');
+    await fetchOnlineUsers();
 }
 
 // ── TTS ────────────────────────────────────────────────────────────────
@@ -681,6 +734,10 @@ function selectSong(title, artist) {
 }
 
 async function submitSongRequest() {
+    if (queueIsFull) {
+        showToast('warning', 'คิวเพลงเต็มแล้ว จำกัดสูงสุด 20 เพลง');
+        return;
+    }
     const payload = ytData || (() => {
         const raw = document.getElementById('songSearch').value.trim();
         if (!raw) return null;
@@ -706,7 +763,15 @@ async function loadQueue() {
 function renderQueue(queue) {
     const list = document.getElementById('queueList');
     document.getElementById('queueBadge').textContent = queue.length;
-    document.getElementById('queueCountLabel').textContent = `${queue.length} เพลง`;
+    document.getElementById('queueCountLabel').textContent = `${queue.length}/20 เพลง`;
+    const queueFull = queue.length >= 20;
+    queueIsFull = queueFull;
+    ['sendRequestBtn', 'ytSubmitBtn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.disabled = queueFull;
+        btn.title = queueFull ? 'คิวเพลงเต็มแล้ว' : '';
+    });
 
     if (!queue.length) {
         list.innerHTML = `<div class="queue-empty"><i class="fas fa-music"></i><span>ยังไม่มีเพลงในคิว — ขอเพลงได้เลย!</span></div>`;
@@ -844,7 +909,7 @@ function renderMessage(m, animate) {
     const badgeHTML = bClass ? `<span class="chat-msg-badge ${bClass.split(' ')[0]}">${bClass.split(' ')[1]}</span>` : '';
     el.innerHTML = `
         <div class="chat-msg-header">
-            <img class="chat-msg-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.username)}" alt="">
+            <img class="chat-msg-avatar" src="${avatarUrl(m.avatar_seed || m.username)}" alt="">
             <span class="chat-msg-name ${m.role}">${escHtml(m.username)}</span>
             ${badgeHTML}
             <span class="chat-msg-time">${time}</span>
@@ -911,10 +976,9 @@ function renderOnlineUsers(users) {
     list.innerHTML = users.map(u => {
         const [badgeClass, badgeText] = roleMap[u.role] || [];
         const badge = badgeClass ? `<span class="online-user-role-badge ${badgeClass}">${badgeText}</span>` : '';
-        const seed = encodeURIComponent(u.avatar_seed || u.username);
         return `<div class="online-user-item">
             <div class="online-user-avatar-wrap">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}" alt="">
+                <img src="${avatarUrl(u.avatar_seed || u.username)}" alt="">
                 <span class="online-dot"></span>
             </div>
             <span class="online-user-name">${escHtml(u.username)}</span>

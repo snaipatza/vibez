@@ -70,7 +70,28 @@ app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     // อัปเดต last_seen
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    res.json({ loggedIn: true, userId: req.session.userId, username: req.session.username, role: req.session.role });
+    const user = db.prepare('SELECT avatar_seed FROM users WHERE id=?').get(req.session.userId);
+    res.json({
+        loggedIn: true,
+        userId: req.session.userId,
+        username: req.session.username,
+        role: req.session.role,
+        avatar_seed: user?.avatar_seed || req.session.username
+    });
+});
+
+app.patch('/api/me', requireAuth, (req, res) => {
+    const avatarSeed = String(req.body.avatar_seed || '').trim();
+    if (!avatarSeed) return res.status(400).json({ error: 'กรุณาใส่ค่าโปรไฟล์' });
+    if (avatarSeed.length > 60) return res.status(400).json({ error: 'ค่าโปรไฟล์ยาวเกินไป' });
+
+    db.prepare('UPDATE users SET avatar_seed=? WHERE id=?').run(avatarSeed, req.session.userId);
+    res.json({
+        success: true,
+        username: req.session.username,
+        role: req.session.role,
+        avatar_seed: avatarSeed
+    });
 });
 
 // นับจำนวนคนออนไลน์จริง (active ใน 2 นาทีที่ผ่านมา)
@@ -190,6 +211,9 @@ app.get('/api/queue', (req, res) => {
 app.post('/api/queue', requireAuth, (req, res) => {
     const { title, artist, youtube_url, youtube_id, thumbnail } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
+    const activeQueueCount = db.prepare("SELECT COUNT(*) as c FROM queue WHERE status IN ('pending','playing')").get().c;
+    if (activeQueueCount >= 20) return res.status(409).json({ error: 'คิวเพลงเต็มแล้ว จำกัดสูงสุด 20 เพลง' });
+
     const result = db.prepare(
         'INSERT INTO queue (title,artist,youtube_url,youtube_id,thumbnail,requested_by,user_id) VALUES (?,?,?,?,?,?,?)'
     ).run(title.trim(), artist || '', youtube_url || '', youtube_id || '', thumbnail || '', req.session.username, req.session.userId);
@@ -232,7 +256,14 @@ app.delete('/api/queue/:id', requireDJ, (req, res) => {
 // ── MESSAGES ──────────────────────────────────────────────────────────
 app.get('/api/messages', (req, res) => {
     const after = parseInt(req.query.after) || 0;
-    const messages = db.prepare('SELECT * FROM messages WHERE id>? ORDER BY created_at ASC LIMIT 60').all(after);
+    const messages = db.prepare(`
+        SELECT messages.*, users.avatar_seed
+        FROM messages
+        LEFT JOIN users ON users.id = messages.user_id
+        WHERE messages.id > ?
+        ORDER BY messages.created_at ASC
+        LIMIT 60
+    `).all(after);
     res.json(messages);
 });
 

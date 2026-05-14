@@ -54,6 +54,9 @@
                     <span class="username" id="sidebarUsername">...</span>
                     <span class="user-status" id="sidebarRole">Online</span>
                 </div>
+                <button class="profile-btn" id="profileBtn" title="Profile settings">
+                    <i class="fas fa-cog"></i>
+                </button>
                 <button class="logout-btn" id="logoutBtn" title="ออกจากระบบ">
                     <i class="fas fa-sign-out-alt"></i>
                 </button>
@@ -267,6 +270,31 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div class="modal-backdrop" id="profileModal" aria-hidden="true">
+        <div class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+            <div class="profile-modal-header">
+                <h3 id="profileModalTitle"><i class="fas fa-user-cog"></i> ตั้งค่าโปรไฟล์</h3>
+                <button class="icon-btn-sm" id="closeProfileModal" type="button"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="profile-modal-body">
+                <img class="profile-preview" id="profilePreview" src="" alt="profile preview">
+                <label class="profile-field">
+                    <span>Avatar seed</span>
+                    <input type="text" id="avatarSeedInput" maxlength="60" autocomplete="off" placeholder="เช่น ชื่อเล่น หรือคำที่ชอบ">
+                </label>
+                <button class="profile-random-btn" id="randomAvatarBtn" type="button">
+                    <i class="fas fa-random"></i> สุ่มรูป
+                </button>
+            </div>
+            <div class="profile-modal-actions">
+                <button class="secondary-btn" id="cancelProfileBtn" type="button">ยกเลิก</button>
+                <button class="primary-btn" id="saveProfileBtn" type="button">
+                    <i class="fas fa-save"></i> บันทึก
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="floating-reactions" id="floatingReactions"></div>

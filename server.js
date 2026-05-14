@@ -2,12 +2,16 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+const avatarUploadDir = path.join(__dirname, 'public', 'uploads', 'avatars');
+fs.mkdirSync(avatarUploadDir, { recursive: true });
+
+app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
     secret: 'vibez-super-secret-2024',
@@ -32,6 +36,20 @@ function requireAdmin(req, res, next) {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────
+function saveAvatarImage(userId, imageData) {
+    if (!imageData) return null;
+    const match = String(imageData).match(/^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) throw new Error('รองรับเฉพาะไฟล์รูปภาพ PNG, JPG, WEBP หรือ GIF');
+
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length > 2 * 1024 * 1024) throw new Error('รูปโปรไฟล์ต้องไม่เกิน 2MB');
+
+    const fileName = `user-${userId}-${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(avatarUploadDir, fileName), buffer);
+    return `/uploads/avatars/${fileName}`;
+}
+
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'กรุณากรอก username และ password' });
@@ -70,13 +88,14 @@ app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     // อัปเดต last_seen
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const user = db.prepare('SELECT avatar_seed FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT avatar_seed, avatar_url FROM users WHERE id=?').get(req.session.userId);
     res.json({
         loggedIn: true,
         userId: req.session.userId,
         username: req.session.username,
         role: req.session.role,
-        avatar_seed: user?.avatar_seed || req.session.username
+        avatar_seed: user?.avatar_seed || req.session.username,
+        avatar_url: user?.avatar_url || ''
     });
 });
 
@@ -85,12 +104,27 @@ app.patch('/api/me', requireAuth, (req, res) => {
     if (!avatarSeed) return res.status(400).json({ error: 'กรุณาใส่ค่าโปรไฟล์' });
     if (avatarSeed.length > 60) return res.status(400).json({ error: 'ค่าโปรไฟล์ยาวเกินไป' });
 
-    db.prepare('UPDATE users SET avatar_seed=? WHERE id=?').run(avatarSeed, req.session.userId);
+    let avatarUrl = null;
+    try {
+        avatarUrl = saveAvatarImage(req.session.userId, req.body.avatar_image);
+    } catch (err) {
+        return res.status(400).json({ error: err.message });
+    }
+
+    if (avatarUrl) {
+        db.prepare('UPDATE users SET avatar_seed=?, avatar_url=? WHERE id=?').run(avatarSeed, avatarUrl, req.session.userId);
+    } else {
+        db.prepare('UPDATE users SET avatar_seed=? WHERE id=?').run(avatarSeed, req.session.userId);
+        const user = db.prepare('SELECT avatar_url FROM users WHERE id=?').get(req.session.userId);
+        avatarUrl = user?.avatar_url || '';
+    }
+
     res.json({
         success: true,
         username: req.session.username,
         role: req.session.role,
-        avatar_seed: avatarSeed
+        avatar_seed: avatarSeed,
+        avatar_url: avatarUrl
     });
 });
 
@@ -105,7 +139,7 @@ app.post('/api/ping', requireAuth, (req, res) => {
 app.get('/api/online', (req, res) => {
     const cutoff = Date.now() - 2 * 60 * 1000;
     const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
-    const users = db.prepare('SELECT username, role, avatar_seed FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 50').all(cutoff);
+    const users = db.prepare('SELECT username, role, avatar_seed, avatar_url FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 50').all(cutoff);
     res.json({ online: count, users });
 });
 
@@ -158,14 +192,15 @@ app.post('/api/now-playing', requireDJ, (req, res) => {
     const { queue_id, youtube_id, title, artist, thumbnail, youtube_url } = req.body;
     if (!youtube_id) return res.status(400).json({ error: 'youtube_id required' });
     const now = Date.now() / 1000;
+    const dj = db.prepare('SELECT avatar_seed, avatar_url FROM users WHERE id=?').get(req.session.userId) || {};
     db.prepare(`
         UPDATE now_playing SET
             queue_id=?, youtube_id=?, title=?, artist=?,
             thumbnail=?, youtube_url=?, started_at=?, paused_elapsed=0, is_playing=1,
-            dj_username=?, dj_user_id=?, dj_avatar_seed=?
+            dj_username=?, dj_user_id=?, dj_avatar_seed=?, dj_avatar_url=?
         WHERE id=1
     `).run(queue_id || null, youtube_id, title || '', artist || '', thumbnail || '', youtube_url || '', now,
-           req.session.username, req.session.userId, req.session.username);
+           req.session.username, req.session.userId, dj.avatar_seed || req.session.username, dj.avatar_url || '');
     if (queue_id) db.prepare("UPDATE queue SET status='playing' WHERE id=?").run(queue_id);
     db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)")
       .run(0, 'SYSTEM', 'system', `🎧 ${req.session.username} กำลังเล่น "${title || youtube_id}"`);
@@ -257,7 +292,7 @@ app.delete('/api/queue/:id', requireDJ, (req, res) => {
 app.get('/api/messages', (req, res) => {
     const after = parseInt(req.query.after) || 0;
     const messages = db.prepare(`
-        SELECT messages.*, users.avatar_seed
+        SELECT messages.*, users.avatar_seed, users.avatar_url
         FROM messages
         LEFT JOIN users ON users.id = messages.user_id
         WHERE messages.id > ?
@@ -278,7 +313,7 @@ app.post('/api/messages', requireAuth, (req, res) => {
 
 // ── ADMIN ──────────────────────────────────────────────────────────────
 app.get('/api/admin/users', requireAdmin, (req, res) => {
-    const users = db.prepare('SELECT id, username, role, avatar_seed, created_at FROM users ORDER BY created_at DESC').all();
+    const users = db.prepare('SELECT id, username, role, avatar_seed, avatar_url, created_at FROM users ORDER BY created_at DESC').all();
     res.json(users);
 });
 

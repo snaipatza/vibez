@@ -18,8 +18,10 @@ let syncInProgress = false;
 let ytApiReadyWaiters = [];
 let pendingYtPlayback = null;
 let queueIsFull = false;
+let pendingAvatarImage = null;
 
-function avatarUrl(seed) {
+function avatarUrl(seed, imageUrl = '') {
+    if (imageUrl) return imageUrl;
     return `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed || 'guest')}`;
 }
 
@@ -99,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ── USER UI ────────────────────────────────────────────────────────────
 function setupUserUI() {
     document.getElementById('sidebarUsername').textContent = currentUser.username;
-    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed || currentUser.username);
+    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed || currentUser.username, currentUser.avatar_url);
 
     const roleLabels = { dj: '🎧 DJ', mod: '🛡️ Moderator', admin: '🔰 Admin', vip: '⭐ VIP', user: 'Online' };
     const roleEl = document.getElementById('sidebarRole');
@@ -138,6 +140,7 @@ function setupUserUI() {
 function initProfileSettings() {
     const modal = document.getElementById('profileModal');
     const input = document.getElementById('avatarSeedInput');
+    const fileInput = document.getElementById('avatarFileInput');
     const preview = document.getElementById('profilePreview');
     const openBtn = document.getElementById('profileBtn');
     const closeButtons = [
@@ -145,9 +148,13 @@ function initProfileSettings() {
         document.getElementById('cancelProfileBtn')
     ];
 
-    const setPreview = () => { preview.src = avatarUrl(input.value.trim() || currentUser.username); };
+    const setPreview = () => {
+        preview.src = pendingAvatarImage || avatarUrl(input.value.trim() || currentUser.username, currentUser.avatar_url);
+    };
     const openModal = () => {
+        pendingAvatarImage = null;
         input.value = currentUser.avatar_seed || currentUser.username;
+        fileInput.value = '';
         setPreview();
         modal.classList.add('active');
         modal.setAttribute('aria-hidden', 'false');
@@ -162,7 +169,29 @@ function initProfileSettings() {
     closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
     modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
     input.addEventListener('input', setPreview);
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files?.[0];
+        if (!file) { pendingAvatarImage = null; setPreview(); return; }
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'กรุณาเลือกไฟล์รูปภาพ');
+            fileInput.value = '';
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('error', 'รูปโปรไฟล์ต้องไม่เกิน 2MB');
+            fileInput.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            pendingAvatarImage = reader.result;
+            preview.src = pendingAvatarImage;
+        };
+        reader.readAsDataURL(file);
+    });
     document.getElementById('randomAvatarBtn').addEventListener('click', () => {
+        pendingAvatarImage = null;
+        fileInput.value = '';
         input.value = `${currentUser.username}-${Math.random().toString(36).slice(2, 8)}`;
         setPreview();
     });
@@ -172,11 +201,13 @@ function initProfileSettings() {
 async function saveProfileSettings() {
     const input = document.getElementById('avatarSeedInput');
     const avatarSeed = input.value.trim();
-    const data = await api('/api/me', 'PATCH', { avatar_seed: avatarSeed });
+    const data = await api('/api/me', 'PATCH', { avatar_seed: avatarSeed, avatar_image: pendingAvatarImage });
     if (data.error) { showToast('error', data.error); return; }
 
     currentUser.avatar_seed = data.avatar_seed;
-    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed);
+    currentUser.avatar_url = data.avatar_url;
+    pendingAvatarImage = null;
+    document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed, currentUser.avatar_url);
     document.getElementById('profileModal').classList.remove('active');
     showToast('success', 'บันทึกโปรไฟล์แล้ว');
     await fetchOnlineUsers();
@@ -446,7 +477,7 @@ async function pollNowPlaying() {
                 const djAvatar = document.getElementById('djOnAirAvatar');
                 const djName = document.getElementById('djOnAirName');
                 if (djOnAir && djAvatar && djName) {
-                    djAvatar.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.dj_avatar_seed || data.dj_username)}`;
+                    djAvatar.src = avatarUrl(data.dj_avatar_seed || data.dj_username, data.dj_avatar_url);
                     djName.textContent = data.dj_username;
                     djOnAir.style.display = 'flex';
                 }
@@ -909,7 +940,7 @@ function renderMessage(m, animate) {
     const badgeHTML = bClass ? `<span class="chat-msg-badge ${bClass.split(' ')[0]}">${bClass.split(' ')[1]}</span>` : '';
     el.innerHTML = `
         <div class="chat-msg-header">
-            <img class="chat-msg-avatar" src="${avatarUrl(m.avatar_seed || m.username)}" alt="">
+            <img class="chat-msg-avatar" src="${avatarUrl(m.avatar_seed || m.username, m.avatar_url)}" alt="">
             <span class="chat-msg-name ${m.role}">${escHtml(m.username)}</span>
             ${badgeHTML}
             <span class="chat-msg-time">${time}</span>
@@ -978,7 +1009,7 @@ function renderOnlineUsers(users) {
         const badge = badgeClass ? `<span class="online-user-role-badge ${badgeClass}">${badgeText}</span>` : '';
         return `<div class="online-user-item">
             <div class="online-user-avatar-wrap">
-                <img src="${avatarUrl(u.avatar_seed || u.username)}" alt="">
+                <img src="${avatarUrl(u.avatar_seed || u.username, u.avatar_url)}" alt="">
                 <span class="online-dot"></span>
             </div>
             <span class="online-user-name">${escHtml(u.username)}</span>

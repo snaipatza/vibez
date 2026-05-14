@@ -8,17 +8,61 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+class SqliteSessionStore extends session.Store {
+    constructor(database) {
+        super();
+        this.db = database;
+        this.getStmt = this.db.prepare('SELECT data, expires FROM sessions WHERE sid=?');
+        this.setStmt = this.db.prepare('INSERT INTO sessions (sid, expires, data) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET expires=excluded.expires, data=excluded.data');
+        this.destroyStmt = this.db.prepare('DELETE FROM sessions WHERE sid=?');
+        this.cleanupStmt = this.db.prepare('DELETE FROM sessions WHERE expires < ?');
+    }
+    get(sid, cb) {
+        try {
+            const row = this.getStmt.get(sid);
+            if (!row || row.expires < Date.now()) {
+                if (row) this.destroyStmt.run(sid);
+                return cb(null, null);
+            }
+            cb(null, JSON.parse(row.data));
+        } catch (err) { cb(err); }
+    }
+    set(sid, sess, cb) {
+        try {
+            const expires = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 7 * 24 * 60 * 60 * 1000;
+            this.setStmt.run(sid, expires, JSON.stringify(sess));
+            cb?.(null);
+        } catch (err) { cb?.(err); }
+    }
+    destroy(sid, cb) {
+        try {
+            this.destroyStmt.run(sid);
+            cb?.(null);
+        } catch (err) { cb?.(err); }
+    }
+    touch(sid, sess, cb) {
+        this.set(sid, sess, cb);
+    }
+    cleanup() {
+        this.cleanupStmt.run(Date.now());
+    }
+}
+
 const avatarUploadDir = path.join(db.dataDir || __dirname, 'uploads', 'avatars');
 fs.mkdirSync(avatarUploadDir, { recursive: true });
 
 app.use(express.json({ limit: '3mb' }));
 app.use('/uploads/avatars', express.static(avatarUploadDir));
 app.use(express.static(path.join(__dirname, 'public')));
+const sessionStore = new SqliteSessionStore(db);
+setInterval(() => sessionStore.cleanup(), 60 * 60 * 1000).unref();
 app.use(session({
+    store: sessionStore,
     secret: 'vibez-super-secret-2024',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+    name: 'vibez.sid',
+    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' }
 }));
 
 function requireAuth(req, res, next) {

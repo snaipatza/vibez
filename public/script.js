@@ -236,7 +236,7 @@ function speakText(text) {
 
 // ── API HELPER ─────────────────────────────────────────────────────────
 async function api(url, method = 'GET', body = null) {
-    const opts = { method, headers: {} };
+    const opts = { method, headers: {}, credentials: 'same-origin' };
     if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
     try {
         const res = await fetch(url, opts);

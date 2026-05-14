@@ -83,6 +83,12 @@ db.exec(`
     active INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid TEXT PRIMARY KEY,
+    expires INTEGER NOT NULL,
+    data TEXT NOT NULL
+  );
 `);
 
 // Add new columns to existing databases (safe to run multiple times)

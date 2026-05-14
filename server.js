@@ -84,7 +84,39 @@ app.post('/api/ping', requireAuth, (req, res) => {
 app.get('/api/online', (req, res) => {
     const cutoff = Date.now() - 2 * 60 * 1000;
     const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
-    res.json({ online: count });
+    const users = db.prepare('SELECT username, role, avatar_seed FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 50').all(cutoff);
+    res.json({ online: count, users });
+});
+
+// ── ADS ───────────────────────────────────────────────────────────────
+app.get('/api/ad', (req, res) => {
+    const ad = db.prepare('SELECT * FROM ads WHERE active=1 ORDER BY id DESC LIMIT 1').get();
+    res.json(ad || null);
+});
+
+app.get('/api/admin/ads', requireAdmin, (req, res) => {
+    res.json(db.prepare('SELECT * FROM ads ORDER BY id DESC').all());
+});
+
+app.post('/api/admin/ads', requireAdmin, (req, res) => {
+    const { title, body, cta_text, cta_url, image_url } = req.body;
+    if (!title) return res.status(400).json({ error: 'กรุณาใส่หัวข้อโฆษณา' });
+    const result = db.prepare('INSERT INTO ads (title,body,cta_text,cta_url,image_url,active) VALUES (?,?,?,?,?,0)')
+        .run(title, body||'', cta_text||'คลิกดู', cta_url||'#', image_url||'');
+    res.json({ success: true, id: result.lastInsertRowid });
+});
+
+app.patch('/api/admin/ads/:id', requireAdmin, (req, res) => {
+    const { title, body, cta_text, cta_url, image_url, active } = req.body;
+    if (active === 1) db.prepare('UPDATE ads SET active=0').run(); // ปิดอันเก่าก่อน
+    db.prepare('UPDATE ads SET title=COALESCE(?,title), body=COALESCE(?,body), cta_text=COALESCE(?,cta_text), cta_url=COALESCE(?,cta_url), image_url=COALESCE(?,image_url), active=COALESCE(?,active) WHERE id=?')
+        .run(title, body, cta_text, cta_url, image_url, active, req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/admin/ads/:id', requireAdmin, (req, res) => {
+    db.prepare('DELETE FROM ads WHERE id=?').run(req.params.id);
+    res.json({ success: true });
 });
 
 // ── NOW PLAYING ────────────────────────────────────────────────────────

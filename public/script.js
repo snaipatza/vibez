@@ -15,6 +15,8 @@ let ytApiReady = false;
 let ytProgressInterval = null;
 let currentYtId = null;
 let syncInProgress = false;
+let ytApiReadyWaiters = [];
+let pendingYtPlayback = null;
 
 const fakeTracks = [
     { title: 'Midnight Groove', artist: 'DJ VIBEZ ft. Luna',    duration: '4:12', seed: 'album1' },
@@ -25,7 +27,21 @@ const fakeTracks = [
 ];
 
 // ── YOUTUBE IFRAME API CALLBACK ────────────────────────────────────────
-function onYouTubeIframeAPIReady() { ytApiReady = true; }
+function onYouTubeIframeAPIReady() {
+    ytApiReady = true;
+    ytApiReadyWaiters.splice(0).forEach(resolve => resolve());
+}
+
+function waitForYouTubeApi() {
+    if (ytApiReady) return Promise.resolve(true);
+    return new Promise(resolve => {
+        const timer = setTimeout(() => resolve(false), 8000);
+        ytApiReadyWaiters.push(() => {
+            clearTimeout(timer);
+            resolve(true);
+        });
+    });
+}
 
 // ── BOOT ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -175,7 +191,31 @@ function setNowPlayingUI(title, artist) {
 
 // ── YOUTUBE PLAYER CONTROL ─────────────────────────────────────────────
 
-function createYTPlayer(videoId, startSeconds) {
+function showAudioUnlock(videoId, startSeconds) {
+    pendingYtPlayback = { videoId, startSeconds };
+    const wrapper = document.querySelector('.yt-frame-wrapper');
+    if (!wrapper || wrapper.querySelector('.yt-audio-unlock')) return;
+
+    const overlay = document.createElement('button');
+    overlay.type = 'button';
+    overlay.className = 'yt-audio-unlock';
+    overlay.innerHTML = '<i class="fas fa-volume-up"></i><span>กดเพื่อฟังเพลง</span>';
+    overlay.addEventListener('click', () => {
+        const pending = pendingYtPlayback || { videoId, startSeconds };
+        pendingYtPlayback = null;
+        overlay.remove();
+        createYTPlayer(pending.videoId, pending.startSeconds, { fromGesture: true });
+    });
+    wrapper.appendChild(overlay);
+}
+
+function hideAudioUnlock() {
+    pendingYtPlayback = null;
+    const overlay = document.querySelector('.yt-audio-unlock');
+    if (overlay) overlay.remove();
+}
+
+async function createYTPlayer(videoId, startSeconds, options = {}) {
     stopProgressUpdate();
     // ทำลาย player เก่า
     if (ytPlayer) {
@@ -187,7 +227,9 @@ function createYTPlayer(videoId, startSeconds) {
     const wrapper = document.querySelector('.yt-frame-wrapper');
     wrapper.innerHTML = '<div id="youtube-player"></div>';
 
+    if (!ytApiReady) await waitForYouTubeApi();
     if (!ytApiReady) {
+        showAudioUnlock(videoId, startSeconds);
         showToast('error', 'YouTube API ยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง');
         return;
     }
@@ -213,11 +255,28 @@ function createYTPlayer(videoId, startSeconds) {
                     iframe.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture');
                 }
                 ytPlayer.setVolume(volume);
+                if (options.fromGesture) {
+                    try { ytPlayer.unMute(); } catch(e) {}
+                    try { ytPlayer.playVideo(); } catch(e) {}
+                }
                 startProgressUpdate();
+                setTimeout(() => {
+                    if (!ytPlayerReady || !ytPlayer || currentYtId !== videoId) return;
+                    try {
+                        const state = ytPlayer.getPlayerState();
+                        if (state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {
+                            showAudioUnlock(videoId, ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : startSeconds);
+                        }
+                    } catch(e) {}
+                }, 1500);
             },
             onStateChange: (e) => {
-                if (e.data === YT.PlayerState.PLAYING) setPlayingUI(true);
+                if (e.data === YT.PlayerState.PLAYING) { hideAudioUnlock(); setPlayingUI(true); }
                 if (e.data === YT.PlayerState.PAUSED) setPlayingUI(false);
+            },
+            onAutoplayBlocked: () => {
+                setPlayingUI(false);
+                showAudioUnlock(videoId, startSeconds);
             }
         }
     });
@@ -357,11 +416,18 @@ async function djStopPlaying() {
 
 // ── PLAYER CONTROLS ────────────────────────────────────────────────────
 function togglePlay() {
+    if (currentYtId && !ytPlayerReady) {
+        const startSeconds = pendingYtPlayback?.startSeconds || 0;
+        createYTPlayer(currentYtId, startSeconds, { fromGesture: true });
+        return;
+    }
     if (currentYtId && ytPlayerReady) {
         const state = ytPlayer.getPlayerState();
         if (state === YT.PlayerState.PLAYING) {
             ytPlayer.pauseVideo();
         } else {
+            hideAudioUnlock();
+            try { ytPlayer.unMute(); } catch(e) {}
             ytPlayer.playVideo();
         }
     } else if (!currentYtId) {
@@ -616,7 +682,7 @@ function renderQueue(queue) {
         return;
     }
 
-    const isDJ = currentUser?.role === 'dj';
+    const isDJ = currentUser?.role === 'dj' || currentUser?.role === 'admin';
 
     list.innerHTML = queue.map((item, i) => {
         const isYT = !!item.youtube_id;
@@ -787,20 +853,66 @@ function insertEmoji(emoji) {
 // ── POLLING ────────────────────────────────────────────────────────────
 async function pingOnline() {
     const data = await api('/api/ping', 'POST');
-    if (data.online !== undefined) updateOnlineCount(data.online);
+    if (data.online !== undefined) {
+        updateOnlineCount(data.online);
+        await fetchOnlineUsers();
+    }
 }
 
 function updateOnlineCount(n) {
-    const text = `${n} กำลังฟังอยู่`;
     const el = document.getElementById('viewerCountText');
-    if (el) el.textContent = text;
-    const sidebar = document.getElementById('sidebarOnlineCount');
-    if (sidebar) sidebar.textContent = n;
+    if (el) el.textContent = `${n} กำลังฟังอยู่`;
+    const badge = document.getElementById('sidebarOnlineCount');
+    if (badge) badge.textContent = n;
+}
+
+async function fetchOnlineUsers() {
+    const data = await api('/api/online');
+    if (!data || !data.users) return;
+    updateOnlineCount(data.online);
+    renderOnlineUsers(data.users);
+}
+
+function renderOnlineUsers(users) {
+    const list = document.getElementById('onlineUsersList');
+    if (!list) return;
+    const roleMap = { admin: ['role-admin-badge','ADMIN'], dj: ['role-dj-badge','DJ'], vip: ['role-vip-badge','VIP'] };
+    list.innerHTML = users.map(u => {
+        const [badgeClass, badgeText] = roleMap[u.role] || [];
+        const badge = badgeClass ? `<span class="online-user-role-badge ${badgeClass}">${badgeText}</span>` : '';
+        const seed = encodeURIComponent(u.avatar_seed || u.username);
+        return `<div class="online-user-item">
+            <div class="online-user-avatar-wrap">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}" alt="">
+                <span class="online-dot"></span>
+            </div>
+            <span class="online-user-name">${escHtml(u.username)}</span>
+            ${badge}
+        </div>`;
+    }).join('');
+}
+
+async function fetchAd() {
+    const ad = await api('/api/ad');
+    const banner = document.getElementById('adBanner');
+    if (!banner) return;
+    if (!ad) { banner.style.display = 'none'; return; }
+    document.getElementById('adTitle').textContent = ad.title;
+    document.getElementById('adBody').textContent = ad.body || '';
+    const cta = document.getElementById('adCta');
+    cta.textContent = ad.cta_text || 'คลิกดู';
+    cta.href = ad.cta_url || '#';
+    const img = document.getElementById('adImage');
+    if (ad.image_url) { img.src = ad.image_url; img.style.display = 'block'; }
+    else { img.style.display = 'none'; }
+    banner.style.display = 'flex';
 }
 
 function startPolling() {
-    pingOnline(); // ping ทันทีตอนเปิด
-    setInterval(pingOnline,      30000); // ทุก 30 วินาที
+    pingOnline();
+    fetchAd();
+    setInterval(pingOnline,      30000);
+    setInterval(fetchAd,         60000);
     setInterval(pollMessages,    2000);
     setInterval(pollNowPlaying,  3000);
     setInterval(loadQueue,       8000);

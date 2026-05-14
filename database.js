@@ -59,6 +59,17 @@ db.exec(`
   );
 
   INSERT OR IGNORE INTO now_playing (id) VALUES (1);
+
+  CREATE TABLE IF NOT EXISTS ads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    body TEXT DEFAULT '',
+    cta_text TEXT DEFAULT 'คลิกดู',
+    cta_url TEXT DEFAULT '#',
+    image_url TEXT DEFAULT '',
+    active INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Add new columns to existing databases (safe to run multiple times)

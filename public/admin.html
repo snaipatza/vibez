@@ -22,6 +22,8 @@
                 <a href="#" class="admin-nav-item active" data-tab="dashboard"><i class="fas fa-chart-bar"></i> Dashboard</a>
                 <a href="#" class="admin-nav-item" data-tab="users"><i class="fas fa-users"></i> จัดการผู้ใช้</a>
                 <a href="#" class="admin-nav-item" data-tab="queue"><i class="fas fa-list-ol"></i> คิวเพลง</a>
+                <a href="#" class="admin-nav-item" data-tab="ads"><i class="fas fa-bullhorn"></i> โฆษณา</a>
+                <a href="#" class="admin-nav-item" data-tab="online"><i class="fas fa-users"></i> คนออนไลน์</a>
             </nav>
             <div class="admin-sidebar-footer">
                 <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก</a>
@@ -92,6 +94,41 @@
                     <h1><i class="fas fa-list-ol"></i> คิวเพลง</h1>
                 </div>
                 <div id="adminQueueList" class="admin-queue-list"></div>
+            </div>
+
+            <!-- Ads Tab -->
+            <div class="admin-tab" id="tab-ads">
+                <div class="admin-header">
+                    <h1><i class="fas fa-bullhorn"></i> จัดการโฆษณา</h1>
+                    <button class="admin-add-btn" id="showAdFormBtn"><i class="fas fa-plus"></i> เพิ่มโฆษณา</button>
+                </div>
+
+                <!-- Form -->
+                <div class="ad-form-card" id="adFormCard" style="display:none">
+                    <h3 style="margin-bottom:16px;font-size:15px;font-weight:700">➕ โฆษณาใหม่</h3>
+                    <div class="ad-form-grid">
+                        <label>หัวข้อ <span style="color:#ef4444">*</span><input type="text" id="adFormTitle" placeholder="ชื่อโฆษณา..."></label>
+                        <label>คำอธิบาย<input type="text" id="adFormBody" placeholder="รายละเอียดสั้นๆ..."></label>
+                        <label>ข้อความปุ่ม<input type="text" id="adFormCta" placeholder="คลิกดู" value="คลิกดู"></label>
+                        <label>URL ลิงก์<input type="url" id="adFormUrl" placeholder="https://..."></label>
+                        <label>URL รูปภาพ (ไม่บังคับ)<input type="url" id="adFormImg" placeholder="https://..."></label>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:16px">
+                        <button class="save-role-btn" id="adFormSave">บันทึก</button>
+                        <button class="delete-user-btn" id="adFormCancel">ยกเลิก</button>
+                    </div>
+                </div>
+
+                <div id="adsList" class="ads-list"></div>
+            </div>
+
+            <!-- Online Tab -->
+            <div class="admin-tab" id="tab-online">
+                <div class="admin-header">
+                    <h1><i class="fas fa-users"></i> คนออนไลน์ตอนนี้</h1>
+                    <span id="adminOnlineCount" style="font-size:14px;color:var(--text-muted)">กำลังโหลด...</span>
+                </div>
+                <div id="adminOnlineList" class="admin-online-grid"></div>
             </div>
         </main>
     </div>

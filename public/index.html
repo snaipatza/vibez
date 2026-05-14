@@ -35,11 +35,14 @@
                 </a>
             </nav>
             <div class="sidebar-channels">
-                <div class="channel-header"><span>ONLINE</span></div>
-                <div class="channel-item active">
-                    <i class="fas fa-hashtag"></i>
-                    <span>main-stage</span>
-                    <span class="user-count"><i class="fas fa-user"></i> <span id="sidebarOnlineCount">...</span></span>
+                <div class="channel-header">
+                    <span>ONLINE NOW</span>
+                    <span class="online-count-badge" id="sidebarOnlineCount">...</span>
+                </div>
+                <div class="online-users-list" id="onlineUsersList">
+                    <div class="online-user-skeleton"></div>
+                    <div class="online-user-skeleton"></div>
+                    <div class="online-user-skeleton"></div>
                 </div>
             </div>
             <div class="sidebar-user">
@@ -166,13 +169,15 @@
                         </div>
                     </div>
 
-                    <!-- Ad Banner -->
-                    <div class="ad-banner">
+                    <!-- Ad Banner (dynamic) -->
+                    <div class="ad-banner" id="adBanner" style="display:none">
                         <span class="ad-label">AD</span>
+                        <img class="ad-image" id="adImage" src="" alt="" style="display:none">
                         <div class="ad-content">
-                            <strong>🎧 VIBEZ Premium</strong> — ปลดล็อคฟีเจอร์พิเศษ ไม่มีโฆษณา คิวก่อนใคร
+                            <strong id="adTitle"></strong>
+                            <span id="adBody"></span>
                         </div>
-                        <button class="ad-cta">อัพเกรด</button>
+                        <a class="ad-cta" id="adCta" href="#" target="_blank" rel="noopener">คลิกดู</a>
                     </div>
 
                     <!-- Song Request -->

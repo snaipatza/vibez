@@ -145,28 +145,32 @@ function initEqualizer() {
     }
 }
 
-// ── FAKE PLAYER (when no YouTube) ──────────────────────────────────────
+// ── IDLE PLAYER (when no YouTube) ──────────────────────────────────────
 function initFakePlayer() {
-    updateFakeTrackDisplay();
-    setInterval(() => {
-        if (!isPlaying || currentYtId) return;
-        progress += 0.15;
-        if (progress >= 100) { progress = 0; currentTrack = (currentTrack+1) % fakeTracks.length; updateFakeTrackDisplay(); }
-        updateProgressBar(progress);
-        const t = fakeTracks[currentTrack];
-        const [m, s] = t.duration.split(':');
-        const total = parseInt(m)*60 + parseInt(s);
-        const cur = Math.floor(total * progress / 100);
-        document.getElementById('currentTime').textContent = formatTime(cur);
-    }, 300);
+    setIdleUI(); // แสดง waiting state แทน fake tracks
 }
 
 function updateFakeTrackDisplay() {
-    const t = fakeTracks[currentTrack];
-    document.getElementById('trackTitle').textContent = t.title;
-    document.getElementById('trackArtist').textContent = t.artist;
-    document.getElementById('totalTime').textContent = t.duration;
-    document.getElementById('albumArt').src = `https://api.dicebear.com/7.x/shapes/svg?seed=${t.seed}`;
+    setIdleUI();
+}
+
+function setIdleUI() {
+    document.getElementById('trackTitle').textContent = 'DJ ไม่อยู่ในขณะนี้';
+    document.getElementById('trackArtist').textContent = 'รอ DJ เปิดเพลงสักครู่...';
+    document.getElementById('totalTime').textContent = '0:00';
+    document.getElementById('currentTime').textContent = '0:00';
+    document.getElementById('nowPlayingBadge').style.display = 'none';
+    document.getElementById('waitingBadge').style.display = 'inline-flex';
+    updateProgressBar(0);
+    const djOnAir = document.getElementById('djOnAir');
+    if (djOnAir) djOnAir.style.display = 'none';
+}
+
+function setNowPlayingUI(title, artist) {
+    document.getElementById('trackTitle').textContent = title;
+    document.getElementById('trackArtist').textContent = artist;
+    document.getElementById('nowPlayingBadge').style.display = 'inline-flex';
+    document.getElementById('waitingBadge').style.display = 'none';
 }
 
 // ── YOUTUBE PLAYER CONTROL ─────────────────────────────────────────────
@@ -284,8 +288,7 @@ async function pollNowPlaying() {
         if (data.youtube_id !== currentYtId) {
             currentYtId = data.youtube_id;
             showYouTubePlayer();
-            document.getElementById('trackTitle').textContent = data.title || 'Unknown';
-            document.getElementById('trackArtist').textContent = data.artist || '';
+            setNowPlayingUI(data.title || 'Unknown', data.artist || '');
 
             // Listener: สร้าง player เริ่มที่ elapsed position
             if (currentUser?.role !== 'dj' && currentUser?.role !== 'admin') {
@@ -327,8 +330,7 @@ function djPlayFromBtn(btn) {
     currentYtId = youtubeId;
     showYouTubePlayer();
     createYTPlayer(youtubeId, 0); // เรียกใน gesture → autoplay ผ่าน
-    document.getElementById('trackTitle').textContent = title;
-    document.getElementById('trackArtist').textContent = artist;
+    setNowPlayingUI(title, artist);
     setPlayingUI(true);
 
     // async ทีหลัง (บันทึก DB + refresh queue)

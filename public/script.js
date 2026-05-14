@@ -264,14 +264,15 @@ function initParticles() {
 // ── EQUALIZER ──────────────────────────────────────────────────────────
 function initEqualizer() {
     const eq = document.getElementById('equalizer');
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 28; i++) {
         const bar = document.createElement('div');
         bar.className = 'eq-bar';
         bar.style.cssText = `
-            --min-h:${8+Math.random()*15}px;
-            --max-h:${30+Math.random()*70}px;
-            animation-duration:${.3+Math.random()*.6}s;
-            animation-delay:${Math.random()*.5}s;`;
+            --bar-w:${4 + Math.random() * 6}px;
+            --min-h:${10 + Math.random() * 24}px;
+            --max-h:${44 + Math.random() * 92}px;
+            animation-duration:${.38 + Math.random() * .82}s;
+            animation-delay:${Math.random() * .65}s;`;
         eq.appendChild(bar);
     }
 }
@@ -936,7 +937,7 @@ function renderMessage(m, animate) {
         scrollChat(); return;
     }
     const el = document.createElement('div');
-    el.className = 'chat-msg';
+    el.className = `chat-msg role-${m.role || 'user'}`;
     if (!animate) el.style.animation = 'none';
     const now = new Date(m.created_at || Date.now());
     const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;

@@ -277,8 +277,8 @@ function setNowPlayingUI(title, artist) {
 
 function showAudioUnlock(videoId, startSeconds) {
     pendingYtPlayback = { videoId, startSeconds };
-    const wrapper = document.querySelector('.yt-frame-wrapper');
-    if (!wrapper || wrapper.querySelector('.yt-audio-unlock')) return;
+    const visual = document.querySelector('.player-visual');
+    if (!visual || visual.querySelector('.yt-audio-unlock')) return;
 
     const overlay = document.createElement('button');
     overlay.type = 'button';
@@ -290,7 +290,7 @@ function showAudioUnlock(videoId, startSeconds) {
         overlay.remove();
         createYTPlayer(pending.videoId, pending.startSeconds, { fromGesture: true });
     });
-    wrapper.appendChild(overlay);
+    visual.appendChild(overlay);
 }
 
 function hideAudioUnlock() {
@@ -387,7 +387,7 @@ function stopProgressUpdate() {
 }
 
 function showYouTubePlayer() {
-    document.getElementById('vinylContainer').style.display = 'none';
+    document.getElementById('vinylContainer').style.display = '';
     document.getElementById('ytEmbedArea').classList.add('active');
 }
 

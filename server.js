@@ -68,7 +68,23 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
+    // อัปเดต last_seen
+    db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
     res.json({ loggedIn: true, userId: req.session.userId, username: req.session.username, role: req.session.role });
+});
+
+// นับจำนวนคนออนไลน์จริง (active ใน 2 นาทีที่ผ่านมา)
+app.post('/api/ping', requireAuth, (req, res) => {
+    db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
+    const cutoff = Date.now() - 2 * 60 * 1000;
+    const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
+    res.json({ online: count });
+});
+
+app.get('/api/online', (req, res) => {
+    const cutoff = Date.now() - 2 * 60 * 1000;
+    const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
+    res.json({ online: count });
 });
 
 // ── NOW PLAYING ────────────────────────────────────────────────────────

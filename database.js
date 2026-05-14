@@ -65,7 +65,8 @@ db.exec(`
 const alterations = [
     "ALTER TABLE now_playing ADD COLUMN dj_username TEXT DEFAULT ''",
     "ALTER TABLE now_playing ADD COLUMN dj_user_id INTEGER DEFAULT 0",
-    "ALTER TABLE now_playing ADD COLUMN dj_avatar_seed TEXT DEFAULT ''"
+    "ALTER TABLE now_playing ADD COLUMN dj_avatar_seed TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN last_seen INTEGER DEFAULT 0"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

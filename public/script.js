@@ -785,8 +785,22 @@ function insertEmoji(emoji) {
 }
 
 // ── POLLING ────────────────────────────────────────────────────────────
+async function pingOnline() {
+    const data = await api('/api/ping', 'POST');
+    if (data.online !== undefined) updateOnlineCount(data.online);
+}
+
+function updateOnlineCount(n) {
+    const text = `${n} กำลังฟังอยู่`;
+    const el = document.getElementById('viewerCountText');
+    if (el) el.textContent = text;
+    const sidebar = document.getElementById('sidebarOnlineCount');
+    if (sidebar) sidebar.textContent = n;
+}
+
 function startPolling() {
-    // Stagger intervals to avoid simultaneous requests
+    pingOnline(); // ping ทันทีตอนเปิด
+    setInterval(pingOnline,      30000); // ทุก 30 วินาที
     setInterval(pollMessages,    2000);
     setInterval(pollNowPlaying,  3000);
     setInterval(loadQueue,       8000);

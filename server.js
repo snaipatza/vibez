@@ -196,6 +196,11 @@ app.get('/api/ad', (req, res) => {
     res.json(ad || null);
 });
 
+app.get('/api/ads', (req, res) => {
+    const ads = db.prepare('SELECT * FROM ads WHERE active=1 ORDER BY id DESC LIMIT 4').all();
+    res.json(ads);
+});
+
 app.get('/api/admin/ads', requireAdmin, (req, res) => {
     res.json(db.prepare('SELECT * FROM ads ORDER BY id DESC').all());
 });
@@ -210,7 +215,10 @@ app.post('/api/admin/ads', requireAdmin, (req, res) => {
 
 app.patch('/api/admin/ads/:id', requireAdmin, (req, res) => {
     const { title, body, cta_text, cta_url, image_url, active } = req.body;
-    if (active === 1) db.prepare('UPDATE ads SET active=0').run(); // ปิดอันเก่าก่อน
+    if (active === 1) {
+        const activeCount = db.prepare('SELECT COUNT(*) as c FROM ads WHERE active=1 AND id<>?').get(req.params.id).c;
+        if (activeCount >= 4) return res.status(400).json({ error: 'เปิดแสดงโฆษณาได้สูงสุด 4 ช่อง' });
+    }
     db.prepare('UPDATE ads SET title=COALESCE(?,title), body=COALESCE(?,body), cta_text=COALESCE(?,cta_text), cta_url=COALESCE(?,cta_url), image_url=COALESCE(?,image_url), active=COALESCE(?,active) WHERE id=?')
         .run(title, body, cta_text, cta_url, image_url, active, req.params.id);
     res.json({ success: true });

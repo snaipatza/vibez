@@ -185,7 +185,8 @@ async function saveAd() {
 }
 
 async function setAdActive(id, active) {
-    await api(`/api/admin/ads/${id}`, 'PATCH', { active });
+    const data = await api(`/api/admin/ads/${id}`, 'PATCH', { active });
+    if (data.error) { showToast('error', data.error); return; }
     showToast('success', active ? '🟢 เปิดโฆษณาแล้ว' : '⚫ ปิดโฆษณาแล้ว');
     await loadAds();
 }

@@ -621,6 +621,11 @@ function initEventListeners() {
     const stopBtn = document.getElementById('ytStopBtn');
     if (stopBtn) stopBtn.addEventListener('click', djStopPlaying);
 
+    const adModal = document.getElementById('adModal');
+    const closeAdBtn = document.getElementById('closeAdModal');
+    if (closeAdBtn) closeAdBtn.addEventListener('click', closeAdModal);
+    if (adModal) adModal.addEventListener('click', e => { if (e.target === adModal) closeAdModal(); });
+
     // Chat toggle
     document.getElementById('toggleChat').addEventListener('click', () => {
         const panel = document.getElementById('chatPanel');
@@ -1034,11 +1039,73 @@ async function fetchAd() {
     banner.style.display = 'flex';
 }
 
+function openAdModal(ad) {
+    const modal = document.getElementById('adModal');
+    const image = document.getElementById('adModalImage');
+    document.getElementById('adModalTitle').textContent = ad.title || '';
+    document.getElementById('adModalBody').textContent = ad.body || '';
+    const cta = document.getElementById('adModalCta');
+    cta.textContent = ad.cta_text || 'เปิดดูร้านค้า';
+    cta.href = ad.cta_url || '#';
+    if (ad.image_url) {
+        image.src = ad.image_url;
+        image.style.display = 'block';
+    } else {
+        image.style.display = 'none';
+    }
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAdModal() {
+    const modal = document.getElementById('adModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function renderAds(ads) {
+    const section = document.getElementById('adsSection');
+    const grid = document.getElementById('adsGrid');
+    if (!section || !grid) return;
+    if (!Array.isArray(ads) || !ads.length) {
+        section.style.display = 'none';
+        grid.innerHTML = '';
+        return;
+    }
+    section.style.display = 'block';
+    const filled = [...ads];
+    while (filled.length < 4) filled.push(null);
+    grid.innerHTML = filled.map((ad, index) => {
+        if (!ad) return `<div class="ad-slot ad-slot-empty"><span>ช่องโฆษณา ${index + 1}</span></div>`;
+        return `
+            <button class="ad-slot" type="button" data-ad-id="${ad.id}">
+                <span class="ad-slot-badge">AD</span>
+                ${ad.image_url ? `<img class="ad-slot-image" src="${escHtml(ad.image_url)}" alt="">` : '<div class="ad-slot-image ad-slot-image-placeholder"><i class="fas fa-store"></i></div>'}
+                <div class="ad-slot-copy">
+                    <strong>${escHtml(ad.title)}</strong>
+                    <span>${escHtml(ad.body || 'คลิกเพื่อดูรายละเอียดร้านค้า')}</span>
+                </div>
+            </button>`;
+    }).join('');
+    grid.querySelectorAll('[data-ad-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ad = ads.find(item => String(item.id) === btn.dataset.adId);
+            if (ad) openAdModal(ad);
+        });
+    });
+}
+
+async function fetchAds() {
+    const ads = await api('/api/ads');
+    renderAds(Array.isArray(ads) ? ads : []);
+}
+
 function startPolling() {
     pingOnline();
-    fetchAd();
+    fetchAds();
     setInterval(pingOnline,      30000);
-    setInterval(fetchAd,         60000);
+    setInterval(fetchAds,        60000);
     setInterval(pollMessages,    2000);
     setInterval(pollNowPlaying,  3000);
     setInterval(loadQueue,       8000);

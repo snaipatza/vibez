@@ -113,6 +113,7 @@
 
                             <div class="equalizer" id="equalizer"></div>
                         </div>
+                    </div>
 
                         <!-- Track Info -->
                         <div class="player-info">
@@ -160,6 +161,8 @@
                                 </div>
                                 <span class="volume-value" id="volumeValue">75</span>
                             </div>
+
+
                         </div>
 
                         <!-- Reactions -->
@@ -169,19 +172,20 @@
                             <button class="reaction-btn" data-emoji="🎵" onclick="sendReaction('🎵')"><span>🎵</span><span class="reaction-count">156</span></button>
                             <button class="reaction-btn" data-emoji="🎉" onclick="sendReaction('🎉')"><span>🎉</span><span class="reaction-count">98</span></button>
                             <button class="reaction-btn" data-emoji="💜" onclick="sendReaction('💜')"><span>💜</span><span class="reaction-count">67</span></button>
+
                         </div>
                     </div>
 
                     <!-- Ad Banner (dynamic) -->
-                    <div class="ad-banner" id="adBanner" style="display:none">
-                        <span class="ad-label">AD</span>
-                        <img class="ad-image" id="adImage" src="" alt="" style="display:none">
-                        <div class="ad-content">
-                            <strong id="adTitle"></strong>
-                            <span id="adBody"></span>
+                    <section class="ads-section" id="adsSection" style="display:none">
+                        <div class="section-header">
+                            <h3><i class="fas fa-store"></i> ร้านค้าแนะนำ</h3>
+                            <span class="request-limit">4 ช่องโฆษณา</span>
                         </div>
-                        <a class="ad-cta" id="adCta" href="#" target="_blank" rel="noopener">คลิกดู</a>
-                    </div>
+                        <div class="ads-grid" id="adsGrid"></div>
+
+
+                    </section>
 
                     <!-- Song Request -->
                     <div class="request-section">
@@ -297,6 +301,19 @@
                 <button class="primary-btn" id="saveProfileBtn" type="button">
                     <i class="fas fa-save"></i> บันทึก
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="adModal" aria-hidden="true">
+        <div class="ad-modal-card" role="dialog" aria-modal="true" aria-labelledby="adModalTitle">
+            <button class="icon-btn-sm ad-modal-close" id="closeAdModal" type="button"><i class="fas fa-times"></i></button>
+            <img class="ad-modal-image" id="adModalImage" src="" alt="" style="display:none">
+            <div class="ad-modal-body">
+                <span class="ad-modal-tag">AD</span>
+                <h3 id="adModalTitle"></h3>
+                <p id="adModalBody"></p>
+                <a class="primary-btn ad-modal-cta" id="adModalCta" href="#" target="_blank" rel="noopener">เปิดดูร้านค้า</a>
             </div>
         </div>
     </div>

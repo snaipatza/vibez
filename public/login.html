@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIBEZ – เข้าสู่ระบบ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+        <div class="bg-orbs">
+            <div class="orb orb1"></div>
+            <div class="orb orb2"></div>
+            <div class="orb orb3"></div>
+        </div>
+    </div>
+
+    <div class="login-container">
+        <!-- Logo -->
+        <div class="brand">
+            <div class="brand-icon"><i class="fas fa-bolt"></i></div>
+            <h1 class="brand-name">VIBEZ</h1>
+            <p class="brand-sub">DJ Live Stream Platform</p>
+        </div>
+
+        <!-- Card -->
+        <div class="card">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" id="loginTab" onclick="switchTab('login')">
+                    <i class="fas fa-sign-in-alt"></i> เข้าสู่ระบบ
+                </button>
+                <button class="tab" id="registerTab" onclick="switchTab('register')">
+                    <i class="fas fa-user-plus"></i> สมัครสมาชิก
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="form active" onsubmit="handleLogin(event)">
+                <div class="field">
+                    <label><i class="fas fa-user"></i> Username</label>
+                    <input type="text" id="loginUsername" placeholder="ใส่ username ของคุณ" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="ใส่ password" autocomplete="current-password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePw('loginPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="error-msg" id="loginError"></div>
+                <button type="submit" class="submit-btn" id="loginBtn">
+                    <span class="btn-text"><i class="fas fa-sign-in-alt"></i> เข้าสู่ระบบ</span>
+                    <span class="btn-loading" style="display:none"><i class="fas fa-spinner fa-spin"></i> กำลังเข้าสู่ระบบ...</span>
+                </button>
+                <div class="hint-text">
+                    บัญชี DJ: <strong>DJVIBEZ</strong> / <strong>vibez1234</strong>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" class="form" onsubmit="handleRegister(event)">
+                <div class="field">
+                    <label><i class="fas fa-user"></i> Username</label>
+                    <input type="text" id="regUsername" placeholder="ตั้ง username (a-z, 0-9, _)" autocomplete="username" required>
+                    <small class="field-hint">ขั้นต่ำ 3 ตัวอักษร</small>
+                </div>
+                <div class="field">
+                    <label><i class="fas fa-lock"></i> Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="regPassword" placeholder="ตั้ง password" autocomplete="new-password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePw('regPassword', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="field-hint">ขั้นต่ำ 6 ตัวอักษร</small>
+                </div>
+                <div class="field">
+                    <label><i class="fas fa-lock"></i> ยืนยัน Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="regConfirm" placeholder="พิมพ์ password อีกครั้ง" autocomplete="new-password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePw('regConfirm', this)">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="error-msg" id="registerError"></div>
+                <button type="submit" class="submit-btn" id="registerBtn">
+                    <span class="btn-text"><i class="fas fa-user-plus"></i> สมัครสมาชิก</span>
+                    <span class="btn-loading" style="display:none"><i class="fas fa-spinner fa-spin"></i> กำลังสมัคร...</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Live indicator -->
+        <div class="live-banner">
+            <div class="pulse-dot"></div>
+            <span>DJ VIBEZ กำลัง Live อยู่ตอนนี้ • 847 คนกำลังฟัง</span>
+        </div>
+    </div>
+
+    <script>
+        // Check already logged in
+        fetch('/api/me').then(r => r.json()).then(data => {
+            if (data.loggedIn) window.location.href = '/';
+        });
+
+        function switchTab(tab) {
+            document.getElementById('loginTab').classList.toggle('active', tab === 'login');
+            document.getElementById('registerTab').classList.toggle('active', tab === 'register');
+            document.getElementById('loginForm').classList.toggle('active', tab === 'login');
+            document.getElementById('registerForm').classList.toggle('active', tab === 'register');
+            document.getElementById('loginError').textContent = '';
+            document.getElementById('registerError').textContent = '';
+        }
+
+        function setLoading(formId, loading) {
+            const btn = document.getElementById(formId === 'loginForm' ? 'loginBtn' : 'registerBtn');
+            btn.querySelector('.btn-text').style.display = loading ? 'none' : '';
+            btn.querySelector('.btn-loading').style.display = loading ? '' : 'none';
+            btn.disabled = loading;
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            errorEl.textContent = '';
+            setLoading('loginForm', true);
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { errorEl.textContent = data.error; return; }
+                window.location.href = '/';
+            } catch {
+                errorEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            } finally {
+                setLoading('loginForm', false);
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirm').value;
+            const errorEl = document.getElementById('registerError');
+            errorEl.textContent = '';
+            if (password !== confirm) { errorEl.textContent = 'Password ไม่ตรงกัน'; return; }
+            setLoading('registerForm', true);
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok) { errorEl.textContent = data.error; return; }
+                window.location.href = '/';
+            } catch {
+                errorEl.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            } finally {
+                setLoading('registerForm', false);
+            }
+        }
+
+        function togglePw(id, btn) {
+            const input = document.getElementById(id);
+            const isText = input.type === 'text';
+            input.type = isText ? 'password' : 'text';
+            btn.querySelector('i').className = isText ? 'fas fa-eye' : 'fas fa-eye-slash';
+        }
+    </script>
+</body>
+</html>

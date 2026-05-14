@@ -1,0 +1,825 @@
+// ── STATE ──────────────────────────────────────────────────────────────
+let ttsEnabled = false;
+let currentUser = null;
+let lastMessageId = 0;
+let isPlaying = true;
+let progress = 0;
+let volume = 75;
+let currentTrack = 0;
+let ytData = null;
+
+// YouTube state
+let ytPlayer = null;
+let ytPlayerReady = false;
+let ytApiReady = false;
+let ytProgressInterval = null;
+let currentYtId = null;
+let syncInProgress = false;
+
+const fakeTracks = [
+    { title: 'Midnight Groove', artist: 'DJ VIBEZ ft. Luna',    duration: '4:12', seed: 'album1' },
+    { title: 'Neon Dreams',     artist: 'DJ VIBEZ x Synthwave', duration: '3:45', seed: 'album2' },
+    { title: 'Bass Culture',    artist: 'DJ VIBEZ ft. MC Flow', duration: '5:01', seed: 'album3' },
+    { title: 'Electric Sunset', artist: 'DJ VIBEZ',             duration: '3:58', seed: 'album4' },
+    { title: 'Deep Into Night', artist: 'DJ VIBEZ ft. Aurora',  duration: '4:33', seed: 'album5' },
+];
+
+// ── YOUTUBE IFRAME API CALLBACK ────────────────────────────────────────
+function onYouTubeIframeAPIReady() { ytApiReady = true; }
+
+// ── BOOT ───────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    const me = await api('/api/me');
+    if (!me.loggedIn) { window.location.href = '/login.html'; return; }
+    currentUser = me;
+
+    setupUserUI();
+    initTTS();
+    initParticles();
+    initEqualizer();
+    initFakePlayer();
+    initEventListeners();
+    await loadQueue();
+    await loadMessages();
+    startPolling();
+});
+
+// ── USER UI ────────────────────────────────────────────────────────────
+function setupUserUI() {
+    document.getElementById('sidebarUsername').textContent = currentUser.username;
+    document.getElementById('userAvatarImg').src =
+        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.username)}`;
+
+    const roleLabels = { dj: '🎧 DJ', mod: '🛡️ Moderator', admin: '🔰 Admin', vip: '⭐ VIP', user: 'Online' };
+    const roleEl = document.getElementById('sidebarRole');
+    roleEl.textContent = roleLabels[currentUser.role] || 'Online';
+    if (currentUser.role === 'dj' || currentUser.role === 'admin') {
+        roleEl.style.color = 'var(--accent-cyan)';
+        // Show DJ stop button
+        const stopBtn = document.getElementById('ytStopBtn');
+        if (stopBtn) stopBtn.style.display = 'flex';
+    }
+
+    // Show TTS button for vip/dj/admin
+    if (['vip', 'dj', 'admin'].includes(currentUser.role)) {
+        const ttsBtn = document.getElementById('ttsToggleBtn');
+        if (ttsBtn) ttsBtn.style.display = 'flex';
+    }
+
+    // Show admin link in sidebar for admin
+    if (currentUser.role === 'admin') {
+        const nav = document.querySelector('.sidebar-nav');
+        const adminLink = document.createElement('a');
+        adminLink.href = '/admin.html';
+        adminLink.className = 'nav-item';
+        adminLink.innerHTML = '<i class="fas fa-shield-alt"></i><span>Admin</span>';
+        nav.appendChild(adminLink);
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await api('/api/logout', 'POST');
+        window.location.href = '/login.html';
+    });
+}
+
+// ── TTS ────────────────────────────────────────────────────────────────
+function initTTS() {
+    const btn = document.getElementById('ttsToggleBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        ttsEnabled = !ttsEnabled;
+        btn.classList.toggle('active', ttsEnabled);
+        btn.title = ttsEnabled ? 'TTS เปิดอยู่ — คลิกปิด' : 'คลิกเปิด TTS';
+        showToast(ttsEnabled ? 'success' : 'info', ttsEnabled ? '🔊 TTS เปิดแล้ว' : '🔇 TTS ปิดแล้ว');
+    });
+}
+
+function speakText(text) {
+    if (!ttsEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'th-TH';
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+}
+
+// ── API HELPER ─────────────────────────────────────────────────────────
+async function api(url, method = 'GET', body = null) {
+    const opts = { method, headers: {} };
+    if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    try {
+        const res = await fetch(url, opts);
+        return await res.json();
+    } catch { return {}; }
+}
+
+// ── PARTICLES ──────────────────────────────────────────────────────────
+function initParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 25; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const colors = ['rgba(255,123,107,.4)', 'rgba(255,179,71,.3)', 'rgba(255,100,80,.3)'];
+        p.style.cssText = `
+            left:${Math.random()*100}%;
+            animation-duration:${8+Math.random()*15}s;
+            animation-delay:${Math.random()*10}s;
+            width:${1+Math.random()*3}px;height:${1+Math.random()*3}px;
+            background:${colors[Math.floor(Math.random()*3)]};`;
+        container.appendChild(p);
+    }
+}
+
+// ── EQUALIZER ──────────────────────────────────────────────────────────
+function initEqualizer() {
+    const eq = document.getElementById('equalizer');
+    for (let i = 0; i < 20; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'eq-bar';
+        bar.style.cssText = `
+            --min-h:${8+Math.random()*15}px;
+            --max-h:${30+Math.random()*70}px;
+            animation-duration:${.3+Math.random()*.6}s;
+            animation-delay:${Math.random()*.5}s;`;
+        eq.appendChild(bar);
+    }
+}
+
+// ── FAKE PLAYER (when no YouTube) ──────────────────────────────────────
+function initFakePlayer() {
+    updateFakeTrackDisplay();
+    setInterval(() => {
+        if (!isPlaying || currentYtId) return;
+        progress += 0.15;
+        if (progress >= 100) { progress = 0; currentTrack = (currentTrack+1) % fakeTracks.length; updateFakeTrackDisplay(); }
+        updateProgressBar(progress);
+        const t = fakeTracks[currentTrack];
+        const [m, s] = t.duration.split(':');
+        const total = parseInt(m)*60 + parseInt(s);
+        const cur = Math.floor(total * progress / 100);
+        document.getElementById('currentTime').textContent = formatTime(cur);
+    }, 300);
+}
+
+function updateFakeTrackDisplay() {
+    const t = fakeTracks[currentTrack];
+    document.getElementById('trackTitle').textContent = t.title;
+    document.getElementById('trackArtist').textContent = t.artist;
+    document.getElementById('totalTime').textContent = t.duration;
+    document.getElementById('albumArt').src = `https://api.dicebear.com/7.x/shapes/svg?seed=${t.seed}`;
+}
+
+// ── YOUTUBE PLAYER CONTROL ─────────────────────────────────────────────
+
+function createYTPlayer(videoId, startSeconds) {
+    stopProgressUpdate();
+    // ทำลาย player เก่า
+    if (ytPlayer) {
+        try { ytPlayer.destroy(); } catch(e) {}
+        ytPlayer = null;
+        ytPlayerReady = false;
+    }
+    // restore target div (player.destroy() ลบ iframe ออก)
+    const wrapper = document.querySelector('.yt-frame-wrapper');
+    wrapper.innerHTML = '<div id="youtube-player"></div>';
+
+    if (!ytApiReady) {
+        showToast('error', 'YouTube API ยังโหลดไม่เสร็จ ลองใหม่อีกครั้ง');
+        return;
+    }
+
+    // new YT.Player ถูกเรียกภายใน user-gesture context → autoplay ผ่าน
+    ytPlayer = new YT.Player('youtube-player', {
+        videoId,
+        playerVars: {
+            autoplay: 1,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            start: Math.floor(startSeconds || 0)
+        },
+        events: {
+            onReady: (e) => {
+                ytPlayerReady = true;
+                ytPlayer = e.target;
+                const iframe = ytPlayer.getIframe();
+                if (iframe) {
+                    iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:10px;display:block;';
+                    iframe.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture');
+                }
+                ytPlayer.setVolume(volume);
+                startProgressUpdate();
+            },
+            onStateChange: (e) => {
+                if (e.data === YT.PlayerState.PLAYING) setPlayingUI(true);
+                if (e.data === YT.PlayerState.PAUSED) setPlayingUI(false);
+            }
+        }
+    });
+}
+
+function startProgressUpdate() {
+    stopProgressUpdate();
+    ytProgressInterval = setInterval(() => {
+        if (!ytPlayerReady || !ytPlayer) return;
+        try {
+            const cur = ytPlayer.getCurrentTime() || 0;
+            const dur = ytPlayer.getDuration() || 0;
+            document.getElementById('currentTime').textContent = formatTime(cur);
+            if (dur > 0) {
+                document.getElementById('totalTime').textContent = formatTime(dur);
+                updateProgressBar((cur / dur) * 100);
+            }
+        } catch(e) {}
+    }, 500);
+}
+
+function stopProgressUpdate() {
+    if (ytProgressInterval) { clearInterval(ytProgressInterval); ytProgressInterval = null; }
+}
+
+function showYouTubePlayer() {
+    document.getElementById('vinylContainer').style.display = 'none';
+    document.getElementById('ytEmbedArea').classList.add('active');
+}
+
+function showVinyl() {
+    document.getElementById('vinylContainer').style.display = '';
+    document.getElementById('ytEmbedArea').classList.remove('active');
+    stopProgressUpdate();
+    if (ytPlayer) {
+        try { ytPlayer.destroy(); } catch(e) {}
+        ytPlayer = null;
+    }
+    ytPlayerReady = false;
+    const wrapper = document.querySelector('.yt-frame-wrapper');
+    if (wrapper) wrapper.innerHTML = '<div id="youtube-player"></div>';
+    currentYtId = null;
+    const djOnAir = document.getElementById('djOnAir');
+    if (djOnAir) djOnAir.style.display = 'none';
+}
+
+function setPlayingUI(playing) {
+    isPlaying = playing;
+    document.getElementById('playBtn').innerHTML = `<i class="fas fa-${playing ? 'pause' : 'play'}"></i>`;
+    document.getElementById('vinyl').classList.toggle('paused', !playing);
+    document.querySelectorAll('.eq-bar').forEach(b => b.classList.toggle('paused', !playing));
+}
+
+// ── NOW PLAYING SYNC (สำหรับ listener) ────────────────────────────────
+async function pollNowPlaying() {
+    if (syncInProgress) return;
+    syncInProgress = true;
+    try {
+        const data = await api('/api/now-playing');
+        if (!data || data.error) return;
+
+        if (!data.youtube_id) {
+            if (currentYtId) { showVinyl(); updateFakeTrackDisplay(); }
+            return;
+        }
+
+        // เพลงใหม่ detect
+        if (data.youtube_id !== currentYtId) {
+            currentYtId = data.youtube_id;
+            showYouTubePlayer();
+            document.getElementById('trackTitle').textContent = data.title || 'Unknown';
+            document.getElementById('trackArtist').textContent = data.artist || '';
+
+            // Listener: สร้าง player เริ่มที่ elapsed position
+            if (currentUser?.role !== 'dj' && currentUser?.role !== 'admin') {
+                createYTPlayer(data.youtube_id, data.elapsed_seconds || 0);
+            }
+            setPlayingUI(!!data.is_playing);
+            await loadQueue();
+
+            // Update DJ on-air display
+            if (data.dj_username) {
+                const djOnAir = document.getElementById('djOnAir');
+                const djAvatar = document.getElementById('djOnAirAvatar');
+                const djName = document.getElementById('djOnAirName');
+                if (djOnAir && djAvatar && djName) {
+                    djAvatar.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.dj_avatar_seed || data.dj_username)}`;
+                    djName.textContent = data.dj_username;
+                    djOnAir.style.display = 'flex';
+                }
+            }
+        }
+
+        // update progress จาก elapsed
+        if (data.elapsed_seconds) {
+            document.getElementById('currentTime').textContent = formatTime(data.elapsed_seconds);
+        }
+    } finally {
+        syncInProgress = false;
+    }
+}
+
+// ── DJ CONTROLS ────────────────────────────────────────────────────────
+// อ่าน data-* จากปุ่ม แล้ว inject iframe ทันที (sync = autoplay ผ่าน)
+function djPlayFromBtn(btn) {
+    const youtubeId = btn.dataset.ytid;
+    const title     = btn.dataset.title;
+    const artist    = btn.dataset.artist;
+
+    // ทำ synchronous ทั้งหมดก่อน (ยังอยู่ใน user gesture context)
+    currentYtId = youtubeId;
+    showYouTubePlayer();
+    createYTPlayer(youtubeId, 0); // เรียกใน gesture → autoplay ผ่าน
+    document.getElementById('trackTitle').textContent = title;
+    document.getElementById('trackArtist').textContent = artist;
+    setPlayingUI(true);
+
+    // async ทีหลัง (บันทึก DB + refresh queue)
+    djPlayFromQueue(btn.dataset.qid, youtubeId, title, artist, btn.dataset.thumb, btn.dataset.url);
+}
+
+async function djPlayFromQueue(queueId, youtubeId, title, artist, thumbnail, youtubeUrl) {
+    const data = await api('/api/now-playing', 'POST', {
+        queue_id: queueId, youtube_id: youtubeId,
+        title, artist, thumbnail, youtube_url: youtubeUrl
+    });
+    if (data.error) { showToast('error', data.error); return; }
+    showToast('success', `▶️ กำลังเล่น: ${title}`);
+    await loadQueue();
+}
+
+async function djStopPlaying() {
+    await api('/api/now-playing', 'DELETE');
+    showVinyl();
+    updateFakeTrackDisplay();
+    await loadQueue();
+    showToast('info', '⏹️ หยุดเล่นแล้ว');
+}
+
+// ── PLAYER CONTROLS ────────────────────────────────────────────────────
+function togglePlay() {
+    if (currentYtId && ytPlayerReady) {
+        const state = ytPlayer.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+            ytPlayer.pauseVideo();
+        } else {
+            ytPlayer.playVideo();
+        }
+    } else if (!currentYtId) {
+        isPlaying = !isPlaying;
+        setPlayingUI(isPlaying);
+    }
+}
+
+function nextTrack() {
+    if (currentYtId) return; // YouTube: DJ controls next via queue
+    currentTrack = (currentTrack + 1) % fakeTracks.length;
+    progress = 0;
+    updateFakeTrackDisplay();
+}
+
+function prevTrack() {
+    if (currentYtId) return;
+    currentTrack = (currentTrack - 1 + fakeTracks.length) % fakeTracks.length;
+    progress = 0;
+    updateFakeTrackDisplay();
+}
+
+function setVolume(v) {
+    volume = Math.max(0, Math.min(100, v));
+    document.getElementById('volumeFill').style.width = volume + '%';
+    document.getElementById('volumeValue').textContent = Math.round(volume);
+    updateVolumeIcon();
+    if (ytPlayerReady && ytPlayer.setVolume) ytPlayer.setVolume(volume);
+}
+
+function updateVolumeIcon() {
+    const icon = document.getElementById('volumeIcon');
+    icon.className = volume === 0 ? 'fas fa-volume-mute' : volume < 50 ? 'fas fa-volume-down' : 'fas fa-volume-up';
+}
+
+function updateProgressBar(pct) {
+    document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// ── EVENTS ─────────────────────────────────────────────────────────────
+function initEventListeners() {
+    document.getElementById('playBtn').addEventListener('click', togglePlay);
+    document.getElementById('nextBtn').addEventListener('click', nextTrack);
+    document.getElementById('prevBtn').addEventListener('click', prevTrack);
+    document.getElementById('shuffleBtn').addEventListener('click', function() {
+        this.classList.toggle('active');
+        showToast('info', this.classList.contains('active') ? 'Shuffle เปิด' : 'Shuffle ปิด');
+    });
+    document.getElementById('repeatBtn').addEventListener('click', function() { this.classList.toggle('active'); });
+
+    // Progress bar click (only for fake player / DJ seek)
+    document.getElementById('progressBar').addEventListener('click', e => {
+        if (currentYtId) {
+            if (currentUser?.role !== 'dj' || !ytPlayerReady) return;
+            const r = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - r.left) / r.width;
+            const dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+            if (dur > 0) ytPlayer.seekTo(dur * pct, true);
+        } else {
+            const r = e.currentTarget.getBoundingClientRect();
+            progress = ((e.clientX - r.left) / r.width) * 100;
+            updateProgressBar(progress);
+        }
+    });
+
+    // Volume
+    document.getElementById('volumeSlider').addEventListener('click', e => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setVolume(((e.clientX - r.left) / r.width) * 100);
+    });
+    document.getElementById('volumeIcon').addEventListener('click', () => {
+        setVolume(volume > 0 ? 0 : 75);
+    });
+
+    // DJ stop button
+    const stopBtn = document.getElementById('ytStopBtn');
+    if (stopBtn) stopBtn.addEventListener('click', djStopPlaying);
+
+    // Chat toggle
+    document.getElementById('toggleChat').addEventListener('click', () => {
+        const panel = document.getElementById('chatPanel');
+        panel.classList.toggle('hidden');
+        panel.classList.toggle('visible');
+    });
+    document.getElementById('closeChatBtn').addEventListener('click', () => {
+        document.getElementById('chatPanel').classList.add('hidden');
+        document.getElementById('chatPanel').classList.remove('visible');
+    });
+
+    // Emoji picker
+    document.getElementById('emojiBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        document.getElementById('emojiPicker').classList.toggle('active');
+    });
+    document.addEventListener('click', () => {
+        document.getElementById('emojiPicker').classList.remove('active');
+        document.getElementById('searchResults').classList.remove('active');
+    });
+
+    // Chat send
+    document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+    document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChatMessage(); });
+
+    // Song search
+    document.getElementById('songSearch').addEventListener('input', handleSongSearch);
+    document.getElementById('sendRequestBtn').addEventListener('click', submitSongRequest);
+    document.getElementById('songSearch').addEventListener('keydown', e => { if (e.key === 'Enter') submitSongRequest(); });
+
+    // YouTube fetch
+    document.getElementById('ytFetchBtn').addEventListener('click', fetchYoutube);
+    document.getElementById('ytUrl').addEventListener('keydown', e => { if (e.key === 'Enter') fetchYoutube(); });
+    document.getElementById('ytSubmitBtn').addEventListener('click', submitSongRequest);
+    document.getElementById('ytClear').addEventListener('click', clearYoutube);
+
+    // Mobile sidebar
+    document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebarOverlay').classList.toggle('active');
+    });
+    document.getElementById('sidebarOverlay').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+    });
+
+    document.querySelectorAll('.channel-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.channel-item').forEach(c => c.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+}
+
+// ── YOUTUBE FETCH ──────────────────────────────────────────────────────
+function extractYouTubeId(url) {
+    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+}
+
+async function fetchYoutube() {
+    const url = document.getElementById('ytUrl').value.trim();
+    if (!url) return;
+    const videoId = extractYouTubeId(url);
+    if (!videoId) { showToast('error', 'ลิงก์ YouTube ไม่ถูกต้อง'); return; }
+
+    const btn = document.getElementById('ytFetchBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังดึง...';
+    btn.disabled = true;
+
+    try {
+        const oEmbed = await fetch(
+            `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        ).then(r => r.json());
+
+        ytData = {
+            title: oEmbed.title,
+            artist: oEmbed.author_name,
+            youtube_url: `https://www.youtube.com/watch?v=${videoId}`,
+            youtube_id: videoId,
+            thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+        };
+
+        document.getElementById('ytThumb').src = ytData.thumbnail;
+        document.getElementById('ytTitle').textContent = ytData.title;
+        document.getElementById('ytLink').href = ytData.youtube_url;
+        document.getElementById('ytPreview').style.display = 'flex';
+        document.getElementById('ytUrl').value = '';
+        showToast('success', 'ดึงข้อมูลสำเร็จ!');
+    } catch {
+        showToast('error', 'ไม่สามารถดึงข้อมูลได้ ลองใหม่อีกครั้ง');
+    } finally {
+        btn.innerHTML = '<i class="fas fa-search"></i> ดึงข้อมูล';
+        btn.disabled = false;
+    }
+}
+
+function clearYoutube() {
+    ytData = null;
+    document.getElementById('ytPreview').style.display = 'none';
+    document.getElementById('ytUrl').value = '';
+}
+
+// ── SONG SEARCH ────────────────────────────────────────────────────────
+const songDatabase = [
+    { title: 'Blinding Lights', artist: 'The Weeknd' },
+    { title: 'Levitating', artist: 'Dua Lipa' },
+    { title: 'As It Was', artist: 'Harry Styles' },
+    { title: 'Stay', artist: 'The Kid LAROI, Justin Bieber' },
+    { title: 'Heat Waves', artist: 'Glass Animals' },
+    { title: 'Bad Guy', artist: 'Billie Eilish' },
+    { title: 'Save Your Tears', artist: 'The Weeknd' },
+    { title: 'Good 4 U', artist: 'Olivia Rodrigo' },
+    { title: 'Butter', artist: 'BTS' },
+    { title: 'Dynamite', artist: 'BTS' },
+    { title: 'Easy On Me', artist: 'Adele' },
+    { title: 'Positions', artist: 'Ariana Grande' },
+    { title: 'Industry Baby', artist: 'Lil Nas X' },
+    { title: 'Shivers', artist: 'Ed Sheeran' },
+];
+
+function handleSongSearch() {
+    const q = document.getElementById('songSearch').value.trim().toLowerCase();
+    const results = document.getElementById('searchResults');
+    if (q.length < 2) { results.classList.remove('active'); return; }
+    const matched = songDatabase.filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)).slice(0, 5);
+    if (!matched.length) { results.classList.remove('active'); return; }
+    results.innerHTML = matched.map(s => `
+        <div class="search-result-item" onclick="selectSong(${JSON.stringify(s.title)}, ${JSON.stringify(s.artist)})">
+            <div class="result-icon"><i class="fas fa-music"></i></div>
+            <div class="result-info">
+                <span class="result-title">${escHtml(s.title)}</span>
+                <span class="result-artist">${escHtml(s.artist)}</span>
+            </div>
+        </div>`).join('');
+    results.classList.add('active');
+}
+
+function selectSong(title, artist) {
+    document.getElementById('songSearch').value = `${title} – ${artist}`;
+    document.getElementById('searchResults').classList.remove('active');
+}
+
+async function submitSongRequest() {
+    const payload = ytData || (() => {
+        const raw = document.getElementById('songSearch').value.trim();
+        if (!raw) return null;
+        const parts = raw.split(/\s*[-–]\s*/);
+        return { title: parts[0], artist: parts[1] || '' };
+    })();
+    if (!payload) return;
+
+    const data = await api('/api/queue', 'POST', payload);
+    if (data.error) { showToast('error', data.error); return; }
+    showToast('success', `ขอเพลง "${payload.title}" สำเร็จ! 🎵`);
+    document.getElementById('songSearch').value = '';
+    clearYoutube();
+    await loadQueue();
+}
+
+// ── QUEUE ──────────────────────────────────────────────────────────────
+async function loadQueue() {
+    const queue = await api('/api/queue');
+    renderQueue(Array.isArray(queue) ? queue : []);
+}
+
+function renderQueue(queue) {
+    const list = document.getElementById('queueList');
+    document.getElementById('queueBadge').textContent = queue.length;
+    document.getElementById('queueCountLabel').textContent = `${queue.length} เพลง`;
+
+    if (!queue.length) {
+        list.innerHTML = `<div class="queue-empty"><i class="fas fa-music"></i><span>ยังไม่มีเพลงในคิว — ขอเพลงได้เลย!</span></div>`;
+        return;
+    }
+
+    const isDJ = currentUser?.role === 'dj';
+
+    list.innerHTML = queue.map((item, i) => {
+        const isYT = !!item.youtube_id;
+        const isNowPlaying = item.status === 'playing';
+
+        const thumb = isYT
+            ? `<img class="queue-thumb" src="${escHtml(item.thumbnail)}" alt="">`
+            : '';
+
+        const ytLink = isYT
+            ? `<a class="queue-yt-link" href="${escHtml(item.youtube_url)}" target="_blank" rel="noopener"><i class="fab fa-youtube"></i> YouTube</a>`
+            : '';
+
+        const nowPlayingTag = isNowPlaying
+            ? `<span style="font-size:10px;color:#ef4444;font-weight:700;display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:6px;height:6px;background:#ef4444;border-radius:50%;animation:pulse 1.5s infinite"></span>กำลังเล่น</span>`
+            : '';
+
+        // DJ buttons — ใช้ data-* เพื่อหลีกเลี่ยง quote escaping ใน onclick
+        let djBtns = '';
+        if (isDJ) {
+            if (isYT && !isNowPlaying) {
+                djBtns = `<div class="queue-dj-actions">
+                    <button class="dj-action-btn dj-play-btn" title="เล่นเพลงนี้เลย"
+                        data-qid="${item.id}"
+                        data-ytid="${escHtml(item.youtube_id)}"
+                        data-title="${escHtml(item.title)}"
+                        data-artist="${escHtml(item.artist)}"
+                        data-thumb="${escHtml(item.thumbnail)}"
+                        data-url="${escHtml(item.youtube_url)}"
+                        onclick="djPlayFromBtn(this)">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="dj-action-btn dj-skip-btn" title="ข้าม" onclick="djSetStatus(${item.id},'skipped')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>`;
+            } else if (isNowPlaying) {
+                djBtns = `<div class="queue-dj-actions">
+                    <button class="dj-action-btn dj-skip-btn" title="ข้ามเพลงนี้" onclick="djStopPlaying()">
+                        <i class="fas fa-forward"></i>
+                    </button>
+                </div>`;
+            } else {
+                djBtns = `<div class="queue-dj-actions">
+                    <button class="dj-action-btn dj-skip-btn" title="ข้าม" onclick="djSetStatus(${item.id},'skipped')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>`;
+            }
+        }
+
+        return `
+        <div class="queue-item ${isNowPlaying ? 'now-playing' : ''}" id="qi-${item.id}">
+            <span class="queue-pos">${isNowPlaying ? '<i class="fas fa-volume-up" style="font-size:10px"></i>' : i+1}</span>
+            ${thumb}
+            <div class="queue-info">
+                <span class="queue-title">${escHtml(item.title)}</span>
+                <span class="queue-artist">${escHtml(item.artist)}</span>
+                ${ytLink}
+                ${nowPlayingTag}
+            </div>
+            <div class="queue-requester">
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(item.requested_by)}" alt="">
+                <span>@${escHtml(item.requested_by)}</span>
+            </div>
+            <div class="queue-votes">
+                <button class="vote-btn ${item.userVoted ? 'upvoted' : ''}" onclick="voteQueue(${item.id}, this)">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+                <span class="vote-count" id="vc-${item.id}">${item.votes}</span>
+            </div>
+            ${djBtns}
+        </div>`;
+    }).join('');
+}
+
+async function voteQueue(id, btn) {
+    const data = await api(`/api/queue/${id}/vote`, 'POST');
+    if (data.error) { showToast('error', data.error); return; }
+    btn.classList.toggle('upvoted', data.voted);
+    document.getElementById(`vc-${id}`).textContent = data.votes;
+    await loadQueue();
+}
+
+async function djSetStatus(id, status) {
+    const data = await api(`/api/queue/${id}`, 'PATCH', { status });
+    if (data.error) { showToast('error', data.error); return; }
+    showToast('success', status === 'played' ? '✅ เล่นเพลงแล้ว' : '⏭️ ข้ามเพลงแล้ว');
+    await loadQueue();
+}
+
+// ── CHAT ───────────────────────────────────────────────────────────────
+async function loadMessages() {
+    const messages = await api(`/api/messages?after=0`);
+    if (!Array.isArray(messages)) return;
+    document.getElementById('chatMessages').innerHTML = '';
+    messages.forEach(m => renderMessage(m, false));
+    if (messages.length) lastMessageId = messages[messages.length - 1].id;
+    scrollChat();
+}
+
+async function pollMessages() {
+    const messages = await api(`/api/messages?after=${lastMessageId}`);
+    if (!Array.isArray(messages) || !messages.length) return;
+    messages.forEach(m => renderMessage(m, true));
+    lastMessageId = messages[messages.length - 1].id;
+    const c = document.getElementById('chatMessages');
+    while (c.children.length > 150) c.removeChild(c.firstChild);
+}
+
+function renderMessage(m, animate) {
+    const container = document.getElementById('chatMessages');
+    if (m.role === 'system') {
+        const el = document.createElement('div');
+        el.className = 'system-msg';
+        el.innerHTML = `<i class="fas fa-info-circle"></i> ${escHtml(m.message)}`;
+        if (!animate) el.style.animation = 'none';
+        container.appendChild(el);
+        scrollChat(); return;
+    }
+    const el = document.createElement('div');
+    el.className = 'chat-msg';
+    if (!animate) el.style.animation = 'none';
+    const now = new Date(m.created_at || Date.now());
+    const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+    const badgeMap = { dj: 'badge-dj DJ', mod: 'badge-mod MOD', vip: 'badge-vip VIP', admin: 'badge-admin ADMIN' };
+    const bClass = badgeMap[m.role] || '';
+    const badgeHTML = bClass ? `<span class="chat-msg-badge ${bClass.split(' ')[0]}">${bClass.split(' ')[1]}</span>` : '';
+    el.innerHTML = `
+        <div class="chat-msg-header">
+            <img class="chat-msg-avatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.username)}" alt="">
+            <span class="chat-msg-name ${m.role}">${escHtml(m.username)}</span>
+            ${badgeHTML}
+            <span class="chat-msg-time">${time}</span>
+        </div>
+        <div class="chat-msg-text">${escHtml(m.message)}</div>`;
+    container.appendChild(el);
+    scrollChat();
+
+    // TTS for vip/dj/admin messages
+    if (['vip', 'dj', 'admin'].includes(m.role)) {
+        speakText(`${m.username} พูดว่า: ${m.message}`);
+    }
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    document.getElementById('emojiPicker').classList.remove('active');
+    const data = await api('/api/messages', 'POST', { message: text });
+    if (data.error) showToast('error', data.error);
+    else await pollMessages();
+}
+
+function scrollChat() {
+    const c = document.getElementById('chatMessages');
+    c.scrollTop = c.scrollHeight;
+}
+
+function insertEmoji(emoji) {
+    const input = document.getElementById('chatInput');
+    input.value += emoji;
+    input.focus();
+}
+
+// ── POLLING ────────────────────────────────────────────────────────────
+function startPolling() {
+    // Stagger intervals to avoid simultaneous requests
+    setInterval(pollMessages,    2000);
+    setInterval(pollNowPlaying,  3000);
+    setInterval(loadQueue,       8000);
+}
+
+// ── REACTIONS ──────────────────────────────────────────────────────────
+function sendReaction(emoji) {
+    const container = document.getElementById('floatingReactions');
+    const el = document.createElement('div');
+    el.className = 'floating-emoji';
+    el.textContent = emoji;
+    el.style.left = (Math.random() * 60 - 30) + 'px';
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+    const btn = document.querySelector(`.reaction-btn[data-emoji="${emoji}"] .reaction-count`);
+    if (btn) btn.textContent = parseInt(btn.textContent) + 1;
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────
+function showToast(type, msg) {
+    const icons = { success: 'fa-check-circle', info: 'fa-info-circle', warning: 'fa-exclamation-triangle', error: 'fa-times-circle' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${escHtml(msg)}</span>`;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+// ── UTIL ───────────────────────────────────────────────────────────────
+function formatTime(sec) {
+    const s = Math.floor(sec);
+    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}

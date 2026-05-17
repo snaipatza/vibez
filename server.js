@@ -238,9 +238,9 @@ function checkVipExpiry(userId, sessionRole) {
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const currentRole = checkVipExpiry(req.session.userId, req.session.role);
+    const user = db.prepare('SELECT role, avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at FROM users WHERE id=?').get(req.session.userId);
+    const currentRole = checkVipExpiry(req.session.userId, user?.role || req.session.role);
     if (currentRole !== req.session.role) req.session.role = currentRole;
-    const user = db.prepare('SELECT avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at FROM users WHERE id=?').get(req.session.userId);
     res.json({
         loggedIn: true,
         userId: req.session.userId,

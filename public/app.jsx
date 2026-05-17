@@ -53,25 +53,38 @@ function App() {
   const progressTimerRef = useRef(null);
 
   useEffect(() => {
-    fetch('/api/me')
-      .then(r => r.json())
-      .then(data => {
-        if (data.loggedIn) {
-          setUser({
-            id: data.userId,
-            name: data.username,
-            role: data.role,
-            avatar_seed: data.avatar_seed,
-            avatar_url: data.avatar_url,
-            name_color: data.name_color || '',
-            chat_color: data.chat_color || '',
-            display_name: data.display_name || '',
-            vip_expires_at: data.vip_expires_at || 0,
-          });
-        }
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
+    const syncMe = (isFirst = false) =>
+      fetch('/api/me')
+        .then(r => r.json())
+        .then(data => {
+          if (data.loggedIn) {
+            setUser(prev => {
+              const next = {
+                id: data.userId,
+                name: data.username,
+                role: data.role,
+                avatar_seed: data.avatar_seed,
+                avatar_url: data.avatar_url,
+                name_color: data.name_color || '',
+                chat_color: data.chat_color || '',
+                display_name: data.display_name || '',
+                vip_expires_at: data.vip_expires_at || 0,
+              };
+              if (prev && prev.role !== data.role) {
+                toast(`ยศของคุณถูกเปลี่ยนเป็น ${data.role.toUpperCase()}`, 'success');
+              }
+              return next;
+            });
+          } else if (!isFirst) {
+            setUser(null);
+          }
+          if (isFirst) setLoaded(true);
+        })
+        .catch(() => { if (isFirst) setLoaded(true); });
+
+    syncMe(true);
+    const id = setInterval(() => syncMe(false), 30000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {

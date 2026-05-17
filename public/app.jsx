@@ -239,6 +239,8 @@ function App() {
 
   const openDirectMessage = (username) => {
     if (!username) return;
+    const lvl = { guest: 0, user: 1, member: 1, vip: 2, dj: 3, admin: 4 }[user?.role] || 0;
+    if (lvl < 2) { toast('เฉพาะ VIP ขึ้นไปเท่านั้นที่ใช้ Messenger ได้', ''); return; }
     const target = onlineUsers.find((person) => person.username === username);
     setDmTarget(target || { username });
     setPage('dm');
@@ -376,7 +378,7 @@ function App() {
             toast={toast}
           />
         )}
-        {page === 'dm' && (
+        {page === 'dm' && ['vip','dj','admin'].includes(user.role) && (
           <DMPage
             user={user}
             listeners={listeners}

@@ -129,6 +129,7 @@ for (const sql of alterations) {
 
 // Migrate old 'user' role → 'member'
 try { db.exec("UPDATE users SET role='member' WHERE role='user'"); } catch(e) {}
+// Default role column to 'guest' for new registrations going forward (handled in app logic)
 
 // Create default DJ account
 const djExists = db.prepare("SELECT id FROM users WHERE username = 'IMVURADIO'").get();

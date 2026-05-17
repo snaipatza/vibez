@@ -113,7 +113,7 @@ function saveAvatarImage(userId, imageData) {
 
     const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
     const buffer = Buffer.from(match[2], 'base64');
-    if (buffer.length > 2 * 1024 * 1024) throw new Error('รูปโปรไฟล์ต้องไม่เกิน 2MB');
+    if (buffer.length > 10 * 1024 * 1024) throw new Error('รูปโปรไฟล์ต้องไม่เกิน 10MB');
 
     const fileName = `user-${userId}-${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(avatarUploadDir, fileName), buffer);
@@ -191,11 +191,11 @@ app.post('/api/register', async (req, res) => {
     if (existing) return res.status(400).json({ error: 'Username นี้ถูกใช้ไปแล้ว' });
 
     const hash = await bcrypt.hash(password, 10);
-    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES (?, ?, 'member', ?)").run(username, hash, username + Math.random());
+    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES (?, ?, 'guest', ?)").run(username, hash, username + Math.random());
     req.session.userId = result.lastInsertRowid;
     req.session.username = username;
-    req.session.role = 'member';
-    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'member', avatar_seed: username, avatar_url: '', name_color: '', chat_color: '' });
+    req.session.role = 'guest';
+    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'guest', avatar_seed: username, avatar_url: '', name_color: '', chat_color: '' });
 });
 
 app.post('/api/login', async (req, res) => {

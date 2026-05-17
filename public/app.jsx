@@ -187,6 +187,15 @@ function App() {
             if (!window.YT) return;
             const state = e.data;
             setPlayerPlaying(state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING);
+            if (state === window.YT.PlayerState.ENDED && user?.role === 'dj') {
+              fetch('/api/queue/play-next', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.next) setNowPlaying({ ...data.next, is_playing: true, elapsed_seconds: 0 });
+                  else setNowPlaying(null);
+                })
+                .catch(() => {});
+            }
           },
         },
       });

@@ -141,6 +141,13 @@ function LivePage({
   const [confetti, setConfetti] = useState(false);
   const [mood, setMood] = useState('hype');
   const [poll, setPoll] = useState(null);
+  const [qTab, setQTab] = useState('dj');
+  const [djQueue, setDjQueue] = useState([]);
+  const [userQueue, setUserQueue] = useState([]);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [djSearchVal, setDjSearchVal] = useState('');
+  const [stageActive, setStageActive] = useState(false);
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
   const socketRef = useRef(null);
@@ -183,8 +190,16 @@ function LivePage({
             votes: q.votes || 0,
             voted: q.userVoted || false,
             status: q.status,
+            type: q.type || 'user',
+            order_idx: q.order_idx || 0,
           }));
           setQueue(mapped);
+          setDjQueue(prev => {
+            // Only update if not currently dragging
+            if (dragIdx !== null) return prev;
+            return mapped.filter(q => q.type === 'dj');
+          });
+          setUserQueue(mapped.filter(q => q.type === 'user'));
           setQueueCount(mapped.filter(q => q.status !== 'played').length);
         }
 
@@ -246,6 +261,12 @@ function LivePage({
   const nowPlaying = stationNowPlaying;
   const curSec = (playerProgress / 100) * playerDuration;
 
+  useEffect(() => {
+    if (stationNowPlaying?.stage_active !== undefined) {
+      setStageActive(!!stationNowPlaying.stage_active);
+    }
+  }, [stationNowPlaying?.stage_active]);
+
   const vote = async (id) => {
     try {
       const res = await fetch(`/api/queue/${id}/vote`, { method: 'POST' });
@@ -273,6 +294,54 @@ function LivePage({
       toast(`ส่งคำขอแล้ว ✓`, 'success');
       setHype(h => Math.min(100, h + 5));
     } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
+  const submitDjSong = async (e) => {
+    e.preventDefault();
+    if (!djSearchVal.trim()) return;
+    const value = djSearchVal.trim();
+    const looksLikeUrl = /(?:youtube\.com|youtu\.be)/i.test(value);
+    try {
+      const res = await fetch('/api/dj-playlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(looksLikeUrl ? { youtube_url: value, title: value } : { title: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      setDjSearchVal('');
+      toast('เพิ่มเพลงใน Playlist แล้ว ✓', 'success');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
+  const handleDrop = async (dropIdx) => {
+    if (dragIdx === null || dragIdx === dropIdx) { setDragIdx(null); setDragOverIdx(null); return; }
+    const newOrder = [...djQueue];
+    const [moved] = newOrder.splice(dragIdx, 1);
+    newOrder.splice(dropIdx, 0, moved);
+    setDjQueue(newOrder);
+    setDragIdx(null);
+    setDragOverIdx(null);
+    try {
+      await fetch('/api/queue/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: newOrder.map(q => q.id) }),
+      });
+    } catch {}
+  };
+
+  const joinStage = async () => {
+    await fetch('/api/stage/on', { method: 'POST' }).catch(() => {});
+    setStageActive(true);
+    toast('ขึ้นเวทีแล้ว 🎤', 'success');
+  };
+
+  const leaveStage = async () => {
+    await fetch('/api/stage/off', { method: 'POST' }).catch(() => {});
+    setStageActive(false);
+    setStationNowPlaying?.(null);
+    toast('ลงจากเวทีแล้ว', '');
   };
 
   const onSendChat = async ({ message, media }) => {
@@ -466,6 +535,17 @@ function LivePage({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                   <MoodPicker mood={mood} onPick={setMood} />
                   <ColorPickerPanel user={user} toast={toast} />
+                  {user.role === 'dj' && (
+                    stageActive ? (
+                      <button className="btn-stage-off" onClick={leaveStage}>
+                        <i className="fas fa-sign-out-alt"></i> ลงจากเวที
+                      </button>
+                    ) : (
+                      <button className="btn-stage-on" onClick={joinStage}>
+                        <i className="fas fa-microphone-alt"></i> ขึ้นเวที
+                      </button>
+                    )
+                  )}
                   {user.role === 'dj' && nowPlaying?.youtube_id && (
                     <button className="btn-mini solid" onClick={stopPlaying}>
                       Stop Live
@@ -564,41 +644,101 @@ function LivePage({
                   <div className="pre">— Up Next</div>
                   <h3>คิวเพลง</h3>
                 </div>
-                <span className="right">{queue.length} เพลง</span>
+                <span className="right">{(djQueue.length + userQueue.length)} เพลง</span>
               </div>
-              <div className="queue compact">
-                {queue.length === 0 && (
-                  <div style={{ padding: '14px 10px', color: 'var(--ink-mute)', fontSize: 13 }}>
-                    ยังไม่มีเพลงในคิว
-                  </div>
-                )}
-                {queue.map((q, i) => (
-                  <div key={q.id} className="queue-row">
-                    <div className="pos">{q.status === 'playing' ? '▶' : String(i + 1).padStart(2, '0')}</div>
-                    <div className="info">
-                      <div className="t">{q.title}</div>
-                      <div className="a">{q.artist}{q.artist && q.requester ? ' · ' : ''}{q.requester ? `@${q.requester}` : ''}</div>
+
+              {user.role === 'dj' && (
+                <div className="queue-tabs">
+                  <button className={`qtab ${qTab === 'dj' ? 'active' : ''}`} onClick={() => setQTab('dj')}>
+                    🎧 Playlist ({djQueue.length})
+                  </button>
+                  <button className={`qtab ${qTab === 'requests' ? 'active' : ''}`} onClick={() => setQTab('requests')}>
+                    🎵 คำขอ {userQueue.length > 0 && <span className="qtab-badge">{userQueue.length}</span>}
+                  </button>
+                </div>
+              )}
+
+              {/* DJ Playlist Tab */}
+              {(user.role !== 'dj' || qTab === 'dj') && (
+                <div className="queue compact">
+                  {user.role === 'dj' && (
+                    <form className="dj-add-form" onSubmit={submitDjSong}>
+                      <input
+                        placeholder="+ เพิ่มเพลงใน Playlist..."
+                        value={djSearchVal}
+                        onChange={e => setDjSearchVal(e.target.value)}
+                      />
+                      <button type="submit"><i className="fas fa-plus"></i></button>
+                    </form>
+                  )}
+                  {djQueue.length === 0 && user.role === 'dj' && (
+                    <div style={{ padding: '10px', color: 'var(--ink-mute)', fontSize: 12, textAlign: 'center' }}>
+                      ยังไม่มีเพลงใน Playlist — เพิ่มเพลงด้านบน
                     </div>
-                    {user.role === 'dj' ? (
-                      <div className="row-actions">
-                        {q.youtube_url && (
-                          <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">
-                            YouTube
-                          </a>
-                        )}
-                        <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>
-                          Play
-                        </button>
+                  )}
+                  {(user.role === 'dj' ? djQueue : queue).map((q, i) => (
+                    <div
+                      key={q.id}
+                      className={`queue-row ${dragOverIdx === i && dragIdx !== i ? 'drag-over' : ''}`}
+                      draggable={user.role === 'dj' && q.type === 'dj'}
+                      onDragStart={() => { setDragIdx(i); setDragOverIdx(i); }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
+                      onDragLeave={() => setDragOverIdx(null)}
+                      onDrop={() => handleDrop(i)}
+                      style={{ opacity: dragIdx === i ? 0.45 : 1, cursor: user.role === 'dj' && q.type === 'dj' ? 'grab' : 'default' }}
+                    >
+                      {user.role === 'dj' && q.type === 'dj' && (
+                        <div className="drag-handle" title="ลากเพื่อเรียงลำดับ">⠿</div>
+                      )}
+                      <div className="pos">{q.status === 'playing' ? '▶' : String(i + 1).padStart(2, '0')}</div>
+                      <div className="info">
+                        <div className="t">{q.title}</div>
+                        <div className="a">{q.artist}{q.artist && q.requester ? ' · ' : ''}{q.requester ? `@${q.requester}` : ''}</div>
                       </div>
-                    ) : (
-                      <button className={`vote ${q.voted ? 'up' : ''}`} onClick={() => vote(q.id)}>
-                        <i className="fas fa-chevron-up"></i>
-                        <span>{q.votes}</span>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {user.role === 'dj' ? (
+                        <div className="row-actions">
+                          {q.youtube_url && (
+                            <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YT</a>
+                          )}
+                          <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>▶</button>
+                        </div>
+                      ) : (
+                        <button className={`vote ${q.voted ? 'up' : ''}`} onClick={() => vote(q.id)}>
+                          <i className="fas fa-chevron-up"></i>
+                          <span>{q.votes}</span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* User Requests Tab (DJ only) */}
+              {user.role === 'dj' && qTab === 'requests' && (
+                <div className="queue compact">
+                  {userQueue.length === 0 && (
+                    <div style={{ padding: '10px', color: 'var(--ink-mute)', fontSize: 12, textAlign: 'center' }}>
+                      ยังไม่มีคำขอเพลง
+                    </div>
+                  )}
+                  {userQueue.map((q, i) => (
+                    <div key={q.id} className="queue-row">
+                      <div className="pos">{String(i + 1).padStart(2, '0')}</div>
+                      <div className="info">
+                        <div className="t">{q.title}</div>
+                        <div className="a">{q.artist}{q.artist && q.requester ? ' · ' : ''}{q.requester ? `@${q.requester}` : ''}</div>
+                      </div>
+                      <div className="row-actions">
+                        <span style={{ fontSize: 11, color: 'var(--orange)', fontWeight: 700 }}>↑{q.votes}</span>
+                        {q.youtube_url && (
+                          <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YT</a>
+                        )}
+                        <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>▶</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Ads — always visible */}

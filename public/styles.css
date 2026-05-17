@@ -3730,3 +3730,111 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
   margin-left: 4px;
 }
+
+/* ── DJ PLAYLIST / QUEUE TABS ────────────────────────────── */
+.queue-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.qtab {
+  flex: 1;
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--ink-3);
+  transition: all 0.15s;
+}
+.qtab.active {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+.qtab-badge {
+  background: #fff3;
+  border-radius: 8px;
+  padding: 1px 5px;
+  font-size: 10px;
+  margin-left: 3px;
+}
+
+/* DJ add-to-playlist form */
+.dj-add-form {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.dj-add-form input {
+  flex: 1;
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink);
+  outline: none;
+}
+.dj-add-form input:focus { border-color: var(--orange); }
+.dj-add-form button {
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.dj-add-form button:hover { background: var(--orange-deep); }
+
+/* Drag-and-drop */
+.drag-handle {
+  color: var(--ink-3);
+  font-size: 14px;
+  padding: 0 4px;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+.queue-row.drag-over {
+  border-top: 2px solid var(--orange);
+}
+
+/* Stage buttons */
+.btn-stage-on {
+  background: linear-gradient(135deg, #ff6b35, var(--orange));
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(255,107,53,0.35);
+  transition: all 0.15s;
+}
+.btn-stage-on:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,53,0.45); }
+
+.btn-stage-off {
+  background: var(--bg-soft);
+  color: var(--ink-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn-stage-off:hover { color: var(--red); border-color: var(--red); }

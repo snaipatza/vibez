@@ -495,7 +495,7 @@ app.get('/api/now-playing', (req, res) => {
         ? Math.max(0, now - row.started_at)
         : Math.max(0, row.paused_elapsed);
 
-    res.json({ ...row, elapsed_seconds: elapsed });
+    res.json({ ...row, elapsed_seconds: elapsed, stage_active: stageState.active, stage_dj: stageState.djUsername });
 });
 
 // DJ: set now playing
@@ -545,7 +545,7 @@ app.delete('/api/now-playing', requirePlaybackDJ, (req, res) => {
 // ── QUEUE ──────────────────────────────────────────────────────────────
 app.get('/api/queue', (req, res) => {
     const queue = db.prepare(
-        "SELECT * FROM queue WHERE status IN ('pending','playing') ORDER BY CASE status WHEN 'playing' THEN 0 ELSE 1 END, votes DESC, created_at ASC"
+        "SELECT * FROM queue WHERE status IN ('pending','playing') ORDER BY CASE status WHEN 'playing' THEN 0 ELSE 1 END, CASE WHEN type='dj' THEN order_idx ELSE 9999 END ASC, votes DESC, created_at ASC"
     ).all();
     if (req.session.userId) {
         const userVotes = db.prepare('SELECT queue_id FROM votes WHERE user_id=?').all(req.session.userId).map(v => v.queue_id);
@@ -612,6 +612,74 @@ app.patch('/api/queue/:id', requireDJ, (req, res) => {
 app.delete('/api/queue/:id', requireDJ, (req, res) => {
     db.prepare('DELETE FROM votes WHERE queue_id=?').run(req.params.id);
     db.prepare('DELETE FROM queue WHERE id=?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// DJ adds song to their own playlist
+app.post('/api/dj-playlist', requireDJ, async (req, res) => {
+    const rawTitle = String(req.body.title || '').trim();
+    const rawYoutubeUrl = String(req.body.youtube_url || '').trim();
+    if (!rawTitle && !rawYoutubeUrl) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
+    const resolved = await resolveQueueRequest(req.body);
+    if (!resolved.title) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
+    if (resolved.youtube_id) {
+        const duplicate = db.prepare("SELECT id FROM queue WHERE youtube_id=? AND status IN ('pending','playing')").get(resolved.youtube_id);
+        if (duplicate) return res.status(409).json({ error: 'เพลงนี้อยู่ในคิวแล้ว' });
+    }
+    const maxIdx = db.prepare("SELECT MAX(order_idx) as m FROM queue WHERE type='dj' AND status='pending'").get();
+    const nextIdx = (maxIdx?.m ?? -1) + 1;
+    const result = db.prepare(
+        "INSERT INTO queue (title,artist,youtube_url,youtube_id,thumbnail,requested_by,user_id,type,order_idx) VALUES (?,?,?,?,?,?,?,'dj',?)"
+    ).run(resolved.title, resolved.artist||'', resolved.youtube_url||'', resolved.youtube_id||'', resolved.thumbnail||'', req.session.username, req.session.userId, nextIdx);
+    res.json({ success: true, id: result.lastInsertRowid, item: resolved });
+});
+
+// Reorder DJ playlist (drag-drop)
+app.patch('/api/queue/reorder', requireDJ, (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids required' });
+    const stmt = db.prepare("UPDATE queue SET order_idx=? WHERE id=?");
+    const run = db.transaction(() => ids.forEach((id, i) => stmt.run(i, id)));
+    run();
+    res.json({ success: true });
+});
+
+// Auto-play next song in queue
+app.post('/api/queue/play-next', requirePlaybackDJ, async (req, res) => {
+    const current = db.prepare("SELECT id FROM queue WHERE status='playing'").get();
+    if (current) db.prepare("UPDATE queue SET status='played' WHERE id=?").run(current.id);
+    let next = db.prepare("SELECT * FROM queue WHERE status='pending' AND type='dj' ORDER BY order_idx ASC LIMIT 1").get();
+    if (!next) next = db.prepare("SELECT * FROM queue WHERE status='pending' ORDER BY votes DESC, created_at ASC LIMIT 1").get();
+    if (!next || !next.youtube_id) {
+        db.prepare("UPDATE now_playing SET youtube_id='', is_playing=0, paused_elapsed=0 WHERE id=1").run();
+        return res.json({ success: true, next: null });
+    }
+    const now = Date.now() / 1000;
+    const dj = db.prepare('SELECT avatar_seed, avatar_url FROM users WHERE id=?').get(req.session.userId) || {};
+    db.prepare(`UPDATE now_playing SET queue_id=?, youtube_id=?, title=?, artist=?, thumbnail=?, youtube_url=?, started_at=?, paused_elapsed=0, is_playing=1, dj_username=?, dj_user_id=?, dj_avatar_seed=?, dj_avatar_url=? WHERE id=1`)
+      .run(next.id, next.youtube_id, next.title, next.artist||'', next.thumbnail||'', next.youtube_url||'', now, req.session.username, req.session.userId, dj.avatar_seed||req.session.username, dj.avatar_url||'');
+    db.prepare("UPDATE queue SET status='playing' WHERE id=?").run(next.id);
+    db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)").run(0,'SYSTEM','system',`🎧 ${req.session.username} กำลังเล่น "${next.title}"`);
+    res.json({ success: true, next });
+});
+
+// Stage management
+app.post('/api/stage/on', requireDJ, (req, res) => {
+    const dj = db.prepare('SELECT avatar_seed, avatar_url FROM users WHERE id=?').get(req.session.userId) || {};
+    stageState.active = true;
+    stageState.djUsername = req.session.username;
+    stageState.djAvatarSeed = dj.avatar_seed || req.session.username;
+    stageState.djAvatarUrl = dj.avatar_url || '';
+    res.json({ success: true });
+});
+
+app.post('/api/stage/off', requireDJ, (req, res) => {
+    stageState.active = false;
+    stageState.djUsername = null;
+    stageState.djAvatarSeed = '';
+    stageState.djAvatarUrl = '';
+    db.prepare("UPDATE now_playing SET youtube_id='', is_playing=0, paused_elapsed=0 WHERE id=1").run();
+    db.prepare("UPDATE queue SET status='pending' WHERE status='playing'").run();
     res.json({ success: true });
 });
 
@@ -740,6 +808,7 @@ const micState = {
   requests: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
   speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
 };
+const stageState = { active: false, djUsername: null, djAvatarSeed: '', djAvatarUrl: '' };
 let micAudioHeader = null; // stored for late-joining listeners
 let micAudioMime = 'audio/webm;codecs=opus';
 const socketToUser = new Map();

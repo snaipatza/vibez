@@ -1,0 +1,257 @@
+/* Shared building blocks for VIBEZ */
+
+const { useState, useEffect, useRef, useMemo } = React;
+
+const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+
+// -------- SIDEBAR -----------------------------------------------------------
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying }) {
+  const np = nowPlaying || { dj: 'DJ VIBEZ', track: 'Midnight Groove', progress: 38, djSeed: 'DJVIBEZ' };
+
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brand-mark orange">V</div>
+        <div className="brand-name">VIBEZ</div>
+        <div className="brand-tag">FM/01</div>
+      </div>
+
+      {/* Now Playing mini */}
+      <div className="now-mini" onClick={() => onNav('live')}>
+        <div className="now-mini-top">
+          <span className="dot"></span>
+          <span>NOW ON AIR</span>
+          <span style={{ marginLeft: 'auto' }}>LIVE</span>
+        </div>
+        <div className="now-mini-body">
+          <div className="now-mini-avatar">
+            <img src={AVATAR(np.djSeed)} alt="" />
+          </div>
+          <div className="now-mini-info">
+            <div className="t">{np.dj}</div>
+            <div className="a">{np.track}</div>
+          </div>
+          <div className="mini-eq"><span /><span /><span /></div>
+        </div>
+        <div className="mini-progress">
+          <div className="mini-progress-fill" style={{ width: `${np.progress}%` }}></div>
+        </div>
+      </div>
+
+      <div>
+        <div className="section-label">
+          <span>Navigate</span>
+        </div>
+        <div className="nav">
+          <div className={`nav-item ${page === 'live' ? 'active' : ''}`} onClick={() => onNav('live')}>
+            <i className="fas fa-broadcast-tower nav-icon"></i>
+            <span>Live</span>
+            {page === 'live' ? (
+              <div className="pulse-bars"><span /><span /><span /></div>
+            ) : (
+              <div className="live-dot"></div>
+            )}
+          </div>
+          <div className={`nav-item ${page === 'explore' ? 'active' : ''}`} onClick={() => onNav('explore')}>
+            <i className="fas fa-compass nav-icon"></i>
+            <span>Explore</span>
+            {page === 'explore' && <div className="pulse-bars"><span /><span /><span /></div>}
+          </div>
+          <div className={`nav-item ${page === 'request' ? 'active' : ''}`} onClick={() => onNav('live')}>
+            <i className="fas fa-music nav-icon"></i>
+            <span>Request</span>
+          </div>
+          <div className={`nav-item ${page === 'queue' ? 'active' : ''}`} onClick={() => onNav('live')}>
+            <i className="fas fa-list-ol nav-icon"></i>
+            <span>Queue</span>
+            <span className="badge">{queueCount}</span>
+          </div>
+          {user.role === 'admin' && (
+            <div className={`nav-item ${page === 'admin' ? 'active' : ''}`} onClick={() => onNav('admin')}>
+              <i className="fas fa-sliders-h nav-icon"></i>
+              <span>Admin</span>
+              {page === 'admin' && <div className="pulse-bars"><span /><span /><span /></div>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="stripe"></div>
+
+      <div>
+        <div className="section-label">
+          <span>Rooms</span>
+          <span><i className="fas fa-plus" style={{ fontSize: 9, color: 'var(--ink-3)' }}></i></span>
+        </div>
+        <div className="rooms">
+          {rooms.map(r => {
+            const skinColor = {
+              pink: '#E87BA1',
+              peach: '#F19772',
+              indigo: '#9387D8',
+              ocher: '#D4A442',
+            }[r.skin] || '#E87BA1';
+            return (
+              <div
+                key={r.id}
+                className={`room ${activeRoom === r.id ? 'active' : ''}`}
+                onClick={() => onRoomClick && onRoomClick(r.id)}
+              >
+                <span className="hash">#</span>
+                <span>{r.name}</span>
+                <span className="listeners">{r.listeners}</span>
+                <span className="skin-dot" style={{ background: skinColor }}></span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="user-pill">
+        <div className="avatar">
+          <img src={AVATAR(user.name)} alt="" />
+          <div className="status"></div>
+        </div>
+        <div className="info">
+          <div className="name">{user.name}</div>
+          <div className="role">{user.role}</div>
+        </div>
+        <div className="icon-btn" title="Settings"><i className="fas fa-cog"></i></div>
+      </div>
+    </aside>
+  );
+}
+
+// -------- TOPBAR -----------------------------------------------------------
+function TopBar({ crumb, title, meta, listeners, onToggleChat, chatOpen }) {
+  return (
+    <header className="topbar">
+      <div>
+        <div className="crumb">{crumb}</div>
+        <div className="title">{title}</div>
+      </div>
+      <div className="sep"></div>
+      <div className="meta">{meta}</div>
+
+      <div className="topbar-right">
+        <div className="listener-pill">
+          <div className="pulse"></div>
+          <span>{listeners.toLocaleString()} listeners</span>
+        </div>
+        <button className="icon-square" title="Notifications">
+          <i className="fas fa-bell"></i>
+          <div className="dot"></div>
+        </button>
+        <button
+          className="icon-square"
+          onClick={onToggleChat}
+          title="Toggle request & queue"
+          style={chatOpen ? { background: 'var(--ink)', color: 'var(--bg)' } : null}
+        >
+          <i className="fas fa-list-ol"></i>
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// -------- CHAT -----------------------------------------------------------
+function ChatPanel({ messages, onSend, onClose }) {
+  const [text, setText] = useState('');
+  const bodyRef = useRef(null);
+
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [messages]);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    onSend(text.trim());
+    setText('');
+  };
+
+  return (
+    <div className="chat">
+      <div className="chat-head">
+        <div>
+          <div className="pre">channel</div>
+          <h3>Live Chat</h3>
+        </div>
+        <div className="right">
+          <button className="icon-btn-sm" title="Slow mode"><i className="fas fa-clock"></i></button>
+          <button className="icon-btn-sm" onClick={onClose} title="Close"><i className="fas fa-times"></i></button>
+        </div>
+      </div>
+
+      <div className="chat-body" ref={bodyRef}>
+        {messages.map((m, i) => (
+          m.system ? (
+            <div key={i} className="msg system">
+              <div className="text">{m.text}</div>
+            </div>
+          ) : (
+            <div key={i} className="msg">
+              <div className="av"><img src={AVATAR(m.name)} alt="" /></div>
+              <div className="body">
+                <div className="head-line">
+                  <span className={`name ${m.dj ? 'dj' : ''}`}>{m.name}</span>
+                  <span className="time">{m.time}</span>
+                </div>
+                <div className="text">{m.text}</div>
+              </div>
+            </div>
+          )
+        ))}
+      </div>
+
+      <form className="chat-input" onSubmit={submit}>
+        <div className="field">
+          <i className="fas fa-smile" style={{ color: 'var(--ink-3)' }}></i>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="พิมพ์ข้อความ..."
+            maxLength={300}
+          />
+        </div>
+        <button type="submit" className="send" title="Send">
+          <i className="fas fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// Floating emoji animator
+function FloatLayer({ items }) {
+  return (
+    <div className="float-area">
+      {items.map(it => (
+        <div
+          key={it.id}
+          className="float-emoji"
+          style={{ left: it.x, animationDuration: `${it.dur}s` }}
+        >
+          {it.emoji}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Toast
+function Toasts({ items }) {
+  return (
+    <div className="toast-container">
+      {items.map(t => (
+        <div key={t.id} className={`toast ${t.kind || ''}`}>
+          <i className={`fas fa-${t.kind === 'success' ? 'check' : 'info-circle'}`}></i>
+          <span>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+Object.assign(window, { Sidebar, TopBar, ChatPanel, FloatLayer, Toasts, AVATAR });

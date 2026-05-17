@@ -3525,3 +3525,46 @@ a { color: inherit; text-decoration: none; }
   margin-left: auto;
   flex-shrink: 0;
 }
+
+/* ── ROLE CHAT BUBBLE FRAMES ─────────────────────────────── */
+
+/* 🛡 Admin — red/pink accent */
+.msg-role-admin .body {
+  border: 1.5px solid #ff3cac55;
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: linear-gradient(135deg, #fff0f6 0%, #fff5fb 100%);
+}
+
+/* 🎧 DJ — orange/amber accent */
+.msg-role-dj .body {
+  border: 1.5px solid #ff9f1c88;
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: linear-gradient(135deg, #fff8ec 0%, #fffcf5 100%);
+}
+
+/* 💎 VIP — purple accent (replaces old .msg.vip-msg) */
+.msg-role-vip .body {
+  border: 1.5px solid #c77dff55;
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #fdf6ff 100%);
+}
+
+/* 👤 Member — blue accent (subtle) */
+.msg-role-member .body,
+.msg-role-user .body {
+  border: 1px solid #4d96ff33;
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: linear-gradient(135deg, #f5f9ff 0%, #fafcff 100%);
+}
+
+/* 🌍 Guest — gray, minimal */
+.msg-role-guest .body {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: var(--bg-soft);
+}

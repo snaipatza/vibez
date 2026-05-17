@@ -263,10 +263,81 @@ app.get('/api/users/online', requireAuth, (req, res) => {
     res.json(users);
 });
 
+app.get('/api/users/search', requireAuth, (req, res) => {
+    const q = `%${String(req.query.q || '').trim().toLowerCase()}%`;
+    const users = db.prepare(`
+        SELECT username, role, avatar_seed, avatar_url
+        FROM users
+        WHERE LOWER(username) LIKE ? AND username != ?
+        ORDER BY username
+        LIMIT 20
+    `).all(q, req.session.username);
+    res.json(users);
+});
+
+app.get('/api/dm/inbox', requireAuth, (req, res) => {
+    const me = req.session.username;
+    const cutoff = Date.now() - 2 * 60 * 1000;
+    const conversations = db.prepare(`
+        WITH contacts AS (
+            SELECT CASE WHEN from_user = ? THEN to_user ELSE from_user END AS username
+            FROM direct_messages
+            WHERE from_user = ? OR to_user = ?
+            GROUP BY 1
+        )
+        SELECT
+            contacts.username,
+            users.role,
+            users.avatar_seed,
+            users.avatar_url,
+            users.last_seen > ? AS online,
+            (
+                SELECT dm.message
+                FROM direct_messages dm
+                WHERE (dm.from_user = contacts.username AND dm.to_user = ?)
+                   OR (dm.from_user = ? AND dm.to_user = contacts.username)
+                ORDER BY dm.id DESC
+                LIMIT 1
+            ) AS last_message,
+            (
+                SELECT dm.created_at
+                FROM direct_messages dm
+                WHERE (dm.from_user = contacts.username AND dm.to_user = ?)
+                   OR (dm.from_user = ? AND dm.to_user = contacts.username)
+                ORDER BY dm.id DESC
+                LIMIT 1
+            ) AS last_at,
+            (
+                SELECT COUNT(*)
+                FROM direct_messages dm
+                WHERE dm.from_user = contacts.username AND dm.to_user = ? AND dm.read = 0
+            ) AS unread
+        FROM contacts
+        LEFT JOIN users ON users.username = contacts.username
+        ORDER BY datetime(last_at) DESC, contacts.username ASC
+    `).all(me, me, me, cutoff, me, me, me, me, me);
+    res.json(conversations);
+});
+
 app.get('/api/dm/:with', requireAuth, (req, res) => {
     const me = req.session.username;
     const other = req.params.with;
-    const msgs = db.prepare(`SELECT * FROM direct_messages WHERE (from_user=? AND to_user=?) OR (from_user=? AND to_user=?) ORDER BY created_at ASC LIMIT 100`).all(me, other, other, me);
+    const after = parseInt(req.query.after, 10) || 0;
+    db.prepare('UPDATE direct_messages SET read=1 WHERE from_user=? AND to_user=?').run(other, me);
+    const msgs = db.prepare(`
+        SELECT
+            id,
+            from_user AS from_username,
+            to_user AS to_username,
+            message,
+            read,
+            created_at
+        FROM direct_messages
+        WHERE ((from_user=? AND to_user=?) OR (from_user=? AND to_user=?))
+          AND id > ?
+        ORDER BY id ASC
+        LIMIT 100
+    `).all(me, other, other, me, after);
     res.json(msgs);
 });
 
@@ -276,8 +347,8 @@ app.post('/api/dm/send', requireAuth, (req, res) => {
     if (!to || !message?.trim()) return res.status(400).json({ error: 'invalid' });
     const toUser = db.prepare('SELECT id FROM users WHERE username=?').get(to);
     if (!toUser) return res.status(404).json({ error: 'user not found' });
-    db.prepare('INSERT INTO direct_messages (from_user, to_user, message, created_at) VALUES (?,?,?,?)').run(from, to, message.trim(), new Date().toISOString());
-    res.json({ ok: true });
+    const result = db.prepare('INSERT INTO direct_messages (from_user, to_user, message, created_at) VALUES (?,?,?,?)').run(from, to, message.trim(), new Date().toISOString());
+    res.json({ ok: true, id: result.lastInsertRowid });
 });
 
 app.get('/api/admin/ads', requireAdmin, (req, res) => {

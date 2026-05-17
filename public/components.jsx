@@ -66,6 +66,11 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
             <span>Queue</span>
             <span className="badge">{queueCount}</span>
           </div>
+          <div className={`nav-item ${page === 'dm' ? 'active' : ''}`} onClick={() => onNav('dm')}>
+            <i className="fas fa-comment-dots nav-icon"></i>
+            <span>Messages</span>
+            {page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
+          </div>
           {user.role === 'admin' && (
             <div className={`nav-item ${page === 'admin' ? 'active' : ''}`} onClick={() => onNav('admin')}>
               <i className="fas fa-sliders-h nav-icon"></i>

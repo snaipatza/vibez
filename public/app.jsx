@@ -163,6 +163,15 @@ function App() {
             toast={toast}
           />
         )}
+        {page === 'dm' && (
+          <DMPage
+            user={user}
+            listeners={listeners}
+            chatOpen={chatOpen}
+            setChatOpen={setChatOpen}
+            toast={toast}
+          />
+        )}
       </main>
 
       <Toasts items={toasts} />

@@ -26,11 +26,11 @@ function avatarUrl(seed, imageUrl = '') {
 }
 
 const fakeTracks = [
-    { title: 'Midnight Groove', artist: 'DJ VIBEZ ft. Luna',    duration: '4:12', seed: 'album1' },
-    { title: 'Neon Dreams',     artist: 'DJ VIBEZ x Synthwave', duration: '3:45', seed: 'album2' },
-    { title: 'Bass Culture',    artist: 'DJ VIBEZ ft. MC Flow', duration: '5:01', seed: 'album3' },
-    { title: 'Electric Sunset', artist: 'DJ VIBEZ',             duration: '3:58', seed: 'album4' },
-    { title: 'Deep Into Night', artist: 'DJ VIBEZ ft. Aurora',  duration: '4:33', seed: 'album5' },
+    { title: 'Midnight Groove', artist: 'IMVU Society Radio ft. Luna',    duration: '4:12', seed: 'album1' },
+    { title: 'Neon Dreams',     artist: 'IMVU Society Radio x Synthwave', duration: '3:45', seed: 'album2' },
+    { title: 'Bass Culture',    artist: 'IMVU Society Radio ft. MC Flow', duration: '5:01', seed: 'album3' },
+    { title: 'Electric Sunset', artist: 'IMVU Society Radio',             duration: '3:58', seed: 'album4' },
+    { title: 'Deep Into Night', artist: 'IMVU Society Radio ft. Aurora',  duration: '4:33', seed: 'album5' },
 ];
 
 // ── YOUTUBE IFRAME API CALLBACK ────────────────────────────────────────
@@ -103,7 +103,7 @@ function setupUserUI() {
     document.getElementById('sidebarUsername').textContent = currentUser.username;
     document.getElementById('userAvatarImg').src = avatarUrl(currentUser.avatar_seed || currentUser.username, currentUser.avatar_url);
 
-    const roleLabels = { dj: '🎧 DJ', mod: '🛡️ Moderator', admin: '🔰 Admin', vip: '⭐ VIP', user: 'Online' };
+    const roleLabels = { dj: '🎧 VJ', mod: '🛡️ Moderator', admin: '🛡 Admin', vip: '💎 VIP', user: '👤 Member', guest: '🌍 Guest' };
     const roleEl = document.getElementById('sidebarRole');
     roleEl.textContent = roleLabels[currentUser.role] || 'Online';
     if (currentUser.role === 'dj') {
@@ -287,8 +287,8 @@ function updateFakeTrackDisplay() {
 }
 
 function setIdleUI() {
-    document.getElementById('trackTitle').textContent = 'DJ ไม่อยู่ในขณะนี้';
-    document.getElementById('trackArtist').textContent = 'รอ DJ เปิดเพลงสักครู่...';
+    document.getElementById('trackTitle').textContent = 'VJ ไม่อยู่ในขณะนี้';
+    document.getElementById('trackArtist').textContent = 'รอ VJ เปิดเพลงสักครู่...';
     document.getElementById('totalTime').textContent = '0:00';
     document.getElementById('currentTime').textContent = '0:00';
     document.getElementById('nowPlayingBadge').style.display = 'none';
@@ -950,7 +950,7 @@ function renderMessage(m, animate) {
     if (!animate) el.style.animation = 'none';
     const now = new Date(m.created_at || Date.now());
     const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-    const badgeMap = { dj: 'badge-dj DJ', mod: 'badge-mod MOD', vip: 'badge-vip VIP', admin: 'badge-admin ADMIN' };
+    const badgeMap = { dj: 'badge-dj 🎧 VJ', mod: 'badge-mod MOD', vip: 'badge-vip 💎 VIP', admin: 'badge-admin 🛡 Admin', guest: 'badge-guest 🌍 Guest' };
     const bClass = badgeMap[m.role] || '';
     const badgeHTML = bClass ? `<span class="chat-msg-badge ${bClass.split(' ')[0]}">${bClass.split(' ')[1]}</span>` : '';
     el.innerHTML = `
@@ -1018,7 +1018,7 @@ async function fetchOnlineUsers() {
 function renderOnlineUsers(users) {
     const list = document.getElementById('onlineUsersList');
     if (!list) return;
-    const roleMap = { admin: ['role-admin-badge','ADMIN'], dj: ['role-dj-badge','DJ'], vip: ['role-vip-badge','VIP'] };
+    const roleMap = { admin: ['role-admin-badge','🛡 Admin'], dj: ['role-dj-badge','🎧 VJ'], vip: ['role-vip-badge','💎 VIP'] };
     list.innerHTML = users.map(u => {
         const [badgeClass, badgeText] = roleMap[u.role] || [];
         const badge = badgeClass ? `<span class="online-user-role-badge ${badgeClass}">${badgeText}</span>` : '';

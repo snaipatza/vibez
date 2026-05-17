@@ -88,10 +88,15 @@ body {
     font-size: 16px; color: white;
     box-shadow: 0 4px 15px rgba(255,123,107,.4);
 }
+.logo-text-wrap { display: flex; flex-direction: column; line-height: 1; }
 .logo-text {
-    font-size: 20px; font-weight: 900; letter-spacing: 2px;
+    font-size: 18px; font-weight: 900; letter-spacing: 2px;
     background: var(--accent-gradient);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-sub {
+    font-size: 9px; font-weight: 600; letter-spacing: 1.5px;
+    color: var(--text-muted); text-transform: uppercase; margin-top: 1px;
 }
 .sidebar-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
 .nav-item {
@@ -140,9 +145,21 @@ body {
 .online-user-role-badge {
     font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; flex-shrink: 0;
 }
-.role-dj-badge { background: rgba(6,182,212,.15); color: #0891B2; }
-.role-admin-badge { background: rgba(255,100,80,.15); color: var(--accent-primary); }
-.role-vip-badge { background: rgba(217,70,239,.15); color: #a855f7; }
+.role-dj-badge {
+    background: linear-gradient(135deg,rgba(6,182,212,.18),rgba(56,189,248,.1));
+    color: #0891B2; border: 1px solid rgba(6,182,212,.35);
+    box-shadow: 0 0 6px rgba(6,182,212,.18);
+}
+.role-admin-badge {
+    background: linear-gradient(135deg,rgba(255,100,80,.18),rgba(255,179,71,.1));
+    color: var(--accent-primary); border: 1px solid rgba(255,100,80,.35);
+    box-shadow: 0 0 6px rgba(255,100,80,.18);
+}
+.role-vip-badge {
+    background: linear-gradient(135deg,rgba(168,85,247,.18),rgba(217,70,239,.1));
+    color: #a855f7; border: 1px solid rgba(168,85,247,.35);
+    box-shadow: 0 0 6px rgba(168,85,247,.18);
+}
 .online-user-skeleton {
     height: 36px; border-radius: 10px; margin: 2px 0;
     background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
@@ -856,45 +873,114 @@ body {
     font-size: 9px; font-weight: 700; padding: 1px 5px;
     border-radius: 4px; letter-spacing: .5px;
 }
-.badge-dj { background: rgba(249,115,22,.15); color: var(--accent-cyan); border: 1px solid rgba(249,115,22,.3); }
+/* ROLE BADGES */
+.badge-dj {
+    background: linear-gradient(135deg, rgba(6,182,212,.2), rgba(56,189,248,.15));
+    color: #0891b2; border: 1px solid rgba(6,182,212,.4);
+    box-shadow: 0 0 8px rgba(6,182,212,.2);
+}
 .badge-mod { background: rgba(34,197,94,.15); color: var(--accent-green); border: 1px solid rgba(34,197,94,.3); }
-.badge-vip { background: rgba(255,139,154,.15); color: var(--accent-pink); border: 1px solid rgba(255,139,154,.3); }
-.badge-admin { background: rgba(255,100,80,.15); color: #FF6B5B; border: 1px solid rgba(255,100,80,.3); }
+.badge-vip {
+    background: linear-gradient(135deg, rgba(168,85,247,.2), rgba(217,70,239,.15));
+    color: #a855f7; border: 1px solid rgba(168,85,247,.4);
+    box-shadow: 0 0 8px rgba(168,85,247,.2);
+}
+.badge-admin {
+    background: linear-gradient(135deg, rgba(255,100,80,.2), rgba(255,179,71,.15));
+    color: #FF6B5B; border: 1px solid rgba(255,100,80,.4);
+    box-shadow: 0 0 8px rgba(255,100,80,.2);
+}
+.badge-guest { background: rgba(100,116,139,.12); color: #64748b; border: 1px solid rgba(100,116,139,.25); }
+
+/* CHAT MSG ROLE FRAMES */
+
+/* 🎧 VJ */
 .chat-msg.role-dj {
-    border-color: rgba(6,182,212,.32);
-    background: linear-gradient(135deg, rgba(6,182,212,.12), rgba(255,255,255,.36));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 8px 18px rgba(6,182,212,.08);
+    border: 1px solid rgba(6,182,212,.45);
+    background: linear-gradient(135deg, rgba(6,182,212,.1) 0%, rgba(255,255,255,.38) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 4px 16px rgba(6,182,212,.12), inset 3px 0 0 rgba(6,182,212,.5);
+    border-radius: var(--radius-md);
+    position: relative;
+}
+.chat-msg.role-dj::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(180deg,#38bdf8,#0891b2);
+    border-radius: 999px 0 0 999px;
 }
 .chat-msg.role-dj .chat-msg-avatar {
-    border-color: rgba(6,182,212,.5);
-    box-shadow: 0 0 0 3px rgba(6,182,212,.08), 0 10px 20px rgba(6,182,212,.16);
+    border: 2px solid transparent;
+    background: linear-gradient(white,white) padding-box, linear-gradient(135deg,#38bdf8,#0891b2) border-box;
+    box-shadow: 0 0 0 3px rgba(6,182,212,.15), 0 6px 18px rgba(6,182,212,.22);
 }
+.chat-msg-name.dj { color: #0891b2; text-shadow: 0 0 12px rgba(6,182,212,.3); }
+
+/* 🛡 Admin */
 .chat-msg.role-admin {
-    border-color: rgba(255,100,80,.34);
-    background: linear-gradient(135deg, rgba(255,119,80,.13), rgba(255,245,240,.4));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 8px 18px rgba(255,100,80,.08);
+    border: 1px solid rgba(255,100,80,.45);
+    background: linear-gradient(135deg, rgba(255,100,80,.1) 0%, rgba(255,245,240,.4) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 4px 16px rgba(255,100,80,.12), inset 3px 0 0 rgba(255,100,80,.5);
+    position: relative;
+}
+.chat-msg.role-admin::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(180deg,#FF7B6B,#FFB347);
+    border-radius: 999px 0 0 999px;
 }
 .chat-msg.role-admin .chat-msg-avatar {
-    border-color: rgba(255,100,80,.5);
-    box-shadow: 0 0 0 3px rgba(255,100,80,.08), 0 10px 20px rgba(255,100,80,.16);
+    border: 2px solid transparent;
+    background: linear-gradient(white,white) padding-box, linear-gradient(135deg,#FF7B6B,#FFB347) border-box;
+    box-shadow: 0 0 0 3px rgba(255,100,80,.15), 0 6px 18px rgba(255,100,80,.22);
 }
+.chat-msg-name.admin { color: #dc5a3f; text-shadow: 0 0 12px rgba(255,100,80,.25); }
+
+/* 💎 VIP */
 .chat-msg.role-vip {
-    border-color: rgba(217,70,239,.28);
-    background: linear-gradient(135deg, rgba(217,70,239,.11), rgba(255,245,255,.42));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 8px 18px rgba(217,70,239,.07);
+    border: 1px solid rgba(168,85,247,.42);
+    background: linear-gradient(135deg, rgba(168,85,247,.1) 0%, rgba(255,245,255,.42) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 4px 16px rgba(168,85,247,.12), inset 3px 0 0 rgba(168,85,247,.5);
+    position: relative;
+}
+.chat-msg.role-vip::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(180deg,#c084fc,#7c3aed);
+    border-radius: 999px 0 0 999px;
 }
 .chat-msg.role-vip .chat-msg-avatar {
-    border-color: rgba(217,70,239,.48);
-    box-shadow: 0 0 0 3px rgba(217,70,239,.08), 0 10px 20px rgba(217,70,239,.15);
+    border: 2px solid transparent;
+    background: linear-gradient(white,white) padding-box, linear-gradient(135deg,#e879f9,#7c3aed) border-box;
+    box-shadow: 0 0 0 3px rgba(168,85,247,.15), 0 6px 18px rgba(168,85,247,.2);
 }
+.chat-msg-name.vip { color: #a855f7; text-shadow: 0 0 12px rgba(168,85,247,.25); }
+
+/* 👤 Member */
+.chat-msg.role-user {
+    border: 1px solid rgba(255,136,100,.18);
+    background: linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.12));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+/* 🌍 Guest */
+.chat-msg.role-guest {
+    border: 1px solid rgba(100,116,139,.2);
+    background: linear-gradient(180deg, rgba(248,250,252,.5), rgba(241,245,249,.3));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+}
+
 .chat-msg.role-mod {
     border-color: rgba(34,197,94,.3);
-    background: linear-gradient(135deg, rgba(34,197,94,.11), rgba(245,255,249,.42));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.58), 0 8px 18px rgba(34,197,94,.07);
+    background: linear-gradient(135deg, rgba(34,197,94,.1), rgba(245,255,249,.42));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 12px rgba(34,197,94,.07);
+    position: relative;
+}
+.chat-msg.role-mod::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(180deg,#4ade80,#16a34a);
+    border-radius: 999px 0 0 999px;
 }
 .chat-msg.role-mod .chat-msg-avatar {
-    border-color: rgba(34,197,94,.45);
-    box-shadow: 0 0 0 3px rgba(34,197,94,.08), 0 10px 20px rgba(34,197,94,.14);
+    border: 2px solid transparent;
+    background: linear-gradient(white,white) padding-box, linear-gradient(135deg,#4ade80,#16a34a) border-box;
+    box-shadow: 0 0 0 3px rgba(34,197,94,.12), 0 6px 16px rgba(34,197,94,.16);
 }
 .system-msg {
     text-align: center; font-size: 12px; color: var(--text-muted);

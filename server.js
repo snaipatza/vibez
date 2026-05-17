@@ -202,19 +202,19 @@ app.get('/api/ads', (req, res) => {
 });
 
 // ── DM ────────────────────────────────────────────────────────────────
-app.get('/api/users/online', requireLogin, (req, res) => {
+app.get('/api/users/online', requireAuth, (req, res) => {
     const users = db.prepare(`SELECT username, role, avatar FROM users WHERE username != ? ORDER BY username`).all(req.session.user.username);
     res.json(users);
 });
 
-app.get('/api/dm/:with', requireLogin, (req, res) => {
+app.get('/api/dm/:with', requireAuth, (req, res) => {
     const me = req.session.user.username;
     const other = req.params.with;
     const msgs = db.prepare(`SELECT * FROM direct_messages WHERE (from_user=? AND to_user=?) OR (from_user=? AND to_user=?) ORDER BY created_at ASC LIMIT 100`).all(me, other, other, me);
     res.json(msgs);
 });
 
-app.post('/api/dm/send', requireLogin, (req, res) => {
+app.post('/api/dm/send', requireAuth, (req, res) => {
     const from = req.session.user.username;
     const { to, message } = req.body;
     if (!to || !message?.trim()) return res.status(400).json({ error: 'invalid' });

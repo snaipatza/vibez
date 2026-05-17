@@ -405,12 +405,10 @@ function stopProgressUpdate() {
 }
 
 function showYouTubePlayer() {
-    document.getElementById('vinylContainer').style.display = '';
     document.getElementById('ytEmbedArea').classList.add('active');
 }
 
 function showVinyl() {
-    document.getElementById('vinylContainer').style.display = '';
     document.getElementById('ytEmbedArea').classList.remove('active');
     stopProgressUpdate();
     if (ytPlayer) {
@@ -428,7 +426,6 @@ function showVinyl() {
 function setPlayingUI(playing) {
     isPlaying = playing;
     document.getElementById('playBtn').innerHTML = `<i class="fas fa-${playing ? 'pause' : 'play'}"></i>`;
-    document.getElementById('vinyl').classList.toggle('paused', !playing);
 }
 
 // ── NOW PLAYING SYNC (สำหรับ listener) ────────────────────────────────

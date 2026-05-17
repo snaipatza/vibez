@@ -269,41 +269,33 @@ body {
 /* CONTENT */
 .content-area {
     flex: 1;
-    display: grid;
-    grid-template-columns: 1fr var(--chat-width);
-    overflow: hidden;
+    overflow-y: auto;
     min-height: 0;
 }
 .stream-section {
-    min-width: 0;
-    overflow-y: auto;
+    max-width: 860px;
+    margin: 0 auto;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 20px;
 }
-.right-panel {
+
+/* Inline chat (inside stream column) */
+.chat-inline {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--border-color);
-    background: var(--bg-glass);
-    backdrop-filter: blur(20px);
     overflow: hidden;
-    min-height: 0;
+    min-height: 420px;
+    max-height: 560px;
 }
-.right-panel .request-section {
-    flex-shrink: 0;
-    overflow-y: auto;
-    max-height: 55%;
-    padding: 18px;
-    border-bottom: 1px solid var(--border-color);
-}
-.right-panel .chat-panel.chat-side {
+.chat-inline .chat-messages {
     flex: 1;
-    border-left: none;
-    background: transparent;
-    backdrop-filter: none;
     min-height: 0;
+    overflow-y: auto;
 }
 
 /* DJ PLAYER */

@@ -279,20 +279,33 @@ body {
     gap: 20px;
 }
 
-/* Top zone: player (left) + chat (right), same height */
+/* Top zone: player+chat (left) | request+queue (right) */
 .top-zone {
     display: grid;
     grid-template-columns: 1fr var(--chat-width);
     gap: 20px;
-    align-items: stretch;
+    align-items: start;
 }
+
+/* Left col: player card then chat below */
 .player-col {
     display: flex;
     flex-direction: column;
+    gap: 16px;
     min-width: 0;
 }
 
-/* Chat column — matches player height */
+/* Right col: request + queue + ads, scrollable */
+.request-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    overflow-y: auto;
+    max-height: calc(100vh - var(--topbar-height) - 48px);
+}
+
+/* Live Chat (inline below player) */
 .chat-col {
     display: flex;
     flex-direction: column;
@@ -301,7 +314,8 @@ body {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
     overflow: hidden;
-    min-height: 0;
+    min-height: 360px;
+    max-height: 480px;
 }
 .chat-col .chat-messages {
     flex: 1;
@@ -1458,7 +1472,7 @@ button:disabled {
 @media (max-width: 1100px) {
     .ads-grid { flex-direction: column; }
     .top-zone { grid-template-columns: 1fr; }
-    .chat-col { min-height: 400px; }
+    .request-col { max-height: none; }
     .floating-reactions { right: 20px; }
 }
 @media (max-width: 768px) {

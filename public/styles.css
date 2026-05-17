@@ -462,9 +462,9 @@ body {
     padding: 20px;
 }
 .ads-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 .ad-slot {
     position: relative;
@@ -545,18 +545,14 @@ body {
 
 /* MOCK AD SLOT */
 .ad-slot-mock {
-    min-height: 180px;
     border: 1.5px dashed rgba(255,123,107,0.3);
     border-radius: 14px;
     background: linear-gradient(145deg, rgba(255,123,107,0.04), rgba(255,255,255,0.6));
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
     gap: 0;
     transition: transform .2s, box-shadow .2s, border-color .2s;
-    text-align: center;
-    padding: 0;
     overflow: hidden;
 }
 .ad-slot-mock:hover {
@@ -565,24 +561,26 @@ body {
     border-color: rgba(255,123,107,0.5);
 }
 .ad-slot-mock-icon {
-    width: 100%;
-    aspect-ratio: 4 / 3;
+    width: 90px;
+    min-width: 90px;
+    height: 90px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgba(255,248,244,0.9);
-    font-size: 36px;
+    font-size: 32px;
     color: var(--mock-color);
 }
 .ad-slot-mock .ad-slot-copy {
-    padding: 12px 14px 14px;
-    width: 100%;
+    padding: 12px 14px;
+    flex: 1;
 }
 .ad-slot-mock .ad-slot-copy strong {
-    font-size: 12px;
-    color: var(--text-muted);
+    font-size: 13px;
+    color: var(--text-primary);
     font-weight: 700;
-    letter-spacing: .5px;
+    display: block;
+    margin-bottom: 4px;
 }
 .ad-slot-mock .ad-slot-copy span {
     font-size: 12px;
@@ -1301,7 +1299,7 @@ button:disabled {
 
 /* RESPONSIVE */
 @media (max-width: 1100px) {
-    .ads-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ads-grid { flex-direction: column; }
     .content-area { flex-direction: column; }
     .chat-panel.chat-side {
         width: 100%;
@@ -1313,7 +1311,7 @@ button:disabled {
     .floating-reactions { right: 20px; }
 }
 @media (max-width: 768px) {
-    .ads-grid { grid-template-columns: 1fr; }
+    .ads-grid { flex-direction: column; }
     .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 300; transform: translateX(-100%); }
     .sidebar.open { transform: translateX(0); }
     .mobile-menu-btn { display: flex; }

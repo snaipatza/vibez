@@ -13,17 +13,19 @@ const SoundEngine = (() => {
   function playKeyClick() {
     try {
       const ac = getCtx();
-      const buf = ac.createBuffer(1, ac.sampleRate * 0.04, ac.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 8);
-      const src = ac.createBufferSource();
+      const t = ac.currentTime;
+      // soft sine tap — low freq with quick decay
+      const osc = ac.createOscillator();
       const gain = ac.createGain();
-      gain.gain.setValueAtTime(0.18, ac.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.04);
-      src.buffer = buf;
-      src.connect(gain);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220 + Math.random() * 40, t);
+      osc.frequency.exponentialRampToValueAtTime(80, t + 0.06);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      osc.connect(gain);
       gain.connect(ac.destination);
-      src.start();
+      osc.start(t);
+      osc.stop(t + 0.08);
     } catch {}
   }
 

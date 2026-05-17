@@ -3516,3 +3516,12 @@ a { color: inherit; text-decoration: none; }
 .sub-perk-row.locked { color: var(--ink-mute); }
 .sub-perk-row.unlocked { color: var(--ink); }
 .perk-icon { font-size: 14px; flex-shrink: 0; }
+
+/* user pill action buttons */
+.user-pill-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}

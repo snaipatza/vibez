@@ -261,7 +261,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
       </div>
 
-      <div className="user-pill" onClick={onOpenProfile} style={{ cursor: onOpenProfile ? 'pointer' : 'default' }} title="แก้ไขโปรไฟล์">
+      <div className="user-pill">
         <div className="avatar">
           {user.avatar_url
             ? <img src={user.avatar_url} alt="" />
@@ -273,11 +273,18 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
           <div className="name">{user.display_name || user.name}</div>
           <div className="role">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
         </div>
-        {onLogout && (
-          <div className="icon-btn" title="ออกจากระบบ" onClick={(e) => { e.stopPropagation(); onLogout(); }} style={{ cursor: 'pointer' }}>
-            <i className="fas fa-sign-out-alt"></i>
-          </div>
-        )}
+        <div className="user-pill-actions">
+          {onOpenProfile && (
+            <div className="icon-btn" title="ตั้งค่าโปรไฟล์" onClick={onOpenProfile} style={{ cursor: 'pointer' }}>
+              <i className="fas fa-gear"></i>
+            </div>
+          )}
+          {onLogout && (
+            <div className="icon-btn" title="ออกจากระบบ" onClick={onLogout} style={{ cursor: 'pointer' }}>
+              <i className="fas fa-sign-out-alt"></i>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

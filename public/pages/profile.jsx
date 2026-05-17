@@ -51,7 +51,7 @@ function ProfilePage({ user, onUpdate, toast }) {
     finally { setSaving(false); }
   };
 
-  const BANK_INFO = 'กสิกรไทย xxx-x-xxxxx-x\nชื่อบัญชี: IMVU Society Radio\nส่งสลิปมาที่ Line: @imvuradio';
+  const BANK_INFO = 'กสิกรไทย xxx-x-xxxxx-x\nชื่อบัญชี: IIMVU Society Radio\nส่งสลิปมาที่ Line: @imvuradio';
 
   return (
     <div className="profile-page">

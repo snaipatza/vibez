@@ -26,11 +26,11 @@ function avatarUrl(seed, imageUrl = '') {
 }
 
 const fakeTracks = [
-    { title: 'Midnight Groove', artist: 'IMVU Society Radio ft. Luna',    duration: '4:12', seed: 'album1' },
-    { title: 'Neon Dreams',     artist: 'IMVU Society Radio x Synthwave', duration: '3:45', seed: 'album2' },
-    { title: 'Bass Culture',    artist: 'IMVU Society Radio ft. MC Flow', duration: '5:01', seed: 'album3' },
-    { title: 'Electric Sunset', artist: 'IMVU Society Radio',             duration: '3:58', seed: 'album4' },
-    { title: 'Deep Into Night', artist: 'IMVU Society Radio ft. Aurora',  duration: '4:33', seed: 'album5' },
+    { title: 'Midnight Groove', artist: 'IIMVU Society Radio ft. Luna',    duration: '4:12', seed: 'album1' },
+    { title: 'Neon Dreams',     artist: 'IIMVU Society Radio x Synthwave', duration: '3:45', seed: 'album2' },
+    { title: 'Bass Culture',    artist: 'IIMVU Society Radio ft. MC Flow', duration: '5:01', seed: 'album3' },
+    { title: 'Electric Sunset', artist: 'IIMVU Society Radio',             duration: '3:58', seed: 'album4' },
+    { title: 'Deep Into Night', artist: 'IIMVU Society Radio ft. Aurora',  duration: '4:33', seed: 'album5' },
 ];
 
 // ── YOUTUBE IFRAME API CALLBACK ────────────────────────────────────────

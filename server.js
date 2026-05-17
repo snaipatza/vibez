@@ -812,5 +812,5 @@ io.on('connection', (socket) => {
 });
 
 httpServer.listen(PORT, () => {
-    console.log(`\n📻 IMVU Society Radio running at http://localhost:${PORT}\n`);
+    console.log(`\n📻 IIMVU Society Radio running at http://localhost:${PORT}\n`);
 });

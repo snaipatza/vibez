@@ -1,4 +1,4 @@
-// IMVU Society Radio - main app shell
+// IIMVU Society Radio - main app shell
 const { useState, useEffect, useRef } = React;
 
 let appYoutubeApiPromise = null;
@@ -294,14 +294,14 @@ function App() {
 
   const sidebarNowPlaying = nowPlaying
     ? {
-        dj: nowPlaying.dj_username || 'IMVU Society Radio',
+        dj: nowPlaying.dj_username || 'IIMVU Society Radio',
         track: nowPlaying.title || 'On Air',
         progress: Math.min(100, Math.round(((nowPlaying.elapsed_seconds || 0) / Math.max(nowPlaying.duration || 240, 1)) * 100)),
         djSeed: nowPlaying.dj_avatar_seed || 'imvu-society-radio',
         djAvatarUrl: nowPlaying.dj_avatar_url || '',
       }
     : {
-        dj: 'IMVU Society Radio',
+        dj: 'IIMVU Society Radio',
         track: 'Waiting for DJ',
         progress: 0,
         djSeed: 'imvu-society-radio',

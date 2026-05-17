@@ -315,7 +315,7 @@ function LivePage({
 
   const djSeed = nowPlaying?.dj_avatar_seed || 'IMVURADIO';
   const djAvatarUrl = nowPlaying?.dj_avatar_url || '';
-  const djName = nowPlaying?.dj_username || 'IMVU Society Radio';
+  const djName = nowPlaying?.dj_username || 'IIMVU Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
 
@@ -323,7 +323,7 @@ function LivePage({
     <>
       <TopBar
         crumb="ROOM ⁄ MAIN-STAGE"
-        title="IMVU Society Radio"
+        title="IIMVU Society Radio"
         meta={nowPlaying?.title ? `🎧 ${nowPlaying.title}` : 'รอ VJ เปิดเพลง...'}
         listeners={listeners}
         onToggleChat={() => setChatOpen(v => !v)}
@@ -365,7 +365,7 @@ function LivePage({
                 <div className="now-row">
                   <div className="live-tag"><div className="dot"></div> ON AIR</div>
                   {nowPlaying && <div className="eq"><span /><span /><span /><span /><span /></div>}
-                  <div className="meta">— IMVU Society Radio</div>
+                  <div className="meta">— IIMVU Society Radio</div>
                 </div>
 
                 <div>

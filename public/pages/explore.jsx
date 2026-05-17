@@ -17,7 +17,7 @@ function ExplorePage({ listeners, queueCount, nowPlaying, onJoin, chatOpen, setC
         <div className="stage">
           <div className="explore-hero">
             <div>
-              <div className="pre">- IMVU Society Radio</div>
+              <div className="pre">- IIMVU Society Radio</div>
               <h1>สถานีถ่ายทอดสด<br /><span className="orange">พร้อมใช้งานจริง</span></h1>
               <p className="lede">
                 หน้านี้ดึงสถานะจากระบบจริง: เพลงที่กำลังเล่น, จำนวนผู้ฟังออนไลน์ และคิวเพลงถัดไป
@@ -58,9 +58,9 @@ function ExplorePage({ listeners, queueCount, nowPlaying, onJoin, chatOpen, setC
                   : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, opacity: 0.6 }}>OFFLINE</span>
                 }
               </div>
-              <h3>{nowPlaying?.title || 'IMVU Society Radio'}</h3>
+              <h3>{nowPlaying?.title || 'IIMVU Society Radio'}</h3>
               <div className="room-sub">
-                {(nowPlaying?.dj_username || 'IMVU Society Radio')} / {nowPlaying?.artist || 'Live Station'}
+                {(nowPlaying?.dj_username || 'IIMVU Society Radio')} / {nowPlaying?.artist || 'Live Station'}
               </div>
               <div className="now-playing-mini">
                 {isLive && <span className="eqm"><span /><span /><span /></span>}

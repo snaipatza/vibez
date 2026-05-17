@@ -1,4 +1,4 @@
-/* Shared building blocks for IMVU Society Radio */
+/* Shared building blocks for IIMVU Society Radio */
 
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -115,7 +115,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 
 // -------- SIDEBAR -----------------------------------------------------------
 function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
-  const np = nowPlaying || { dj: 'IMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
+  const np = nowPlaying || { dj: 'IIMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
   const visibleOnlineUsers = Array.isArray(onlineUsers)
     ? onlineUsers.filter((person) => person?.username && person.username !== user.name).slice(0, 8)
     : [];
@@ -124,7 +124,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark orange">V</div>
-        <div className="brand-name">IMVU Society Radio</div>
+        <div className="brand-name">IIMVU Society Radio</div>
         <div className="brand-tag">FM/01</div>
       </div>
 

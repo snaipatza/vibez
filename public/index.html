@@ -180,60 +180,6 @@
                         </div>
                     </div>
 
-                    <!-- Song Request -->
-                    <div class="request-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-hand-paper"></i> ขอเพลง</h3>
-                        </div>
-
-                        <!-- YouTube URL -->
-                        <div class="search-input-wrapper yt-mode">
-                            <i class="fab fa-youtube yt-icon"></i>
-                            <input type="url" id="ytUrl" placeholder="วางลิงก์ YouTube ที่นี่..." autocomplete="off">
-                            <button class="yt-fetch-btn" id="ytFetchBtn"><i class="fas fa-search"></i> ดึงข้อมูล</button>
-                        </div>
-
-                        <!-- YouTube Preview -->
-                        <div class="yt-preview" id="ytPreview" style="display:none">
-                            <img class="yt-thumb" id="ytThumb" src="" alt="">
-                            <div class="yt-info">
-                                <span class="yt-title" id="ytTitle"></span>
-                                <a class="yt-link" id="ytLink" href="#" target="_blank" rel="noopener">
-                                    <i class="fab fa-youtube"></i> เปิด YouTube
-                                </a>
-                            </div>
-                            <button class="yt-submit-btn" id="ytSubmitBtn">
-                                <i class="fas fa-paper-plane"></i> ขอเพลงนี้
-                            </button>
-                            <button class="yt-clear" id="ytClear"><i class="fas fa-times"></i></button>
-                        </div>
-
-                        <div class="divider-text"><span>หรือค้นหาชื่อเพลง</span></div>
-
-                        <div class="request-form" style="position:relative">
-                            <div class="search-input-wrapper">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="songSearch" placeholder="ชื่อเพลง – ศิลปิน..." autocomplete="off">
-                                <button class="send-request-btn" id="sendRequestBtn"><i class="fas fa-paper-plane"></i></button>
-                            </div>
-                            <div class="search-results" id="searchResults"></div>
-                        </div>
-
-                        <!-- Queue -->
-                        <div class="queue-section">
-                            <div class="section-header" style="margin-top:16px">
-                                <h3><i class="fas fa-list-ol"></i> คิวเพลง</h3>
-                                <span class="request-limit" id="queueCountLabel">0 เพลง</span>
-                            </div>
-                            <div class="queue-list" id="queueList">
-                                <div class="queue-empty">
-                                    <i class="fas fa-music"></i>
-                                    <span>ยังไม่มีเพลงในคิว — ขอเพลงได้เลย!</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Live Chat -->
                     <div class="chat-inline" id="chatPanel">
                         <div class="chat-header">
@@ -274,6 +220,59 @@
                         <div class="ads-grid" id="adsGrid"></div>
                     </section>
                 </div>
+
+                <!-- Right Panel: ขอเพลง + คิวเพลง -->
+                <aside class="request-panel">
+                    <div class="request-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-hand-paper"></i> ขอเพลง</h3>
+                        </div>
+
+                        <div class="search-input-wrapper yt-mode">
+                            <i class="fab fa-youtube yt-icon"></i>
+                            <input type="url" id="ytUrl" placeholder="วางลิงก์ YouTube ที่นี่..." autocomplete="off">
+                            <button class="yt-fetch-btn" id="ytFetchBtn"><i class="fas fa-search"></i> ดึงข้อมูล</button>
+                        </div>
+
+                        <div class="yt-preview" id="ytPreview" style="display:none">
+                            <img class="yt-thumb" id="ytThumb" src="" alt="">
+                            <div class="yt-info">
+                                <span class="yt-title" id="ytTitle"></span>
+                                <a class="yt-link" id="ytLink" href="#" target="_blank" rel="noopener">
+                                    <i class="fab fa-youtube"></i> เปิด YouTube
+                                </a>
+                            </div>
+                            <button class="yt-submit-btn" id="ytSubmitBtn">
+                                <i class="fas fa-paper-plane"></i> ขอเพลงนี้
+                            </button>
+                            <button class="yt-clear" id="ytClear"><i class="fas fa-times"></i></button>
+                        </div>
+
+                        <div class="divider-text"><span>หรือค้นหาชื่อเพลง</span></div>
+
+                        <div class="request-form" style="position:relative">
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="songSearch" placeholder="ชื่อเพลง – ศิลปิน..." autocomplete="off">
+                                <button class="send-request-btn" id="sendRequestBtn"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                            <div class="search-results" id="searchResults"></div>
+                        </div>
+
+                        <div class="queue-section">
+                            <div class="section-header" style="margin-top:16px">
+                                <h3><i class="fas fa-list-ol"></i> คิวเพลง</h3>
+                                <span class="request-limit" id="queueCountLabel">0 เพลง</span>
+                            </div>
+                            <div class="queue-list" id="queueList">
+                                <div class="queue-empty">
+                                    <i class="fas fa-music"></i>
+                                    <span>ยังไม่มีเพลงในคิว — ขอเพลงได้เลย!</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
             </div>
         </main>
     </div>

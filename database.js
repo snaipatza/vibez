@@ -149,4 +149,13 @@ if (!adminExists) {
     console.log('✅ Admin account: ADMIN / admin1234');
 }
 
+// Create second admin account
+const admin2Exists = db.prepare("SELECT id FROM users WHERE username = 'ADMIN2'").get();
+if (!admin2Exists) {
+    const hash = bcrypt.hashSync('admin5678', 10);
+    db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES ('ADMIN2', ?, 'admin', 'admin2-vibez')")
+      .run(hash);
+    console.log('✅ Admin account: ADMIN2 / admin5678');
+}
+
 module.exports = db;

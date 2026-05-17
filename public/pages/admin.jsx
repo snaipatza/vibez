@@ -243,7 +243,9 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                           </div>
                         </div>
                       </td>
-                      <td><span className={`role-tag ${u.role}`}>{u.role}</span></td>
+                      <td><span className={`role-tag ${u.role}`}>{
+                        {admin:'🛡 Admin',dj:'🎧 DJ',vip:'💎 VIP',member:'👤 Member',user:'👤 Member',guest:'🌍 Guest'}[u.role] || u.role
+                      }</span></td>
                       <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', fontSize: 11 }}>
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('th-TH') : '-'}
                       </td>
@@ -251,9 +253,17 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                         <div className="row-actions">
                           {u.role !== 'admin' && (
                             <>
-                              <button className="btn-mini" onClick={() => setRole(u.id, u.role === 'dj' ? 'user' : 'dj')}>
-                                {u.role === 'dj' ? 'Demote' : 'Make DJ'}
-                              </button>
+                              <select
+                                className="btn-mini"
+                                value={u.role === 'user' ? 'member' : u.role}
+                                onChange={e => setRole(u.id, e.target.value)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <option value="guest">🌍 Guest</option>
+                                <option value="member">👤 Member</option>
+                                <option value="vip">💎 VIP</option>
+                                <option value="dj">🎧 DJ</option>
+                              </select>
                               {u.id !== user.id && (
                                 <button className="btn-mini danger" onClick={() => removeUser(u.id)}>Ban</button>
                               )}

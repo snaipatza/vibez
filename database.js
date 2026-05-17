@@ -112,14 +112,21 @@ const alterations = [
     "ALTER TABLE now_playing ADD COLUMN dj_avatar_url TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN last_seen INTEGER DEFAULT 0",
     "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN name_color TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN chat_color TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN media_url TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN media_type TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN name_color TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN chat_color TEXT DEFAULT ''",
     "ALTER TABLE direct_messages ADD COLUMN media_url TEXT DEFAULT ''",
     "ALTER TABLE direct_messages ADD COLUMN media_type TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }
 }
+
+// Migrate old 'user' role → 'member'
+try { db.exec("UPDATE users SET role='member' WHERE role='user'"); } catch(e) {}
 
 // Create default DJ account
 const djExists = db.prepare("SELECT id FROM users WHERE username = 'IMVURADIO'").get();

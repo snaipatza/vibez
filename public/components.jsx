@@ -5,6 +5,20 @@ const { useState, useEffect, useRef, useMemo } = React;
 const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 const CHAT_EMOJIS = ['\u2764\ufe0f', '\ud83d\udd25', '\ud83d\ude02', '\ud83d\ude0d', '\ud83e\udd73', '\ud83d\ude2d', '\ud83d\ude4f', '\u2728'];
 
+const ROLE_META = {
+  admin:  { emoji: '\ud83d\udee1', label: 'Admin',  level: 4 },
+  dj:     { emoji: '\ud83c\udfa7', label: 'DJ',     level: 3 },
+  vip:    { emoji: '\ud83d\udc8e', label: 'VIP',    level: 2 },
+  member: { emoji: '\ud83d\udc64', label: 'Member', level: 1 },
+  user:   { emoji: '\ud83d\udc64', label: 'Member', level: 1 },
+  guest:  { emoji: '\ud83c\udf0d', label: 'Guest',  level: 0 },
+};
+function roleMeta(role) { return ROLE_META[role] || ROLE_META.guest; }
+function roleLevel(role) { return roleMeta(role).level; }
+
+const MEMBER_COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f1c','#ffffff'];
+const VIP_COLORS    = [...MEMBER_COLORS,'#ff3cac','#00d4ff','#02c39a','#f77f00','#e040fb','#00b4d8','#f72585','#90e0ef'];
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -24,8 +38,9 @@ function ChatMessageMedia({ mediaUrl, mediaType }) {
   );
 }
 
-function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendingMedia, onPickMedia, onClearMedia }) {
+function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendingMedia, onPickMedia, onClearMedia, userRole }) {
   const fileRef = useRef(null);
+  const canUpload = roleLevel(userRole) >= 2;
 
   return (
     <form className="chat-input" onSubmit={onSubmit}>
@@ -37,30 +52,34 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
             </button>
           ))}
         </div>
-        <button type="button" className="attach-btn" onClick={() => fileRef.current?.click()} title="Upload image or GIF">
-          <i className="fas fa-image"></i>
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          style={{ display: 'none' }}
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) return;
-            try {
-              const dataUrl = await readFileAsDataUrl(file);
-              onPickMedia({
-                dataUrl,
-                name: file.name,
-                kind: file.type === 'image/gif' ? 'gif' : 'image',
-              });
-            } catch (err) {
-              alert(err.message || 'Unable to read file');
-            }
-          }}
-        />
+        {canUpload && (
+          <>
+            <button type="button" className="attach-btn" onClick={() => fileRef.current?.click()} title="Upload image or GIF">
+              <i className="fas fa-image"></i>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                try {
+                  const dataUrl = await readFileAsDataUrl(file);
+                  onPickMedia({
+                    dataUrl,
+                    name: file.name,
+                    kind: file.type === 'image/gif' ? 'gif' : 'image',
+                  });
+                } catch (err) {
+                  alert(err.message || 'Unable to read file');
+                }
+              }}
+            />
+          </>
+        )}
       </div>
 
       {pendingMedia && (
@@ -159,11 +178,13 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
             <span>Queue</span>
             <span className="badge">{queueCount}</span>
           </div>
-          <div className={`nav-item ${page === 'dm' ? 'active' : ''}`} onClick={() => onNav('dm')}>
-            <i className="fas fa-comment-dots nav-icon"></i>
-            <span>Messages</span>
-            {page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
-          </div>
+          {roleLevel(user.role) >= 2 && (
+            <div className={`nav-item ${page === 'dm' ? 'active' : ''}`} onClick={() => onNav('dm')}>
+              <i className="fas fa-comment-dots nav-icon"></i>
+              <span>Messages</span>
+              {page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
+            </div>
+          )}
           {user.role === 'admin' && (
             <div className={`nav-item ${page === 'admin' ? 'active' : ''}`} onClick={() => onNav('admin')}>
               <i className="fas fa-sliders-h nav-icon"></i>
@@ -232,7 +253,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
               </div>
               <div className="info">
                 <div className="name">@{person.username}</div>
-                <div className="role">{person.role || 'listener'}</div>
+                <div className="role">{roleMeta(person.role).emoji} {roleMeta(person.role).label}</div>
               </div>
               <i className="fas fa-comment-dots action"></i>
             </div>
@@ -250,7 +271,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
         <div className="info">
           <div className="name">{user.name}</div>
-          <div className="role">{user.role}</div>
+          <div className="role">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
         </div>
         {onLogout && (
           <div className="icon-btn" title="ออกจากระบบ" onClick={onLogout} style={{ cursor: 'pointer' }}>

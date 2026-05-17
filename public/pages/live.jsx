@@ -22,14 +22,28 @@ function fmtSec(s) {
   return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;
 }
 
+const ROLE_META = {
+  admin:  { emoji: '🛡', label: 'Admin',  level: 4 },
+  dj:     { emoji: '🎧', label: 'DJ',     level: 3 },
+  vip:    { emoji: '💎', label: 'VIP',    level: 2 },
+  member: { emoji: '👤', label: 'Member', level: 1 },
+  user:   { emoji: '👤', label: 'Member', level: 1 },
+  guest:  { emoji: '🌍', label: 'Guest',  level: 0 },
+};
+function liveRoleMeta(role) { return ROLE_META[role] || ROLE_META.guest; }
+function liveRoleLevel(role) { return liveRoleMeta(role).level; }
+
 function msgFromApi(m) {
   if (m.role === 'system' || m.username === 'SYSTEM') {
     return { system: true, text: m.message };
   }
   return {
     name: m.username,
+    role: m.role,
     dj: m.role === 'dj',
     text: m.message,
+    name_color: m.name_color || '',
+    chat_color: m.chat_color || '',
     media_url: m.media_url || '',
     media_type: m.media_type || '',
     time: fmtTime(m.created_at),
@@ -403,9 +417,10 @@ function LivePage({
                   </div>
                 )}
 
-                {/* Mood picker + tip jar */}
+                {/* Mood picker + tip jar + color picker */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                   <MoodPicker mood={mood} onPick={setMood} />
+                  <ColorPickerPanel user={user} toast={toast} />
                   {user.role === 'dj' && nowPlaying?.youtube_id && (
                     <button className="btn-mini solid" onClick={stopPlaying}>
                       Stop Live
@@ -473,22 +488,31 @@ function LivePage({
                   <h3>ขอเพลง</h3>
                 </div>
               </div>
-              <form className="rail-request" onSubmit={submitRequest}>
-                <div className="search-field">
-                  <i className="fas fa-search"></i>
-                  <input
-                    placeholder="ชื่อเพลง หรือวาง YouTube link"
-                    value={searchVal}
-                    onChange={e => setSearchVal(e.target.value)}
-                  />
+              {liveRoleLevel(user.role) < 1 ? (
+                <div className="guest-lock">
+                  <i className="fas fa-lock"></i>
+                  <span>เฉพาะ Member ขึ้นไปเท่านั้นที่ขอเพลงได้</span>
                 </div>
-                <button type="submit" className="btn-primary orange">
-                  <i className="fas fa-paper-plane"></i> ส่งคำขอ
-                </button>
-              </form>
-              <div style={{ marginTop: 8, color: 'var(--ink-3)', fontSize: 12 }}>
-                รองรับทั้งชื่อเพลงทั่วไป และ YouTube URL เพื่อดึงชื่อเพลงจริงเข้าคิวอัตโนมัติ
-              </div>
+              ) : (
+                <>
+                  <form className="rail-request" onSubmit={submitRequest}>
+                    <div className="search-field">
+                      <i className="fas fa-search"></i>
+                      <input
+                        placeholder="ชื่อเพลง หรือวาง YouTube link"
+                        value={searchVal}
+                        onChange={e => setSearchVal(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="btn-primary orange">
+                      <i className="fas fa-paper-plane"></i> ส่งคำขอ
+                    </button>
+                  </form>
+                  <div style={{ marginTop: 8, color: 'var(--ink-3)', fontSize: 12 }}>
+                    รองรับทั้งชื่อเพลงทั่วไป และ YouTube URL เพื่อดึงชื่อเพลงจริงเข้าคิวอัตโนมัติ
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Queue */}
@@ -640,7 +664,7 @@ function ChatPanelInline({ messages, onSend, user }) {
             </div>
           ) : (
             <div key={m.id || i} className="msg">
-              <div className="av">
+              <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
                 {m.avatar_url
                   ? <img src={m.avatar_url} alt="" />
                   : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />
@@ -648,10 +672,17 @@ function ChatPanelInline({ messages, onSend, user }) {
               </div>
               <div className="body">
                 <div className="head-line">
-                  <span className={`name ${m.dj ? 'dj' : ''}`}>{m.name}</span>
+                  <span className="role-badge" title={liveRoleMeta(m.role).label}>{liveRoleMeta(m.role).emoji}</span>
+                  <span
+                    className={`name ${m.dj ? 'dj' : ''}`}
+                    style={m.name_color ? { color: m.name_color } : undefined}
+                  >{m.name}</span>
                   <span className="time">{m.time}</span>
                 </div>
-                <div className="text">{m.text}</div>
+                <div
+                  className="text"
+                  style={m.chat_color ? { background: m.chat_color + '22', borderLeft: `2px solid ${m.chat_color}`, paddingLeft: 6, borderRadius: 4 } : undefined}
+                >{m.text}</div>
                 <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
               </div>
             </div>
@@ -668,8 +699,87 @@ function ChatPanelInline({ messages, onSend, user }) {
         pendingMedia={pendingMedia}
         onPickMedia={setPendingMedia}
         onClearMedia={() => setPendingMedia(null)}
+        userRole={user.role}
       />
     </>
+  );
+}
+
+// Color picker for VIP / Member
+function ColorPickerPanel({ user, toast }) {
+  const { useState } = React;
+  const MEMBER_PAL = ['', '#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f1c','#ffffff'];
+  const VIP_PAL    = [...MEMBER_PAL,'#ff3cac','#00d4ff','#02c39a','#f77f00','#e040fb','#00b4d8','#f72585','#90e0ef'];
+  const level = liveRoleLevel(user.role);
+  if (level < 1) return null;
+  const palette = level >= 2 ? VIP_PAL : MEMBER_PAL;
+  const [nameColor, setNameColor] = useState(user.name_color || '');
+  const [chatColor, setChatColor] = useState(user.chat_color || '');
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/me/colors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name_color: nameColor, chat_color: chatColor }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'บันทึกไม่สำเร็จ'); return; }
+      user.name_color = nameColor;
+      user.chat_color = chatColor;
+      toast('บันทึกสีสำเร็จ ✓', 'success');
+      setOpen(false);
+    } catch { toast('บันทึกไม่สำเร็จ'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="color-picker-wrap">
+      <button className="btn-mini" onClick={() => setOpen(v => !v)} title="ตั้งค่าสีชื่อ / แชท">
+        🎨 ตั้งค่าสี
+      </button>
+      {open && (
+        <div className="color-picker-panel">
+          <div className="cp-row">
+            <span className="cp-label">สีชื่อ</span>
+            <div className="cp-swatches">
+              {palette.map(c => (
+                <button
+                  key={c || 'none'}
+                  className={`cp-swatch ${nameColor === c ? 'active' : ''}`}
+                  style={{ background: c || 'transparent', border: c ? undefined : '1px dashed var(--ink-3)' }}
+                  onClick={() => setNameColor(c)}
+                  title={c || 'ค่าเริ่มต้น'}
+                />
+              ))}
+            </div>
+            <span className="cp-preview" style={{ color: nameColor || 'var(--ink)' }}>
+              {user.name}
+            </span>
+          </div>
+          <div className="cp-row">
+            <span className="cp-label">สีแชท</span>
+            <div className="cp-swatches">
+              {palette.map(c => (
+                <button
+                  key={c || 'none'}
+                  className={`cp-swatch ${chatColor === c ? 'active' : ''}`}
+                  style={{ background: c || 'transparent', border: c ? undefined : '1px dashed var(--ink-3)' }}
+                  onClick={() => setChatColor(c)}
+                  title={c || 'ค่าเริ่มต้น'}
+                />
+              ))}
+            </div>
+          </div>
+          <button className="btn-primary orange" style={{ marginTop: 8, width: '100%' }} onClick={save} disabled={saving}>
+            {saving ? 'กำลังบันทึก...' : 'บันทึกสี'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

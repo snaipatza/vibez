@@ -71,8 +71,22 @@ app.use(session({
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' }
 }));
 
+// Role level: guest=0, member=1, vip=2, dj=3, admin=4  (legacy 'user'=member=1)
+const ROLE_LEVEL = { guest: 0, user: 1, member: 1, vip: 2, dj: 3, admin: 4 };
+function roleLevel(role) { return ROLE_LEVEL[role] || 0; }
+
 function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
+    next();
+}
+function requireMember(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
+    if (roleLevel(req.session.role) < 1) return res.status(403).json({ error: 'เฉพาะ Member ขึ้นไปเท่านั้น' });
+    next();
+}
+function requireVIP(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
+    if (roleLevel(req.session.role) < 2) return res.status(403).json({ error: 'เฉพาะ VIP ขึ้นไปเท่านั้น' });
     next();
 }
 function requireDJ(req, res, next) {
@@ -177,11 +191,11 @@ app.post('/api/register', async (req, res) => {
     if (existing) return res.status(400).json({ error: 'Username นี้ถูกใช้ไปแล้ว' });
 
     const hash = await bcrypt.hash(password, 10);
-    const result = db.prepare('INSERT INTO users (username, password_hash, avatar_seed) VALUES (?, ?, ?)').run(username, hash, username + Math.random());
+    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES (?, ?, 'member', ?)").run(username, hash, username + Math.random());
     req.session.userId = result.lastInsertRowid;
     req.session.username = username;
-    req.session.role = 'user';
-    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'user', avatar_seed: username, avatar_url: '' });
+    req.session.role = 'member';
+    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'member', avatar_seed: username, avatar_url: '', name_color: '', chat_color: '' });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -200,7 +214,9 @@ app.post('/api/login', async (req, res) => {
         username: user.username,
         role: user.role,
         avatar_seed: user.avatar_seed || user.username,
-        avatar_url: user.avatar_url || ''
+        avatar_url: user.avatar_url || '',
+        name_color: user.name_color || '',
+        chat_color: user.chat_color || ''
     });
 });
 
@@ -210,16 +226,17 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
-    // อัปเดต last_seen
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const user = db.prepare('SELECT avatar_seed, avatar_url FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT avatar_seed, avatar_url, name_color, chat_color FROM users WHERE id=?').get(req.session.userId);
     res.json({
         loggedIn: true,
         userId: req.session.userId,
         username: req.session.username,
         role: req.session.role,
         avatar_seed: user?.avatar_seed || req.session.username,
-        avatar_url: user?.avatar_url || ''
+        avatar_url: user?.avatar_url || '',
+        name_color: user?.name_color || '',
+        chat_color: user?.chat_color || ''
     });
 });
 
@@ -250,6 +267,33 @@ app.patch('/api/me', requireAuth, (req, res) => {
         avatar_seed: avatarSeed,
         avatar_url: avatarUrl
     });
+});
+
+app.patch('/api/me/colors', requireAuth, (req, res) => {
+    const role = req.session.role;
+    const level = roleLevel(role);
+    if (level < 1) return res.status(403).json({ error: 'ไม่มีสิทธิ์เปลี่ยนสี' });
+
+    const MEMBER_COLORS = ['', '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff', '#ff9f1c', '#ffffff'];
+    const VIP_COLORS = [...MEMBER_COLORS, '#ff3cac', '#00d4ff', '#02c39a', '#f77f00', '#e040fb', '#00b4d8', '#f72585', '#7b2d8b', '#43aa8b', '#90e0ef'];
+
+    const nameColor = String(req.body.name_color || '').trim();
+    const chatColor = String(req.body.chat_color || '').trim();
+
+    if (nameColor && level < 2 && !MEMBER_COLORS.includes(nameColor))
+        return res.status(403).json({ error: 'Member เปลี่ยนได้เฉพาะสีพื้นฐาน' });
+    if (chatColor && level < 2 && !MEMBER_COLORS.includes(chatColor))
+        return res.status(403).json({ error: 'Member เปลี่ยนได้เฉพาะสีพื้นฐาน' });
+
+    const allowed = level >= 2 ? VIP_COLORS : MEMBER_COLORS;
+    if (nameColor && !allowed.includes(nameColor) && level < 3)
+        return res.status(400).json({ error: 'สีไม่ถูกต้อง' });
+    if (chatColor && !allowed.includes(chatColor) && level < 3)
+        return res.status(400).json({ error: 'สีไม่ถูกต้อง' });
+
+    db.prepare('UPDATE users SET name_color=?, chat_color=? WHERE id=?')
+        .run(nameColor, chatColor, req.session.userId);
+    res.json({ success: true, name_color: nameColor, chat_color: chatColor });
 });
 
 // นับจำนวนคนออนไลน์จริง (active ใน 2 นาทีที่ผ่านมา)
@@ -377,7 +421,7 @@ app.get('/api/dm/:with', requireAuth, (req, res) => {
     res.json(msgs);
 });
 
-app.post('/api/dm/send', requireAuth, (req, res) => {
+app.post('/api/dm/send', requireVIP, (req, res) => {
     const from = req.session.username;
     const to = String(req.body.to || '').trim();
     const message = String(req.body.message || '').trim();
@@ -493,7 +537,7 @@ app.get('/api/queue', (req, res) => {
     res.json(queue);
 });
 
-app.post('/api/queue', requireAuth, async (req, res) => {
+app.post('/api/queue', requireMember, async (req, res) => {
     const rawTitle = String(req.body.title || '').trim();
     const rawYoutubeUrl = String(req.body.youtube_url || '').trim();
     if (!rawTitle && !rawYoutubeUrl) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
@@ -565,22 +609,24 @@ app.get('/api/messages', (req, res) => {
         ORDER BY messages.created_at ASC
         LIMIT 60
     `).all(after);
-    res.json(messages);
+    res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '' })));
 });
 
 app.post('/api/messages', requireAuth, (req, res) => {
     const message = String(req.body.message || '').trim();
     if (!message && !req.body.media_data) return res.status(400).json({ error: 'Empty message' });
     if (message.length > 300) return res.status(400).json({ error: 'Message too long' });
-    const user = db.prepare('SELECT role FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT role, name_color, chat_color FROM users WHERE id=?').get(req.session.userId);
+    if (req.body.media_data && roleLevel(user.role) < 2)
+        return res.status(403).json({ error: 'เฉพาะ VIP ขึ้นไปเท่านั้นที่อัปโหลดรูปได้' });
     let media = { mediaUrl: '', mediaType: '' };
     try {
         media = saveChatMedia(req.session.username, req.body.media_data);
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
-    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type) VALUES (?,?,?,?,?,?)')
-        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType);
+    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color) VALUES (?,?,?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '');
     res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 
@@ -592,7 +638,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
 
 app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
     const { role } = req.body;
-    const validRoles = ['user', 'vip', 'dj', 'admin'];
+    const validRoles = ['guest', 'member', 'vip', 'dj', 'admin'];
     if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     const user = db.prepare('SELECT id FROM users WHERE id=?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });

@@ -63,6 +63,8 @@ function App() {
             role: data.role,
             avatar_seed: data.avatar_seed,
             avatar_url: data.avatar_url,
+            name_color: data.name_color || '',
+            chat_color: data.chat_color || '',
           });
         }
         setLoaded(true);
@@ -121,7 +123,7 @@ function App() {
       }
       return;
     }
-    if (loadedYoutubeIdRef.current === nowPlaying.youtube_id) {
+    if (loadedYoutubeIdRef.current === nowPlaying.youtube_id && ytPlayerRef.current) {
       try {
         if (nowPlaying.is_playing) ytPlayerRef.current?.playVideo?.();
         else ytPlayerRef.current?.pauseVideo?.();
@@ -176,7 +178,7 @@ function App() {
 
     mountPlayer();
     return () => { cancelled = true; };
-  }, [nowPlaying?.youtube_id, nowPlaying?.is_playing]);
+  }, [nowPlaying?.youtube_id, nowPlaying?.is_playing, user?.id]);
 
   useEffect(() => {
     if (progressTimerRef.current) clearInterval(progressTimerRef.current);
@@ -221,7 +223,7 @@ function App() {
   };
 
   const handleLogin = (u) => {
-    setUser(u);
+    setUser({ ...u, name_color: u.name_color || '', chat_color: u.chat_color || '' });
     toast(`ยินดีต้อนรับ @${u.name}`, 'success');
   };
 

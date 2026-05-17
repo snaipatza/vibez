@@ -3198,3 +3198,80 @@ a { color: inherit; text-decoration: none; }
 .mic-reject-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
 .mic-requests-mini { margin-top: 12px; }
 .mic-dj-controls, .mic-user-controls { margin-bottom: 8px; }
+
+/* ── ROLE SYSTEM ─────────────────────────────────────────── */
+.role-badge {
+  font-size: 13px;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+/* VIP avatar frame */
+.av.vip-frame img {
+  border: 2px solid #c77dff;
+  box-shadow: 0 0 6px #c77dff66;
+  border-radius: 50%;
+}
+
+/* Guest lock on song request */
+.guest-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.guest-lock i { color: var(--orange-deep); }
+
+/* ── COLOR PICKER PANEL ──────────────────────────────────── */
+.color-picker-wrap {
+  position: relative;
+}
+.color-picker-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 200;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  width: 280px;
+  box-shadow: 0 8px 24px #0001;
+}
+.cp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.cp-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.cp-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cp-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.1s, border-color 0.1s;
+}
+.cp-swatch:hover { transform: scale(1.2); }
+.cp-swatch.active { border-color: var(--ink); transform: scale(1.15); }
+.cp-preview {
+  font-size: 13px;
+  font-weight: 700;
+}

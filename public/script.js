@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupUserUI();
     initTTS();
     initParticles();
-    initEqualizer();
+
     initFakePlayer();
     initEventListeners();
     await loadQueue();
@@ -262,21 +262,6 @@ function initParticles() {
     }
 }
 
-// ── EQUALIZER ──────────────────────────────────────────────────────────
-function initEqualizer() {
-    const eq = document.getElementById('equalizer');
-    for (let i = 0; i < 28; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'eq-bar';
-        bar.style.cssText = `
-            --bar-w:${4 + Math.random() * 6}px;
-            --min-h:${10 + Math.random() * 24}px;
-            --max-h:${44 + Math.random() * 92}px;
-            animation-duration:${.38 + Math.random() * .82}s;
-            animation-delay:${Math.random() * .65}s;`;
-        eq.appendChild(bar);
-    }
-}
 
 // ── IDLE PLAYER (when no YouTube) ──────────────────────────────────────
 function initFakePlayer() {
@@ -444,7 +429,6 @@ function setPlayingUI(playing) {
     isPlaying = playing;
     document.getElementById('playBtn').innerHTML = `<i class="fas fa-${playing ? 'pause' : 'play'}"></i>`;
     document.getElementById('vinyl').classList.toggle('paused', !playing);
-    document.querySelectorAll('.eq-bar').forEach(b => b.classList.toggle('paused', !playing));
 }
 
 // ── NOW PLAYING SYNC (สำหรับ listener) ────────────────────────────────

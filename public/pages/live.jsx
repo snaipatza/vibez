@@ -51,6 +51,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const [chat, setChat] = useState([]);
   const [ads, setAds] = useState([]);
   const [nowPlaying, setNowPlaying] = useState(null);
+  const [playerSrc, setPlayerSrc] = useState('');
   const [searchVal, setSearchVal] = useState('');
   const [reactions, setReactions] = useState(REACTIONS_INIT);
   const [openAd, setOpenAd] = useState(null);
@@ -66,6 +67,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const lastMsgIdRef = useRef(0);
   const totalSecRef = useRef(252);
   const socketRef = useRef(null);
+  const loadedYoutubeIdRef = useRef('');
 
   // Initialize Socket.io + auth
   useEffect(() => {
@@ -158,6 +160,20 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!nowPlaying?.youtube_id) {
+      loadedYoutubeIdRef.current = '';
+      setPlayerSrc('');
+      return;
+    }
+    if (loadedYoutubeIdRef.current === nowPlaying.youtube_id) return;
+
+    loadedYoutubeIdRef.current = nowPlaying.youtube_id;
+    const startAt = Math.max(0, Math.floor(nowPlaying.elapsed_seconds || 0));
+    const src = `https://www.youtube.com/embed/${nowPlaying.youtube_id}?autoplay=1&start=${startAt}&controls=1&rel=0&modestbranding=1&playsinline=1`;
+    setPlayerSrc(src);
+  }, [nowPlaying?.youtube_id]);
 
   // Hype decay
   useEffect(() => {
@@ -337,6 +353,24 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                     </p>
                   )}
                 </div>
+
+                {playerSrc && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: '#120b0f' }}>
+                      <iframe
+                        key={playerSrc}
+                        src={playerSrc}
+                        title={trackTitle}
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen
+                        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                      />
+                    </div>
+                    <div style={{ marginTop: 8, color: 'var(--ink-3)', fontSize: 12 }}>
+                      ถ้าเบราว์เซอร์ยังไม่เล่นเสียงอัตโนมัติ ให้กดปุ่มเล่นในวิดีโอหนึ่งครั้ง
+                    </div>
+                  </div>
+                )}
 
                 {nowPlaying && (
                   <div className="progress-row">

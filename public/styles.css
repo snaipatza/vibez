@@ -262,8 +262,8 @@ body {
 }
 
 /* CONTENT */
-.content-area { flex: 1; display: flex; overflow: hidden; }
-.stream-section { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.content-area { flex: 1; display: flex; align-items: stretch; overflow: hidden; }
+.stream-section { flex: 1; min-width: 0; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
 
 /* DJ PLAYER */
 .dj-player {
@@ -806,8 +806,14 @@ body {
     transition: transform .3s, width .3s;
 }
 .chat-panel.hidden { width: 0; overflow: hidden; border-left: none; }
+
+/* side chat — fills full height of content-area */
 .chat-panel.chat-side {
     width: var(--chat-width);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     border-left: 1px solid var(--border-color);
     background: var(--bg-glass);
     backdrop-filter: blur(20px);
@@ -815,6 +821,7 @@ body {
 .chat-panel.chat-side .chat-messages {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
 }
 #toggleChat { display: none; }
 .chat-header {

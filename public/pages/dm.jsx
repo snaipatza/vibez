@@ -1,5 +1,5 @@
 // DM (Direct Messages) page - wired to backend
-function DMPage({ user, listeners, chatOpen, setChatOpen, toast }) {
+function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }) {
   const [conversations, setConversations] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [activeUser, setActiveUser] = useState(null);
@@ -37,6 +37,27 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast }) {
       if (match) setActiveUser(match);
     }
   }, [conversations, activeId]);
+
+  useEffect(() => {
+    if (!initialTarget) return;
+    const targetUsername = typeof initialTarget === 'string' ? initialTarget : initialTarget.username;
+    if (!targetUsername) return;
+    setActiveId(targetUsername);
+    const match = conversations.find(c => c.username === targetUsername);
+    if (match) {
+      setActiveUser(match);
+      return;
+    }
+    if (typeof initialTarget === 'object') {
+      setActiveUser({
+        username: targetUsername,
+        avatar_seed: initialTarget.avatar_seed,
+        avatar_url: initialTarget.avatar_url,
+        role: initialTarget.role,
+        online: true,
+      });
+    }
+  }, [initialTarget, conversations]);
 
   useEffect(() => {
     if (!activeId) return;

@@ -5,8 +5,11 @@ const { useState, useEffect, useRef, useMemo } = React;
 const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onLogout }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout }) {
   const np = nowPlaying || { dj: 'IMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
+  const visibleOnlineUsers = Array.isArray(onlineUsers)
+    ? onlineUsers.filter((person) => person?.username && person.username !== user.name).slice(0, 8)
+    : [];
 
   return (
     <aside className="sidebar">
@@ -109,6 +112,38 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div>
+        <div className="section-label">
+          <span>Online</span>
+          <span>{visibleOnlineUsers.length}</span>
+        </div>
+        <div className="online-list">
+          {visibleOnlineUsers.length === 0 ? (
+            <div className="online-empty">ไม่มีคนออนไลน์เพิ่มตอนนี้</div>
+          ) : visibleOnlineUsers.map((person) => (
+            <div
+              key={person.username}
+              className="online-user"
+              onContextMenu={(e) => {
+                e.preventDefault();
+                if (onOpenDM) onOpenDM(person.username);
+              }}
+              title={`คลิกขวาเพื่อแชทกับ @${person.username}`}
+            >
+              <div className="avatar">
+                <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
+                <div className="status"></div>
+              </div>
+              <div className="info">
+                <div className="name">@{person.username}</div>
+                <div className="role">{person.role || 'listener'}</div>
+              </div>
+              <i className="fas fa-comment-dots action"></i>
+            </div>
+          ))}
         </div>
       </div>
 

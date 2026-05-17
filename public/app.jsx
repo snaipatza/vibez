@@ -11,8 +11,10 @@ function App() {
   const [floats, setFloats] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [listeners, setListeners] = useState(0);
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const [queueCount, setQueueCount] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
+  const [dmTarget, setDmTarget] = useState(null);
 
   useEffect(() => {
     fetch('/api/me')
@@ -41,6 +43,7 @@ function App() {
         ]);
         setNowPlaying(npRes?.youtube_id ? npRes : null);
         if (onlineRes?.online != null) setListeners(onlineRes.online);
+        if (Array.isArray(onlineRes?.users)) setOnlineUsers(onlineRes.users);
       } catch {}
     };
 
@@ -82,7 +85,15 @@ function App() {
     fetch('/api/logout', { method: 'POST' }).finally(() => {
       setUser(null);
       setPage('live');
+      setDmTarget(null);
     });
+  };
+
+  const openDirectMessage = (username) => {
+    if (!username) return;
+    const target = onlineUsers.find((person) => person.username === username);
+    setDmTarget(target || { username });
+    setPage('dm');
   };
 
   if (!loaded) return null;
@@ -123,6 +134,8 @@ function App() {
         activeRoom={STATION_ROOM.id}
         onRoomClick={() => setPage('live')}
         nowPlaying={sidebarNowPlaying}
+        onlineUsers={onlineUsers}
+        onOpenDM={openDirectMessage}
         onLogout={handleLogout}
       />
 
@@ -170,6 +183,7 @@ function App() {
             chatOpen={chatOpen}
             setChatOpen={setChatOpen}
             toast={toast}
+            initialTarget={dmTarget}
           />
         )}
       </main>

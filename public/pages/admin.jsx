@@ -2,6 +2,7 @@
 function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
   const { useState, useEffect } = React;
   const [tab, setTab] = useState('dashboard');
+  const [roleRequests, setRoleRequests] = useState([]);
   const [users, setUsers] = useState([]);
   const [queue, setQueue] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -23,6 +24,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     fetch('/api/queue').then(r => r.json()).then(d => { if (Array.isArray(d)) setQueue(d); }).catch(() => {});
     fetch('/api/online').then(r => r.json()).then(d => { if (d.users) setOnlineUsers(d.users); }).catch(() => {});
     fetch('/api/admin/ads').then(r => r.json()).then(d => { if (Array.isArray(d)) setAds(d); }).catch(() => {});
+    fetch('/api/admin/role-requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRoleRequests(d); }).catch(() => {});
   };
 
   useEffect(() => {
@@ -182,6 +184,9 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                 {t === 'online' && 'ออนไลน์'}
               </button>
             ))}
+            <button className={`tab-btn ${tab === 'role-requests' ? 'active' : ''}`} onClick={() => setTab('role-requests')}>
+              ขอยศ {roleRequests.length > 0 && <span className="tab-badge">{roleRequests.length}</span>}
+            </button>
           </div>
 
           {tab === 'dashboard' && (
@@ -393,6 +398,38 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
               </div>
             </div>
           )}
+
+          {tab === 'role-requests' && (
+          <div className="admin-section">
+            <h3>คำขอยศ Member ({roleRequests.length})</h3>
+            {roleRequests.length === 0 ? (
+              <div style={{ color: 'var(--ink-3)', padding: 20 }}>ไม่มีคำขอที่รอดำเนินการ</div>
+            ) : (
+              <div className="role-req-list">
+                {roleRequests.map(r => (
+                  <div key={r.id} className="role-req-row">
+                    <div className="role-req-info">
+                      <span className="role-req-name">@{r.username}</span>
+                      <span className="role-req-meta">ยศปัจจุบัน: {r.current_role} · {new Date(r.created_at).toLocaleDateString('th-TH')}</span>
+                    </div>
+                    <div className="role-req-actions">
+                      <button className="btn-approve" onClick={async () => {
+                        const res = await fetch(`/api/admin/role-requests/${r.id}/approve`, { method: 'POST' });
+                        if (res.ok) { toast(`อนุมัติ @${r.username} เป็น Member แล้ว`, 'success'); loadAll(); }
+                        else toast('เกิดข้อผิดพลาด');
+                      }}>อนุมัติ</button>
+                      <button className="btn-reject" onClick={async () => {
+                        const res = await fetch(`/api/admin/role-requests/${r.id}/reject`, { method: 'POST' });
+                        if (res.ok) { toast(`ปฏิเสธคำขอของ @${r.username}`, ''); loadAll(); }
+                        else toast('เกิดข้อผิดพลาด');
+                      }}>ปฏิเสธ</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
           {tab === 'online' && (
             <div className="admin-card">

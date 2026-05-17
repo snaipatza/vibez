@@ -679,6 +679,46 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
     res.json({ success: true });
 });
 
+// Role upgrade requests
+app.post('/api/role-request', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+    const username = req.session.username;
+    const currentRole = req.session.role;
+    if (roleLevel(currentRole) >= 1) return res.status(400).json({ error: 'คุณมียศเพียงพอแล้ว' });
+    const existing = db.prepare("SELECT id FROM role_requests WHERE user_id=? AND status='pending'").get(userId);
+    if (existing) return res.status(400).json({ error: 'คุณส่งคำขออยู่แล้ว กรุณารอการยืนยัน' });
+    db.prepare("INSERT INTO role_requests (user_id, username, current_role) VALUES (?,?,?)").run(userId, username, currentRole);
+    res.json({ success: true });
+});
+
+app.get('/api/admin/role-requests', requireAdmin, (req, res) => {
+    const rows = db.prepare("SELECT * FROM role_requests WHERE status='pending' ORDER BY created_at ASC").all();
+    res.json(rows);
+});
+
+app.post('/api/admin/role-requests/:id/approve', requireAdmin, (req, res) => {
+    const row = db.prepare("SELECT * FROM role_requests WHERE id=?").get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'ไม่พบคำขอ' });
+    db.prepare("UPDATE users SET role='member' WHERE id=?").run(row.user_id);
+    db.prepare("UPDATE role_requests SET status='approved' WHERE id=?").run(row.id);
+    // Send DM notification
+    db.prepare("INSERT INTO direct_messages (from_user, to_user, message) VALUES (?,?,?)").run(
+        'ADMIN', row.username, '✅ คำขอยศของคุณได้รับการอนุมัติแล้ว! คุณได้รับยศ Member เรียบร้อยแล้ว'
+    );
+    res.json({ success: true });
+});
+
+app.post('/api/admin/role-requests/:id/reject', requireAdmin, (req, res) => {
+    const row = db.prepare("SELECT * FROM role_requests WHERE id=?").get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'ไม่พบคำขอ' });
+    db.prepare("UPDATE role_requests SET status='rejected' WHERE id=?").run(row.id);
+    // Send DM notification
+    db.prepare("INSERT INTO direct_messages (from_user, to_user, message) VALUES (?,?,?)").run(
+        'ADMIN', row.username, '❌ คำขอยศของคุณถูกปฏิเสธ หากมีข้อสงสัยกรุณาติดต่อแอดมิน'
+    );
+    res.json({ success: true });
+});
+
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
     const totalUsers = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
     const totalMessages = db.prepare('SELECT COUNT(*) as c FROM messages').get().c;

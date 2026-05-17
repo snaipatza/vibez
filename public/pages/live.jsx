@@ -59,6 +59,50 @@ function adIcon(ad) {
   return 'fas ' + icons[ad.id % icons.length];
 }
 
+function GuestRoleRequestBox({ toast }) {
+  const { useState } = React;
+  const [status, setStatus] = useState('idle'); // idle | pending | done
+
+  const requestRole = async () => {
+    if (status !== 'idle') return;
+    setStatus('pending');
+    try {
+      const res = await fetch('/api/role-request', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || 'เกิดข้อผิดพลาด');
+        setStatus('idle');
+        return;
+      }
+      setStatus('done');
+      toast('ส่งคำขอแล้ว รอการยืนยันจากแอดมิน', 'success');
+    } catch {
+      toast('เกิดข้อผิดพลาด');
+      setStatus('idle');
+    }
+  };
+
+  return (
+    <div className="guest-lock">
+      <i className="fas fa-lock"></i>
+      <span>เฉพาะ Member ขึ้นไปเท่านั้นที่ขอเพลงได้</span>
+      {status === 'done' ? (
+        <div className="role-req-sent">
+          <i className="fas fa-clock"></i> รอการยืนยันจากแอดมิน...
+        </div>
+      ) : (
+        <button
+          className="role-req-btn"
+          onClick={requestRole}
+          disabled={status === 'pending'}
+        >
+          {status === 'pending' ? <><i className="fas fa-spinner fa-spin"></i> กำลังส่ง...</> : '✋ ขอยศ Member'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function LivePage({
   user,
   chatOpen,
@@ -490,10 +534,7 @@ function LivePage({
                 </div>
               </div>
               {liveRoleLevel(user.role) < 1 ? (
-                <div className="guest-lock">
-                  <i className="fas fa-lock"></i>
-                  <span>เฉพาะ Member ขึ้นไปเท่านั้นที่ขอเพลงได้</span>
-                </div>
+                <GuestRoleRequestBox toast={toast} />
               ) : (
                 <>
                   <form className="rail-request" onSubmit={submitRequest}>

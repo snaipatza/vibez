@@ -10,6 +10,30 @@ const REACTIONS_INIT = [
   { emoji: '🙌', count: 0, hot: false },
 ];
 
+let youtubeApiPromise = null;
+
+function ensureYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (youtubeApiPromise) return youtubeApiPromise;
+
+  youtubeApiPromise = new Promise((resolve) => {
+    const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+    if (!existing) {
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(script);
+    }
+
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(window.YT);
+    };
+  });
+
+  return youtubeApiPromise;
+}
+
 function fmtTime(d) {
   try {
     const t = new Date(d);
@@ -47,11 +71,11 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(75);
+  const [muted, setMuted] = useState(false);
   const [queue, setQueue] = useState([]);
   const [chat, setChat] = useState([]);
   const [ads, setAds] = useState([]);
   const [nowPlaying, setNowPlaying] = useState(null);
-  const [playerSrc, setPlayerSrc] = useState('');
   const [searchVal, setSearchVal] = useState('');
   const [reactions, setReactions] = useState(REACTIONS_INIT);
   const [openAd, setOpenAd] = useState(null);
@@ -68,6 +92,9 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const totalSecRef = useRef(252);
   const socketRef = useRef(null);
   const loadedYoutubeIdRef = useRef('');
+  const ytMountRef = useRef(null);
+  const ytPlayerRef = useRef(null);
+  const progressTimerRef = useRef(null);
 
   // Initialize Socket.io + auth
   useEffect(() => {
@@ -164,16 +191,90 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   useEffect(() => {
     if (!nowPlaying?.youtube_id) {
       loadedYoutubeIdRef.current = '';
-      setPlayerSrc('');
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
+      }
       return;
     }
     if (loadedYoutubeIdRef.current === nowPlaying.youtube_id) return;
 
+    let cancelled = false;
     loadedYoutubeIdRef.current = nowPlaying.youtube_id;
-    const startAt = Math.max(0, Math.floor(nowPlaying.elapsed_seconds || 0));
-    const src = `https://www.youtube.com/embed/${nowPlaying.youtube_id}?autoplay=1&start=${startAt}&controls=1&rel=0&modestbranding=1&playsinline=1`;
-    setPlayerSrc(src);
+
+    const mountPlayer = async () => {
+      const YT = await ensureYouTubeApi();
+      if (cancelled || !ytMountRef.current) return;
+
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
+      }
+
+      ytPlayerRef.current = new YT.Player(ytMountRef.current, {
+        videoId: nowPlaying.youtube_id,
+        width: '1',
+        height: '1',
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          start: Math.max(0, Math.floor(nowPlaying.elapsed_seconds || 0)),
+        },
+        events: {
+          onReady: (e) => {
+            try {
+              e.target.setVolume(volume);
+              if (muted) e.target.mute();
+              else e.target.unMute();
+              e.target.playVideo();
+            } catch {}
+          },
+          onStateChange: (e) => {
+            const state = e.data;
+            if (window.YT) {
+              setPlaying(state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING);
+            }
+          },
+        },
+      });
+    };
+
+    mountPlayer();
+    return () => { cancelled = true; };
   }, [nowPlaying?.youtube_id]);
+
+  useEffect(() => {
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    progressTimerRef.current = setInterval(() => {
+      const player = ytPlayerRef.current;
+      if (!player || !nowPlaying?.youtube_id) return;
+      try {
+        const current = player.getCurrentTime?.() || 0;
+        const duration = player.getDuration?.() || totalSecRef.current || 0;
+        if (duration > 0) {
+          totalSecRef.current = duration;
+          setProgress(Math.min(100, (current / duration) * 100));
+        }
+      } catch {}
+    }, 500);
+
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    };
+  }, [nowPlaying?.youtube_id]);
+
+  useEffect(() => {
+    const player = ytPlayerRef.current;
+    if (!player) return;
+    try {
+      player.setVolume(volume);
+      if (muted || volume === 0) player.mute();
+      else player.unMute();
+    } catch {}
+  }, [volume, muted]);
 
   // Hype decay
   useEffect(() => {
@@ -239,6 +340,32 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
     setHype(h => Math.min(100, h + 6));
   };
 
+  const togglePlayback = () => {
+    const player = ytPlayerRef.current;
+    if (!player) return;
+    try {
+      const state = player.getPlayerState?.();
+      if (window.YT && state === window.YT.PlayerState.PLAYING) player.pauseVideo();
+      else player.playVideo();
+    } catch {}
+  };
+
+  const toggleMute = () => {
+    setMuted(v => !v);
+  };
+
+  const seekFromClick = (e) => {
+    const player = ytPlayerRef.current;
+    if (!player || !nowPlaying?.youtube_id) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const target = ratio * (totalSecRef.current || 0);
+    try {
+      player.seekTo(target, true);
+      setProgress(ratio * 100);
+    } catch {}
+  };
+
   const playQueueItem = async (item) => {
     if (!item.youtube_id) {
       toast('รายการนี้ยังไม่มี YouTube link');
@@ -294,6 +421,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const djName = nowPlaying?.dj_username || 'IMVU Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
+  const playerSrc = '';
 
   return (
     <>
@@ -354,16 +482,22 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                   )}
                 </div>
 
+                <div
+                  ref={ytMountRef}
+                  aria-hidden="true"
+                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
+                ></div>
+
                 {playerSrc && (
-                  <div style={{ marginTop: 14 }}>
-                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: '#120b0f' }}>
+                  <div style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}>
                       <iframe
                         key={playerSrc}
                         src={playerSrc}
                         title={trackTitle}
                         allow="autoplay; encrypted-media; picture-in-picture"
                         allowFullScreen
-                        style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                        style={{ width: 1, height: 1, border: 0, display: 'block' }}
                       />
                     </div>
                     <div style={{ marginTop: 8, color: 'var(--ink-3)', fontSize: 12 }}>
@@ -374,12 +508,38 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
 
                 {nowPlaying && (
                   <div className="progress-row">
-                    <div className="progress-bar">
+                    <div className="progress-bar" onClick={seekFromClick}>
                       <div className="progress-fill" style={{ width: `${progress}%` }}></div>
                     </div>
                     <div className="progress-times">
                       <span>{fmtSec(curSec)}</span>
                       <span>—{fmtSec(totalSecRef.current - curSec)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {nowPlaying && (
+                  <div className="controls">
+                    <button className={`ctrl play ${playing ? 'active' : ''}`} onClick={togglePlayback} title={playing ? 'Pause' : 'Play'}>
+                      <i className={`fas fa-${playing ? 'pause' : 'play'}`}></i>
+                    </button>
+                    <button className={`ctrl ${muted || volume === 0 ? 'active' : ''}`} onClick={toggleMute} title={muted || volume === 0 ? 'Unmute' : 'Mute'}>
+                      <i className={`fas fa-${muted || volume === 0 ? 'volume-mute' : 'volume-up'}`}></i>
+                    </button>
+                    <div className="volume-row" style={{ marginLeft: 0 }}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={volume}
+                        onChange={(e) => {
+                          const next = Number(e.target.value);
+                          setVolume(next);
+                          if (next > 0) setMuted(false);
+                        }}
+                        style={{ width: 120 }}
+                      />
+                      <span className="volume-val">{volume}</span>
                     </div>
                   </div>
                 )}

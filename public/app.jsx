@@ -47,6 +47,7 @@ function App() {
     return Number.isFinite(stored) ? Math.min(100, Math.max(0, stored)) : 75;
   });
   const [playerMuted, setPlayerMuted] = useState(() => window.localStorage.getItem('imvu-radio-muted') === '1');
+  const [micActive, setMicActive] = useState(false);
   const ytMountRef = useRef(null);
   const ytPlayerRef = useRef(null);
   const loadedYoutubeIdRef = useRef('');
@@ -219,11 +220,14 @@ function App() {
     const player = ytPlayerRef.current;
     if (!player) return;
     try {
-      player.setVolume(playerVolume);
+      const vol = micActive && !playerMuted && playerVolume > 0
+        ? Math.max(5, Math.round(playerVolume * 0.3))
+        : playerVolume;
+      player.setVolume(vol);
       if (playerMuted || playerVolume === 0) player.mute();
       else player.unMute();
     } catch {}
-  }, [playerVolume, playerMuted]);
+  }, [playerVolume, playerMuted, micActive]);
 
   const toast = (msg, kind = '') => {
     const id = Date.now() + Math.random();
@@ -368,6 +372,7 @@ function App() {
               setPlayerVolume(next);
               if (next > 0) setPlayerMuted(false);
             }}
+            onMicLive={setMicActive}
           />
         )}
         {page === 'explore' && (

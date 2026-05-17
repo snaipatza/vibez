@@ -81,6 +81,7 @@ function LivePage({
   onSeekPlayback,
   onToggleMute,
   onSetVolume,
+  onMicLive,
 }) {
   const [queue, setQueue] = useState([]);
   const [chat, setChat] = useState([]);
@@ -432,7 +433,7 @@ function LivePage({
                 </div>
 
                 <div style={{ marginTop: 18 }}>
-                  <MicPanel user={user} socket={socketRef.current} />
+                  <MicPanel user={user} socket={socketRef.current} onMicLive={onMicLive} />
                 </div>
               </div>
             </div>

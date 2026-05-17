@@ -3,10 +3,13 @@ const ICE_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ],
 };
 
-function useMic(user, socket) {
+function useMic(user, socket, onMicLive) {
   const { useState, useEffect, useRef } = React;
   const [micState, setMicState] = useState({ isLive: false, djSocketId: null, djUsername: null, requests: [], speakers: [] });
   const [djMicOn, setDjMicOn] = useState(false);
@@ -42,6 +45,7 @@ function useMic(user, socket) {
 
   async function createListenerConnection(listenerSocketId) {
     if (!localStreamRef.current) return;
+    if (broadcastPeers.current.has(listenerSocketId)) return;
     const pc = new RTCPeerConnection(ICE_CONFIG);
     broadcastPeers.current.set(listenerSocketId, pc);
 
@@ -117,7 +121,6 @@ function useMic(user, socket) {
     // Listeners receive: DJ went live → signal ready
     socket.on('mic:dj_live', ({ djSocketId }) => {
       micStateRef.current = { ...micStateRef.current, isLive: true, djSocketId };
-      requestListenerFeed();
     });
 
     // Receive audio offer (from DJ or approved speaker)
@@ -184,6 +187,10 @@ function useMic(user, socket) {
     };
   }, [socket, isDJ]);
 
+  useEffect(() => {
+    onMicLive?.(micState.isLive);
+  }, [micState.isLive]);
+
   const startDJMic = async () => {
     try {
       setMicError('');
@@ -224,9 +231,9 @@ function useMic(user, socket) {
   };
 }
 
-function MicPanel({ user, socket }) {
+function MicPanel({ user, socket, onMicLive }) {
   const { useState } = React;
-  const mic = useMic(user, socket);
+  const mic = useMic(user, socket, onMicLive);
   const { micState, djMicOn, hasRaised, isApprovedSpeaker, micError, isDJ } = mic;
 
   if (!socket) return null;

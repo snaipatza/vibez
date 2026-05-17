@@ -65,6 +65,21 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
   const totalSecRef = useRef(252);
+  const socketRef = useRef(null);
+
+  // Initialize Socket.io + auth
+  useEffect(() => {
+    const s = io();
+    socketRef.current = s;
+    s.emit('auth', {
+      userId: user.id || 0,
+      username: user.name,
+      role: user.role,
+      avatar_seed: user.avatar_seed || user.name,
+      avatar_url: user.avatar_url || '',
+    });
+    return () => s.disconnect();
+  }, []);
 
   // Poll every 3s
   useEffect(() => {
@@ -314,6 +329,9 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
               ))}
             </div>
           </div>
+
+          {/* Mic / Voice Panel */}
+          <MicPanel user={user} socket={socketRef.current} />
 
           {/* Chat */}
           <div className="section">

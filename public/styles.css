@@ -2472,3 +2472,290 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
 }
 .tag.orange { background: var(--orange); color: #fff; }
+
+/* ============================================
+   MIC PANEL — Voice / Stage
+   ============================================ */
+.mic-panel {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--bg-card);
+  padding: 22px 24px;
+  margin-top: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.mic-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), var(--orange-deep));
+  border-radius: 22px 22px 0 0;
+}
+.mic-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.mic-panel-head .pre {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.mic-panel-head h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.mic-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--orange);
+  color: #fff;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.mic-live-badge .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: livepulse 1.4s infinite;
+}
+.mic-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 160ms;
+  margin-bottom: 14px;
+  color: var(--ink-2);
+}
+.mic-open-btn i { font-size: 14px; }
+.mic-open-btn:hover { border-color: var(--orange); color: var(--orange-deep); background: var(--orange-tint); }
+.mic-open-btn.active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+  animation: mic-glow 1.8s ease-in-out infinite;
+}
+@keyframes mic-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232,123,161,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(232,123,161,0); }
+}
+.mic-pulse {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  animation: livepulse 1.2s infinite;
+}
+.mic-hand-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 160ms;
+  margin-bottom: 14px;
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+.mic-hand-btn i { font-size: 14px; }
+.mic-hand-btn:hover { border-color: var(--orange); color: var(--orange-deep); }
+.mic-hand-btn.raised {
+  border-color: var(--orange);
+  background: var(--orange-tint);
+  color: var(--orange-deep);
+  animation: mic-glow 2s ease-in-out infinite;
+}
+.mic-speaking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  animation: mic-glow 1.6s ease-in-out infinite;
+}
+.mic-offline-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 1px dashed var(--line-soft);
+  border-radius: 999px;
+  color: var(--ink-mute);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-bottom: 14px;
+}
+.mic-stage { margin-bottom: 16px; }
+.mic-stage-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.mic-stage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.mic-avatar-bubble {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+.mic-avatar-bubble img {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--orange-soft);
+  border: 2px solid var(--line);
+  object-fit: cover;
+}
+.mic-avatar-bubble.active img {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px var(--orange-soft);
+}
+.mic-avatar-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-3);
+  max-width: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.mic-on-dot {
+  position: absolute;
+  bottom: 18px; right: -2px;
+  width: 11px; height: 11px;
+  background: var(--orange);
+  border: 2px solid var(--bg-card);
+  border-radius: 50%;
+  animation: livepulse 1.4s infinite;
+}
+.mic-remove-btn {
+  position: absolute;
+  top: -4px; right: -4px;
+  width: 16px; height: 16px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.mic-avatar-bubble:hover .mic-remove-btn { opacity: 1; }
+.mic-requests { margin-top: 14px; }
+.mic-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mic-request-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--orange-tint);
+  border: 1px solid var(--orange-soft);
+  border-radius: 14px;
+}
+.mic-req-avatar {
+  position: relative;
+  width: 32px; height: 32px;
+  flex-shrink: 0;
+}
+.mic-req-avatar img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  background: var(--orange-soft);
+  object-fit: cover;
+}
+.mic-req-avatar .hand-icon {
+  position: absolute;
+  bottom: -4px; right: -4px;
+  font-size: 11px;
+}
+.mic-req-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mic-approve-btn {
+  padding: 5px 12px;
+  background: var(--orange);
+  color: #fff;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mic-approve-btn:hover { background: var(--orange-deep); }
+.mic-reject-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  display: grid; place-items: center;
+  font-size: 11px;
+  color: var(--ink-3);
+  cursor: pointer;
+  background: var(--bg-card);
+}
+.mic-reject-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.mic-requests-mini { margin-top: 12px; }
+.mic-dj-controls, .mic-user-controls { margin-bottom: 8px; }

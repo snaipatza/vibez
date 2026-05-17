@@ -3,9 +3,12 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { Server } = require('socket.io');
 const db = require('./database');
 
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 class SqliteSessionStore extends session.Store {
@@ -427,6 +430,119 @@ app.get('/api/admin', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.listen(PORT, () => {
+// ── SOCKET.IO — MIC / VOICE ───────────────────────────────────────────
+// In-memory mic state
+const micState = {
+  isLive: false,
+  djSocketId: null,
+  djUsername: null,
+  requests: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
+  speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
+};
+const socketToUser = new Map();
+
+const io = new Server(httpServer, { cors: { origin: '*' } });
+
+io.on('connection', (socket) => {
+  socket.on('auth', ({ userId, username, role, avatar_seed, avatar_url }) => {
+    socketToUser.set(socket.id, { userId, username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
+    // If DJ mic is live, notify DJ to send offer to this new listener
+    if (micState.isLive && micState.djSocketId && role !== 'dj' && role !== 'admin') {
+      io.to(micState.djSocketId).emit('listener:ready', { socketId: socket.id });
+    }
+    socket.emit('mic:status', micState);
+  });
+
+  socket.on('mic:start', () => {
+    const user = socketToUser.get(socket.id);
+    if (!user || (user.role !== 'dj' && user.role !== 'admin')) return;
+    micState.isLive = true;
+    micState.djSocketId = socket.id;
+    micState.djUsername = user.username;
+    // Notify all listeners so they can connect
+    socket.broadcast.emit('mic:dj_live', { djSocketId: socket.id });
+    io.emit('mic:status', micState);
+  });
+
+  socket.on('mic:stop', () => {
+    if (socket.id !== micState.djSocketId) return;
+    micState.isLive = false;
+    micState.djSocketId = null;
+    micState.requests = [];
+    micState.speakers = [];
+    io.emit('mic:status', micState);
+  });
+
+  // WebRTC signaling relay
+  socket.on('mic:offer', ({ targetSocketId, offer }) => {
+    io.to(targetSocketId).emit('mic:offer', { from: socket.id, offer });
+  });
+  socket.on('mic:answer', ({ targetSocketId, answer }) => {
+    io.to(targetSocketId).emit('mic:answer', { from: socket.id, answer });
+  });
+  socket.on('mic:ice_to_listener', ({ targetSocketId, candidate }) => {
+    io.to(targetSocketId).emit('mic:ice_to_listener', { from: socket.id, candidate });
+  });
+  socket.on('mic:ice_from_listener', ({ targetSocketId, candidate }) => {
+    io.to(targetSocketId).emit('mic:ice_from_listener', { from: socket.id, candidate });
+  });
+
+  // Raise hand
+  socket.on('hand:raise', () => {
+    const user = socketToUser.get(socket.id);
+    if (!user || !micState.isLive) return;
+    if (!micState.requests.find(r => r.socketId === socket.id) && !micState.speakers.find(s => s.socketId === socket.id)) {
+      micState.requests.push({ socketId: socket.id, userId: user.userId, username: user.username, avatar_seed: user.avatar_seed, avatar_url: user.avatar_url });
+      io.emit('mic:status', micState);
+    }
+  });
+
+  socket.on('hand:lower', () => {
+    micState.requests = micState.requests.filter(r => r.socketId !== socket.id);
+    micState.speakers = micState.speakers.filter(s => s.socketId !== socket.id);
+    io.emit('mic:status', micState);
+  });
+
+  socket.on('hand:approve', ({ socketId }) => {
+    if (socket.id !== micState.djSocketId) return;
+    const req = micState.requests.find(r => r.socketId === socketId);
+    if (req) {
+      micState.requests = micState.requests.filter(r => r.socketId !== socketId);
+      micState.speakers.push({ ...req });
+      io.to(socketId).emit('mic:approved');
+      io.emit('mic:status', micState);
+    }
+  });
+
+  socket.on('hand:reject', ({ socketId }) => {
+    if (socket.id !== micState.djSocketId) return;
+    micState.requests = micState.requests.filter(r => r.socketId !== socketId);
+    io.to(socketId).emit('mic:rejected');
+    io.emit('mic:status', micState);
+  });
+
+  socket.on('hand:remove', ({ socketId }) => {
+    if (socket.id !== micState.djSocketId) return;
+    micState.speakers = micState.speakers.filter(s => s.socketId !== socketId);
+    io.to(socketId).emit('mic:removed');
+    io.emit('mic:status', micState);
+  });
+
+  socket.on('disconnect', () => {
+    const sid = socket.id;
+    micState.requests = micState.requests.filter(r => r.socketId !== sid);
+    micState.speakers = micState.speakers.filter(s => s.socketId !== sid);
+    if (micState.djSocketId === sid) {
+      micState.isLive = false;
+      micState.djSocketId = null;
+      micState.requests = [];
+      micState.speakers = [];
+    }
+    io.emit('mic:status', micState);
+    socketToUser.delete(sid);
+  });
+});
+
+httpServer.listen(PORT, () => {
     console.log(`\n📻 IMVU Society Radio running at http://localhost:${PORT}\n`);
 });

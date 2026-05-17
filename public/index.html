@@ -79,6 +79,7 @@
                 </div>
                 <div class="top-bar-right">
                     <div class="viewer-count"><div class="pulse-dot"></div><span id="viewerCountText">... กำลังฟังอยู่</span></div>
+                    <button class="icon-btn" id="dmBtn" title="ข้อความส่วนตัว"><i class="fas fa-envelope"></i><span class="dm-badge" id="dmBadge" style="display:none"></span></button>
                     <button class="icon-btn" id="toggleChat" title="แชท"><i class="fas fa-comment-dots"></i></button>
                 </div>
             </header>
@@ -314,6 +315,37 @@
                 <h3 id="adModalTitle"></h3>
                 <p id="adModalBody"></p>
                 <a class="primary-btn ad-modal-cta" id="adModalCta" href="#" target="_blank" rel="noopener">เปิดดูร้านค้า</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- DM Modal -->
+    <div class="modal-backdrop" id="dmModal" aria-hidden="true">
+        <div class="dm-modal-card" role="dialog" aria-modal="true">
+            <div class="dm-modal-header">
+                <h3><i class="fas fa-envelope"></i> ข้อความส่วนตัว</h3>
+                <button class="icon-btn-sm" id="closeDmModal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="dm-modal-body">
+                <div class="dm-sidebar">
+                    <div class="dm-search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="dmUserSearch" placeholder="ค้นหาผู้ใช้...">
+                    </div>
+                    <div class="dm-user-list" id="dmUserList"></div>
+                </div>
+                <div class="dm-chat-area">
+                    <div class="dm-chat-header" id="dmChatHeader">
+                        <span id="dmChatWith">เลือกผู้ใช้เพื่อแชท</span>
+                    </div>
+                    <div class="dm-messages" id="dmMessages">
+                        <div class="dm-empty"><i class="fas fa-comments"></i><p>เลือกผู้ใช้เพื่อเริ่มคุย</p></div>
+                    </div>
+                    <div class="dm-input-area" id="dmInputArea" style="display:none">
+                        <input type="text" id="dmInput" placeholder="พิมพ์ข้อความ...">
+                        <button class="send-btn" id="dmSendBtn"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

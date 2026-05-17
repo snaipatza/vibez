@@ -628,6 +628,17 @@ function initEventListeners() {
     if (closeAdBtn) closeAdBtn.addEventListener('click', closeAdModal);
     if (adModal) adModal.addEventListener('click', e => { if (e.target === adModal) closeAdModal(); });
 
+    // DM
+    const dmBtn = document.getElementById('dmBtn');
+    const dmModal = document.getElementById('dmModal');
+    const closeDmModal = document.getElementById('closeDmModal');
+    if (dmBtn) dmBtn.addEventListener('click', openDmModal);
+    if (closeDmModal) closeDmModal.addEventListener('click', closeDmModalFn);
+    if (dmModal) dmModal.addEventListener('click', e => { if (e.target === dmModal) closeDmModalFn(); });
+    document.getElementById('dmSendBtn')?.addEventListener('click', sendDm);
+    document.getElementById('dmInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendDm(); });
+    document.getElementById('dmUserSearch')?.addEventListener('input', e => filterDmUsers(e.target.value));
+
     // Chat toggle
     const toggleChatBtn = document.getElementById('toggleChat');
     const closeChatBtn = document.getElementById('closeChatBtn');
@@ -1177,4 +1188,94 @@ function formatTime(sec) {
 function escHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── DM ─────────────────────────────────────────────────────────────────
+let dmCurrentUser = null;
+let dmAllUsers = [];
+
+async function openDmModal() {
+    const modal = document.getElementById('dmModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    await loadDmUsers();
+}
+
+function closeDmModalFn() {
+    const modal = document.getElementById('dmModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    dmCurrentUser = null;
+}
+
+async function loadDmUsers() {
+    const users = await api('/api/users/online');
+    dmAllUsers = Array.isArray(users) ? users.filter(u => u.username !== currentUser?.username) : [];
+    renderDmUserList(dmAllUsers);
+}
+
+function renderDmUserList(users) {
+    const list = document.getElementById('dmUserList');
+    if (!list) return;
+    if (!users.length) {
+        list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--text-muted)">ไม่มีผู้ใช้ออนไลน์</div>';
+        return;
+    }
+    list.innerHTML = users.map(u => `
+        <div class="dm-user-item ${dmCurrentUser === u.username ? 'active' : ''}" onclick="selectDmUser('${escHtml(u.username)}','${escHtml(u.avatar||'')}')">
+            <img src="${escHtml(u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`)}" alt="">
+            <div class="dm-user-item-info">
+                <div class="dm-user-item-name">${escHtml(u.username)}</div>
+                <div class="dm-user-item-preview">${escHtml(u.role || 'Member')}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function selectDmUser(username, avatar) {
+    dmCurrentUser = username;
+    renderDmUserList(dmAllUsers);
+    document.getElementById('dmChatWith').textContent = username;
+    document.getElementById('dmInputArea').style.display = 'flex';
+    await loadDmMessages();
+}
+
+async function loadDmMessages() {
+    if (!dmCurrentUser) return;
+    const msgs = await api(`/api/dm/${encodeURIComponent(dmCurrentUser)}`);
+    const box = document.getElementById('dmMessages');
+    if (!box) return;
+    if (!Array.isArray(msgs) || !msgs.length) {
+        box.innerHTML = '<div class="dm-empty"><i class="fas fa-comments"></i><p>ยังไม่มีข้อความ</p></div>';
+        return;
+    }
+    box.innerHTML = msgs.map(m => {
+        const mine = m.from_user === currentUser?.username;
+        const av = `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.from_user}`;
+        const time = new Date(m.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+        return `<div class="dm-msg ${mine ? 'mine' : ''}">
+            <img class="dm-msg-avatar" src="${av}" alt="">
+            <div>
+                <div class="dm-msg-bubble">${escHtml(m.message)}</div>
+                <div class="dm-msg-time">${time}</div>
+            </div>
+        </div>`;
+    }).join('');
+    box.scrollTop = box.scrollHeight;
+}
+
+async function sendDm() {
+    const input = document.getElementById('dmInput');
+    const msg = input?.value.trim();
+    if (!msg || !dmCurrentUser) return;
+    input.value = '';
+    await api('/api/dm/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: dmCurrentUser, message: msg }) });
+    await loadDmMessages();
+}
+
+function filterDmUsers(query) {
+    const filtered = query ? dmAllUsers.filter(u => u.username.toLowerCase().includes(query.toLowerCase())) : dmAllUsers;
+    renderDmUserList(filtered);
 }

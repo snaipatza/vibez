@@ -3275,3 +3275,154 @@ a { color: inherit; text-decoration: none; }
   font-size: 13px;
   font-weight: 700;
 }
+
+/* ── VIP BUBBLE FRAME ────────────────────────────────────── */
+.msg.vip-msg .body {
+  border: 1.5px solid #c77dff55;
+  border-radius: 10px;
+  padding: 6px 10px 4px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #fdf6ff 100%);
+  position: relative;
+}
+.msg.vip-msg .body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #c77dff22, #e040fb11);
+  pointer-events: none;
+}
+
+/* ── PROFILE PAGE ────────────────────────────────────────── */
+.profile-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.profile-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+}
+.profile-card-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.profile-avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.profile-avatar-img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.profile-avatar-img:hover { opacity: 0.8; }
+.profile-avatar-img.vip-ring {
+  border-color: #c77dff;
+  box-shadow: 0 0 10px #c77dff66;
+}
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.profile-field label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+.profile-field input {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--bg-soft);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.profile-field input:focus { border-color: var(--orange); }
+.profile-field .hint {
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+
+/* Subscription card */
+.sub-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+}
+.sub-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+.sub-role-badge.vip  { background: #f3e8ff; color: #7b2d8b; border: 1.5px solid #c77dff; }
+.sub-role-badge.member { background: var(--bg-soft); color: var(--ink-2); border: 1px solid var(--line); }
+.sub-role-badge.guest  { background: var(--bg-soft); color: var(--ink-3); border: 1px solid var(--line); }
+.sub-role-badge.dj   { background: #fff3e0; color: #e65100; border: 1.5px solid #ff9f1c; }
+.sub-role-badge.admin { background: #fce4ec; color: #880e4f; border: 1.5px solid #ff3cac; }
+.sub-expiry {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-bottom: 18px;
+}
+.sub-expiry strong { color: var(--ink); }
+.sub-expiry.expired { color: var(--red); font-weight: 600; }
+.sub-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.sub-plan {
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+}
+.sub-plan.popular { border-color: #c77dff; background: #f9f0ff; }
+.sub-plan-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--ink-3); text-transform: uppercase; }
+.sub-plan.popular .sub-plan-label { color: #7b2d8b; }
+.sub-plan-price { font-size: 24px; font-weight: 800; color: var(--ink); }
+.sub-plan-price span { font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.sub-plan-tag { font-size: 11px; color: var(--orange-deep); font-weight: 600; }
+.sub-bank {
+  margin-top: 18px;
+  background: var(--bg-soft);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+.sub-bank strong { color: var(--ink); }

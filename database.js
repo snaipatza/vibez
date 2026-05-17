@@ -114,6 +114,8 @@ const alterations = [
     "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN name_color TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN chat_color TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN vip_expires_at INTEGER DEFAULT 0",
     "ALTER TABLE messages ADD COLUMN media_url TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN media_type TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN name_color TEXT DEFAULT ''",

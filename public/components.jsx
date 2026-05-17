@@ -114,7 +114,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
   const np = nowPlaying || { dj: 'IMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
   const visibleOnlineUsers = Array.isArray(onlineUsers)
     ? onlineUsers.filter((person) => person?.username && person.username !== user.name).slice(0, 8)
@@ -261,7 +261,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
       </div>
 
-      <div className="user-pill">
+      <div className="user-pill" onClick={onOpenProfile} style={{ cursor: onOpenProfile ? 'pointer' : 'default' }} title="แก้ไขโปรไฟล์">
         <div className="avatar">
           {user.avatar_url
             ? <img src={user.avatar_url} alt="" />
@@ -270,11 +270,11 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
           <div className="status"></div>
         </div>
         <div className="info">
-          <div className="name">{user.name}</div>
+          <div className="name">{user.display_name || user.name}</div>
           <div className="role">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
         </div>
         {onLogout && (
-          <div className="icon-btn" title="ออกจากระบบ" onClick={onLogout} style={{ cursor: 'pointer' }}>
+          <div className="icon-btn" title="ออกจากระบบ" onClick={(e) => { e.stopPropagation(); onLogout(); }} style={{ cursor: 'pointer' }}>
             <i className="fas fa-sign-out-alt"></i>
           </div>
         )}

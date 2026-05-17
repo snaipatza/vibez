@@ -65,6 +65,8 @@ function App() {
             avatar_url: data.avatar_url,
             name_color: data.name_color || '',
             chat_color: data.chat_color || '',
+            display_name: data.display_name || '',
+            vip_expires_at: data.vip_expires_at || 0,
           });
         }
         setLoaded(true);
@@ -223,7 +225,7 @@ function App() {
   };
 
   const handleLogin = (u) => {
-    setUser({ ...u, name_color: u.name_color || '', chat_color: u.chat_color || '' });
+    setUser({ ...u, name_color: u.name_color || '', chat_color: u.chat_color || '', display_name: u.display_name || '', vip_expires_at: u.vip_expires_at || 0 });
     toast(`ยินดีต้อนรับ @${u.name}`, 'success');
   };
 
@@ -320,6 +322,7 @@ function App() {
         onlineUsers={onlineUsers}
         onOpenDM={openDirectMessage}
         onLogout={handleLogout}
+        onOpenProfile={() => setPage('profile')}
       />
 
       <main className="main">
@@ -381,6 +384,13 @@ function App() {
             setChatOpen={setChatOpen}
             toast={toast}
             initialTarget={dmTarget}
+          />
+        )}
+        {page === 'profile' && (
+          <ProfilePage
+            user={user}
+            onUpdate={(updated) => setUser(u => ({ ...u, ...updated }))}
+            toast={toast}
           />
         )}
       </main>

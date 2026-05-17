@@ -224,24 +224,40 @@ app.post('/api/logout', (req, res) => {
     req.session.destroy(() => res.json({ success: true }));
 });
 
+function checkVipExpiry(userId, sessionRole) {
+    if (!['vip'].includes(sessionRole)) return sessionRole;
+    const row = db.prepare('SELECT vip_expires_at, role FROM users WHERE id=?').get(userId);
+    if (!row) return sessionRole;
+    if (row.vip_expires_at > 0 && row.vip_expires_at < Date.now()) {
+        db.prepare("UPDATE users SET role='member' WHERE id=?").run(userId);
+        return 'member';
+    }
+    return row.role;
+}
+
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const user = db.prepare('SELECT avatar_seed, avatar_url, name_color, chat_color FROM users WHERE id=?').get(req.session.userId);
+    const currentRole = checkVipExpiry(req.session.userId, req.session.role);
+    if (currentRole !== req.session.role) req.session.role = currentRole;
+    const user = db.prepare('SELECT avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at FROM users WHERE id=?').get(req.session.userId);
     res.json({
         loggedIn: true,
         userId: req.session.userId,
         username: req.session.username,
-        role: req.session.role,
+        role: currentRole,
         avatar_seed: user?.avatar_seed || req.session.username,
         avatar_url: user?.avatar_url || '',
         name_color: user?.name_color || '',
-        chat_color: user?.chat_color || ''
+        chat_color: user?.chat_color || '',
+        display_name: user?.display_name || '',
+        vip_expires_at: user?.vip_expires_at || 0,
     });
 });
 
 app.patch('/api/me', requireAuth, (req, res) => {
     const avatarSeed = String(req.body.avatar_seed || '').trim();
+    const displayName = String(req.body.display_name ?? '').trim().slice(0, 30);
     if (!avatarSeed) return res.status(400).json({ error: 'กรุณาใส่ค่าโปรไฟล์' });
     if (avatarSeed.length > 60) return res.status(400).json({ error: 'ค่าโปรไฟล์ยาวเกินไป' });
 
@@ -253,9 +269,9 @@ app.patch('/api/me', requireAuth, (req, res) => {
     }
 
     if (avatarUrl) {
-        db.prepare('UPDATE users SET avatar_seed=?, avatar_url=? WHERE id=?').run(avatarSeed, avatarUrl, req.session.userId);
+        db.prepare('UPDATE users SET avatar_seed=?, avatar_url=?, display_name=? WHERE id=?').run(avatarSeed, avatarUrl, displayName, req.session.userId);
     } else {
-        db.prepare('UPDATE users SET avatar_seed=? WHERE id=?').run(avatarSeed, req.session.userId);
+        db.prepare('UPDATE users SET avatar_seed=?, display_name=? WHERE id=?').run(avatarSeed, displayName, req.session.userId);
         const user = db.prepare('SELECT avatar_url FROM users WHERE id=?').get(req.session.userId);
         avatarUrl = user?.avatar_url || '';
     }
@@ -265,7 +281,8 @@ app.patch('/api/me', requireAuth, (req, res) => {
         username: req.session.username,
         role: req.session.role,
         avatar_seed: avatarSeed,
-        avatar_url: avatarUrl
+        avatar_url: avatarUrl,
+        display_name: displayName,
     });
 });
 
@@ -632,17 +649,23 @@ app.post('/api/messages', requireAuth, (req, res) => {
 
 // ADMIN
 app.get('/api/admin/users', requireAdmin, (req, res) => {
-    const users = db.prepare('SELECT id, username, role, avatar_seed, avatar_url, created_at FROM users ORDER BY created_at DESC').all();
+    const users = db.prepare('SELECT id, username, display_name, role, avatar_seed, avatar_url, vip_expires_at, created_at FROM users ORDER BY created_at DESC').all();
     res.json(users);
 });
 
 app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
-    const { role } = req.body;
+    const { role, vip_expires_at } = req.body;
     const validRoles = ['guest', 'member', 'vip', 'dj', 'admin'];
-    if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     const user = db.prepare('SELECT id FROM users WHERE id=?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    db.prepare('UPDATE users SET role=? WHERE id=?').run(role, req.params.id);
+    if (role !== undefined) {
+        if (!validRoles.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+        db.prepare('UPDATE users SET role=? WHERE id=?').run(role, req.params.id);
+    }
+    if (vip_expires_at !== undefined) {
+        const exp = Number(vip_expires_at) || 0;
+        db.prepare('UPDATE users SET vip_expires_at=? WHERE id=?').run(exp, req.params.id);
+    }
     res.json({ success: true });
 });
 

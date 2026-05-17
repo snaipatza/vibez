@@ -663,7 +663,7 @@ function ChatPanelInline({ messages, onSend, user }) {
               <div className="body"><div className="text">{m.text}</div></div>
             </div>
           ) : (
-            <div key={m.id || i} className="msg">
+            <div key={m.id || i} className={`msg ${m.role === 'vip' ? 'vip-msg' : ''}`}>
               <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
                 {m.avatar_url
                   ? <img src={m.avatar_url} alt="" />

@@ -45,6 +45,20 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
+  const setVipExpiry = async (id, dateStr) => {
+    const ts = dateStr ? new Date(dateStr).setHours(23, 59, 59, 0) : 0;
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vip_expires_at: ts }),
+      });
+      if (!res.ok) { toast('อัปเดตวันหมดอายุไม่สำเร็จ'); return; }
+      setUsers(us => us.map(u => u.id === id ? { ...u, vip_expires_at: ts } : u));
+      toast(dateStr ? `ตั้งวันหมดอายุ VIP แล้ว` : 'ล้างวันหมดอายุแล้ว', 'success');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
   const removeUser = async (id) => {
     if (!confirm('ลบผู้ใช้นี้?')) return;
     try {
@@ -264,6 +278,16 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                                 <option value="vip">💎 VIP</option>
                                 <option value="dj">🎧 DJ</option>
                               </select>
+                              {u.role === 'vip' && (
+                                <input
+                                  type="date"
+                                  className="btn-mini"
+                                  title="วันหมดอายุ VIP"
+                                  style={{ cursor: 'pointer', minWidth: 130 }}
+                                  value={u.vip_expires_at ? new Date(u.vip_expires_at).toISOString().slice(0,10) : ''}
+                                  onChange={e => setVipExpiry(u.id, e.target.value)}
+                                />
+                              )}
                               {u.id !== user.id && (
                                 <button className="btn-mini danger" onClick={() => removeUser(u.id)}>Ban</button>
                               )}

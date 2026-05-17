@@ -2995,6 +2995,24 @@ a { color: inherit; text-decoration: none; }
 }
 .mic-open-btn i { font-size: 14px; }
 .mic-open-btn:hover { border-color: var(--orange); color: var(--orange-deep); background: var(--orange-tint); }
+.mic-listen-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--pink);
+  background: rgba(255,105,180,.1);
+  color: var(--pink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+  animation: livepulse 1.6s infinite;
+}
+.mic-listen-btn:hover { background: var(--pink); color: #fff; }
 .mic-open-btn.active {
   background: var(--orange);
   border-color: var(--orange);

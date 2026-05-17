@@ -1,4 +1,5 @@
-// Mic / Voice Panel — MediaRecorder broadcast via Socket.IO (no WebRTC)
+// Mic / Voice Panel — DJ streams via MediaRecorder→Socket.IO→HTTP chunked stream
+// Listeners use <audio src="/api/mic-stream"> — browser handles buffering/decoding
 const MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
@@ -15,141 +16,92 @@ function getSupportedMime() {
 }
 
 function useMic(user, socket, onMicLive) {
-  const { useState, useEffect, useRef } = React;
+  const { useState, useEffect, useRef, useCallback } = React;
   const [micState, setMicState] = useState({ isLive: false, djSocketId: null, djUsername: null, requests: [], speakers: [] });
   const [djMicOn, setDjMicOn] = useState(false);
   const [hasRaised, setHasRaised] = useState(false);
   const [micError, setMicError] = useState('');
+  const [needsClick, setNeedsClick] = useState(false);
 
   const localStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-
-  // Listener playback refs
   const audioRef = useRef(null);
-  const mediaSourceRef = useRef(null);
-  const sourceBufferRef = useRef(null);
-  const chunkQueueRef = useRef([]);
+  const isLiveRef = useRef(false);
 
   const isDJ = user.role === 'dj' || user.role === 'admin';
 
-  function teardownListenerAudio() {
+  const stopListening = useCallback(() => {
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch {}
       try { audioRef.current.src = ''; } catch {}
       audioRef.current = null;
     }
-    if (mediaSourceRef.current) {
-      try {
-        if (mediaSourceRef.current.readyState === 'open') {
-          mediaSourceRef.current.endOfStream();
-        }
-      } catch {}
-      mediaSourceRef.current = null;
-    }
-    sourceBufferRef.current = null;
-    chunkQueueRef.current = [];
-  }
+    setNeedsClick(false);
+  }, []);
 
-  function setupListenerAudio(mime, firstChunk) {
-    teardownListenerAudio();
-    try {
-      const ms = new MediaSource();
-      mediaSourceRef.current = ms;
-      const audio = new Audio();
-      audioRef.current = audio;
-      audio.src = URL.createObjectURL(ms);
+  const startListening = useCallback(() => {
+    stopListening();
+    const audio = new Audio('/api/mic-stream?t=' + Date.now());
+    audioRef.current = audio;
+    audio.onerror = () => {
+      if (!isLiveRef.current) return;
+      setTimeout(() => {
+        if (!isLiveRef.current || audioRef.current !== audio) return;
+        const retry = new Audio('/api/mic-stream?t=' + Date.now());
+        audioRef.current = retry;
+        retry.onerror = () => setMicError('ไม่สามารถเชื่อมต่อเสียงได้');
+        retry.play().catch(() => setNeedsClick(true));
+      }, 1200);
+    };
+    audio.play().catch(() => setNeedsClick(true));
+  }, [stopListening]);
 
-      ms.addEventListener('sourceopen', () => {
-        try {
-          const sb = ms.addSourceBuffer(mime);
-          sourceBufferRef.current = sb;
-          sb.mode = 'sequence';
-
-          const flushQueue = () => {
-            if (chunkQueueRef.current.length > 0 && !sb.updating) {
-              try { sb.appendBuffer(chunkQueueRef.current.shift()); } catch {}
-            }
-          };
-          sb.addEventListener('updateend', flushQueue);
-
-          if (firstChunk) {
-            try { sb.appendBuffer(firstChunk); } catch {}
-          }
-        } catch {
-          setMicError('เบราว์เซอร์ไม่รองรับรูปแบบเสียงนี้');
-        }
-      });
-
-      audio.play().catch(() => {
-        setMicError('คลิกที่หน้าเว็บเพื่อรับฟังเสียง');
-      });
-    } catch {
-      setMicError('ไม่สามารถเล่นเสียงได้');
-    }
-  }
-
-  function appendAudioChunk(buf) {
-    const sb = sourceBufferRef.current;
-    if (!sb) return;
-    if (sb.updating) {
-      chunkQueueRef.current.push(buf);
+  const clickToListen = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => setNeedsClick(false))
+        .catch(() => setMicError('ไม่สามารถเล่นเสียงได้'));
     } else {
-      try { sb.appendBuffer(buf); } catch {
-        chunkQueueRef.current.push(buf);
-      }
+      startListening();
     }
-  }
+  }, [startListening]);
 
   useEffect(() => {
     if (!socket) return;
 
     socket.on('mic:status', (state) => {
+      const wasLive = isLiveRef.current;
+      isLiveRef.current = state.isLive;
       setMicState(state);
+
       if (!state.isLive) {
         setDjMicOn(false);
         setHasRaised(false);
-        teardownListenerAudio();
+        if (!isDJ) stopListening();
+      } else if (state.isLive && !isDJ && !wasLive) {
+        startListening();
       }
       onMicLive?.(state.isLive);
     });
 
-    socket.on('mic:audio_header', ({ header, mime }) => {
-      if (isDJ) return;
-      try {
-        const buf = header instanceof ArrayBuffer ? header : new Uint8Array(header).buffer;
-        setupListenerAudio(mime || 'audio/webm;codecs=opus', buf);
-      } catch {}
-    });
-
-    socket.on('mic:audio_chunk', (chunk) => {
-      if (isDJ) return;
-      try {
-        const buf = chunk instanceof ArrayBuffer ? chunk : new Uint8Array(chunk).buffer;
-        appendAudioChunk(buf);
-      } catch {}
-    });
-
-    socket.on('mic:approved', () => { setHasRaised(false); });
-    socket.on('mic:rejected', () => { setHasRaised(false); });
+    socket.on('mic:approved', () => setHasRaised(false));
+    socket.on('mic:rejected', () => setHasRaised(false));
     socket.on('mic:removed', () => {});
 
     return () => {
       socket.off('mic:status');
-      socket.off('mic:audio_header');
-      socket.off('mic:audio_chunk');
       socket.off('mic:approved');
       socket.off('mic:rejected');
       socket.off('mic:removed');
-      teardownListenerAudio();
+      if (!isDJ) stopListening();
     };
-  }, [socket, isDJ]);
+  }, [socket, isDJ, startListening, stopListening]);
 
   const startDJMic = async () => {
     try {
       setMicError('');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-
       const mime = getSupportedMime();
       let isFirst = true;
 
@@ -169,7 +121,7 @@ function useMic(user, socket, onMicLive) {
         } catch {}
       };
 
-      recorder.start(400);
+      recorder.start(100); // 100ms chunks for low latency
       setDjMicOn(true);
       socket.emit('mic:start');
     } catch {
@@ -197,16 +149,15 @@ function useMic(user, socket, onMicLive) {
   const removeSpeaker = (socketId) => socket.emit('hand:remove', { socketId });
 
   return {
-    micState, djMicOn, hasRaised, isApprovedSpeaker: false, micError, isDJ,
+    micState, djMicOn, hasRaised, micError, needsClick, isDJ,
     startDJMic, stopDJMic, raiseHand, lowerHand,
-    approveRequest, rejectRequest, removeSpeaker,
+    approveRequest, rejectRequest, removeSpeaker, clickToListen,
   };
 }
 
 function MicPanel({ user, socket, onMicLive }) {
-  const { useState } = React;
   const mic = useMic(user, socket, onMicLive);
-  const { micState, djMicOn, hasRaised, micError, isDJ } = mic;
+  const { micState, djMicOn, hasRaised, micError, needsClick, isDJ } = mic;
 
   if (!socket) return null;
 
@@ -241,6 +192,13 @@ function MicPanel({ user, socket, onMicLive }) {
             </button>
           )}
         </div>
+      )}
+
+      {!isDJ && micState.isLive && needsClick && (
+        <button className="mic-listen-btn" onClick={mic.clickToListen}>
+          <i className="fas fa-volume-up"></i>
+          <span>กดเพื่อฟังเสียง DJ</span>
+        </button>
       )}
 
       {!isDJ && (

@@ -809,9 +809,32 @@ const micState = {
   speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
 };
 const stageState = { active: false, djUsername: null, djAvatarSeed: '', djAvatarUrl: '' };
-let micAudioHeader = null; // stored for late-joining listeners
+let micAudioHeader = null; // stored for late-joining HTTP stream clients
 let micAudioMime = 'audio/webm;codecs=opus';
+const micStreamClients = new Set(); // HTTP chunked-stream listeners
 const socketToUser = new Map();
+
+// HTTP chunked audio stream — listeners GET this, browser handles buffering
+app.get('/api/mic-stream', (req, res) => {
+  if (!micState.isLive) return res.status(503).send('Mic is not live');
+  if (req.socket) req.socket.setTimeout(0);
+  res.setHeader('Content-Type', micAudioMime || 'audio/webm;codecs=opus');
+  res.setHeader('Cache-Control', 'no-cache, no-store');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  if (micAudioHeader) {
+    const buf = Buffer.isBuffer(micAudioHeader) ? micAudioHeader : Buffer.from(new Uint8Array(micAudioHeader));
+    res.write(buf);
+  }
+  micStreamClients.add(res);
+  req.on('close', () => micStreamClients.delete(res));
+});
+
+function closeMicStream() {
+  for (const res of micStreamClients) { try { res.end(); } catch {} }
+  micStreamClients.clear();
+}
 
 const io = new Server(httpServer, { cors: { origin: '*' } });
 
@@ -819,10 +842,6 @@ io.on('connection', (socket) => {
   socket.on('auth', ({ userId, username, role, avatar_seed, avatar_url }) => {
     socketToUser.set(socket.id, { userId, username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
     socket.emit('mic:status', micState);
-    // Send stored header to late-joining listeners so they can start hearing immediately
-    if (micState.isLive && micAudioHeader && role !== 'dj' && role !== 'admin') {
-      socket.emit('mic:audio_header', { header: micAudioHeader, mime: micAudioMime });
-    }
   });
 
   socket.on('mic:start', () => {
@@ -842,20 +861,27 @@ io.on('connection', (socket) => {
     micState.requests = [];
     micState.speakers = [];
     micAudioHeader = null;
+    closeMicStream();
     io.emit('mic:status', micState);
   });
 
-  // Audio broadcast relay (MediaRecorder chunks)
+  // Relay MediaRecorder chunks to all HTTP stream clients
   socket.on('mic:audio_header', ({ header, mime }) => {
     if (socket.id !== micState.djSocketId) return;
-    micAudioHeader = header;
     micAudioMime = mime || 'audio/webm;codecs=opus';
-    socket.broadcast.emit('mic:audio_header', { header, mime: micAudioMime });
+    micAudioHeader = header;
+    const buf = Buffer.isBuffer(header) ? header : Buffer.from(new Uint8Array(header));
+    for (const res of micStreamClients) {
+      try { res.write(buf); } catch { micStreamClients.delete(res); }
+    }
   });
 
   socket.on('mic:audio_chunk', (chunk) => {
     if (socket.id !== micState.djSocketId) return;
-    socket.broadcast.emit('mic:audio_chunk', chunk);
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(new Uint8Array(chunk));
+    for (const res of micStreamClients) {
+      try { res.write(buf); } catch { micStreamClients.delete(res); }
+    }
   });
 
   // Raise hand
@@ -908,6 +934,8 @@ io.on('connection', (socket) => {
       micState.djSocketId = null;
       micState.requests = [];
       micState.speakers = [];
+      micAudioHeader = null;
+      closeMicStream();
     }
     io.emit('mic:status', micState);
     socketToUser.delete(sid);

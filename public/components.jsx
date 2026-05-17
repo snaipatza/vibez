@@ -3,6 +3,96 @@
 const { useState, useEffect, useRef, useMemo } = React;
 
 const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
+const CHAT_EMOJIS = ['\u2764\ufe0f', '\ud83d\udd25', '\ud83d\ude02', '\ud83d\ude0d', '\ud83e\udd73', '\ud83d\ude2d', '\ud83d\ude4f', '\u2728'];
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Unable to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function ChatMessageMedia({ mediaUrl, mediaType }) {
+  if (!mediaUrl) return null;
+  return (
+    <div className={`chat-media ${mediaType === 'gif' ? 'gif' : 'image'}`}>
+      <img src={mediaUrl} alt="" loading="lazy" />
+      {mediaType === 'gif' && <span className="media-badge">GIF</span>}
+    </div>
+  );
+}
+
+function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendingMedia, onPickMedia, onClearMedia }) {
+  const fileRef = useRef(null);
+
+  return (
+    <form className="chat-input" onSubmit={onSubmit}>
+      <div className="chat-tools">
+        <div className="emoji-strip">
+          {CHAT_EMOJIS.map((emoji) => (
+            <button key={emoji} type="button" className="emoji-btn" onClick={() => onChange(`${value}${emoji}`)} title={emoji}>
+              {emoji}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="attach-btn" onClick={() => fileRef.current?.click()} title="Upload image or GIF">
+          <i className="fas fa-image"></i>
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          style={{ display: 'none' }}
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            try {
+              const dataUrl = await readFileAsDataUrl(file);
+              onPickMedia({
+                dataUrl,
+                name: file.name,
+                kind: file.type === 'image/gif' ? 'gif' : 'image',
+              });
+            } catch (err) {
+              alert(err.message || 'Unable to read file');
+            }
+          }}
+        />
+      </div>
+
+      {pendingMedia && (
+        <div className="chat-media-pending">
+          <div className="preview">
+            <img src={pendingMedia.dataUrl} alt="" />
+            {pendingMedia.kind === 'gif' && <span className="media-badge">GIF</span>}
+          </div>
+          <div className="meta">
+            <div className="name">{pendingMedia.name}</div>
+          </div>
+          <button type="button" className="clear-btn" onClick={onClearMedia}>
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+      )}
+
+      <div className="field">
+        <i className="fas fa-face-smile" style={{ color: 'var(--ink-3)' }}></i>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          maxLength={maxLength}
+        />
+      </div>
+      <button type="submit" className="send" title="Send">
+        <i className="fas fa-paper-plane"></i>
+      </button>
+    </form>
+  );
+}
 
 // -------- SIDEBAR -----------------------------------------------------------
 function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout }) {
@@ -208,6 +298,7 @@ function TopBar({ crumb, title, meta, listeners, onToggleChat, chatOpen }) {
 // -------- CHAT -----------------------------------------------------------
 function ChatPanel({ messages, onSend, onClose }) {
   const [text, setText] = useState('');
+  const [pendingMedia, setPendingMedia] = useState(null);
   const bodyRef = useRef(null);
 
   useEffect(() => {
@@ -216,9 +307,10 @@ function ChatPanel({ messages, onSend, onClose }) {
 
   const submit = (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    onSend(text.trim());
+    if (!text.trim() && !pendingMedia) return;
+    onSend({ message: text.trim(), media: pendingMedia });
     setText('');
+    setPendingMedia(null);
   };
 
   return (
@@ -249,26 +341,23 @@ function ChatPanel({ messages, onSend, onClose }) {
                   <span className="time">{m.time}</span>
                 </div>
                 <div className="text">{m.text}</div>
+                <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
               </div>
             </div>
           )
         ))}
       </div>
 
-      <form className="chat-input" onSubmit={submit}>
-        <div className="field">
-          <i className="fas fa-smile" style={{ color: 'var(--ink-3)' }}></i>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="พิมพ์ข้อความ..."
-            maxLength={300}
-          />
-        </div>
-        <button type="submit" className="send" title="Send">
-          <i className="fas fa-paper-plane"></i>
-        </button>
-      </form>
+      <ChatComposer
+        value={text}
+        onChange={setText}
+        onSubmit={submit}
+        placeholder="Message the room..."
+        maxLength={300}
+        pendingMedia={pendingMedia}
+        onPickMedia={setPendingMedia}
+        onClearMedia={() => setPendingMedia(null)}
+      />
     </div>
   );
 }

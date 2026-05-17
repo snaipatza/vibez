@@ -6,6 +6,7 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState('');
   const [text, setText] = useState('');
+  const [pendingMedia, setPendingMedia] = useState(null);
   const [loading, setLoading] = useState(true);
   const bodyRef = useRef(null);
   const lastMsgIdRef = useRef(0);
@@ -86,14 +87,14 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!text.trim() || !activeId) return;
+    if ((!text.trim() && !pendingMedia) || !activeId) return;
     const t = text.trim();
     setText('');
     try {
       const res = await fetch('/api/dm/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: activeId, message: t }),
+        body: JSON.stringify({ to: activeId, message: t, media_data: pendingMedia?.dataUrl || '' }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -106,8 +107,11 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
         from_username: user.name,
         to_username: activeId,
         message: t,
+        media_url: data.media_url || '',
+        media_type: data.media_type || '',
         created_at: new Date().toISOString(),
       }].slice(-200));
+      setPendingMedia(null);
       loadInbox();
     } catch {
       toast('ส่งไม่สำเร็จ');
@@ -131,6 +135,13 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
     if (diff < 2) return 'YDAY';
     if (diff < 7) return d.toLocaleDateString('en', { weekday: 'short' }).toUpperCase();
     return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  };
+
+  const conversationPreview = (c) => {
+    if (c.last_message) return c.last_message;
+    if (c.last_media_type === 'gif') return '[GIF]';
+    if (c.last_media_type === 'image') return '[Image]';
+    return '-';
   };
 
   return (
@@ -185,7 +196,7 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
                       <span className="name">@{c.username}</span>
                       {c.role === 'dj' && <span className="name-tag">DJ</span>}
                     </div>
-                    <div className="preview">{c.last_message || '-'}</div>
+                    <div className="preview">{conversationPreview(c)}</div>
                   </div>
                   <div className="meta">
                     <span className="time">{fmtTime(c.last_at)}</span>
@@ -221,7 +232,10 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
                   const mine = m.from_username === user.name;
                   return (
                     <div key={m.id} className={`dm-msg ${mine ? 'mine' : 'theirs'}`}>
-                      <div className="bubble">{m.message}</div>
+                      <div className="bubble">
+                        {m.message ? <div>{m.message}</div> : null}
+                        <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                      </div>
                       <div className="stamp">
                         {m.created_at ? new Date(m.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
                       </div>
@@ -236,20 +250,16 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
               </div>
 
               <div className="dm-input">
-                <form onSubmit={sendMessage}>
-                  <div className="field">
-                    <span className="icon-mini"><i className="fas fa-smile"></i></span>
-                    <input
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder={`ส่งข้อความหา @${activeUser.username}...`}
-                      maxLength={500}
-                    />
-                  </div>
-                  <button type="submit" className="send">
-                    <i className="fas fa-paper-plane"></i>
-                  </button>
-                </form>
+                <ChatComposer
+                  value={text}
+                  onChange={setText}
+                  onSubmit={sendMessage}
+                  placeholder={`Message @${activeUser.username}...`}
+                  maxLength={500}
+                  pendingMedia={pendingMedia}
+                  onPickMedia={setPendingMedia}
+                  onClearMedia={() => setPendingMedia(null)}
+                />
               </div>
             </section>
           ) : (

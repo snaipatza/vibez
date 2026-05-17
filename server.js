@@ -52,10 +52,13 @@ class SqliteSessionStore extends session.Store {
 }
 
 const avatarUploadDir = path.join(db.dataDir || __dirname, 'uploads', 'avatars');
+const chatUploadDir = path.join(db.dataDir || __dirname, 'uploads', 'chat');
 fs.mkdirSync(avatarUploadDir, { recursive: true });
+fs.mkdirSync(chatUploadDir, { recursive: true });
 
-app.use(express.json({ limit: '3mb' }));
+app.use(express.json({ limit: '15mb' }));
 app.use('/uploads/avatars', express.static(avatarUploadDir));
+app.use('/uploads/chat', express.static(chatUploadDir));
 app.use(express.static(path.join(__dirname, 'public')));
 const sessionStore = new SqliteSessionStore(db);
 setInterval(() => sessionStore.cleanup(), 60 * 60 * 1000).unref();
@@ -101,6 +104,24 @@ function saveAvatarImage(userId, imageData) {
     const fileName = `user-${userId}-${Date.now()}.${ext}`;
     fs.writeFileSync(path.join(avatarUploadDir, fileName), buffer);
     return `/uploads/avatars/${fileName}`;
+}
+
+function saveChatMedia(ownerKey, mediaData) {
+    if (!mediaData) return { mediaUrl: '', mediaType: '' };
+    const match = String(mediaData).match(/^data:image\/(png|jpe?g|webp|gif);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) throw new Error('รองรับเฉพาะไฟล์ PNG, JPG, WEBP หรือ GIF');
+
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length > 8 * 1024 * 1024) throw new Error('ไฟล์ต้องไม่เกิน 8MB');
+
+    const safeKey = String(ownerKey || 'chat').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'chat';
+    const fileName = `${safeKey}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    fs.writeFileSync(path.join(chatUploadDir, fileName), buffer);
+    return {
+        mediaUrl: `/uploads/chat/${fileName}`,
+        mediaType: ext === 'gif' ? 'gif' : 'image'
+    };
 }
 
 function extractYouTubeId(input) {
@@ -313,6 +334,14 @@ app.get('/api/dm/inbox', requireAuth, (req, res) => {
                 LIMIT 1
             ) AS last_at,
             (
+                SELECT dm.media_type
+                FROM direct_messages dm
+                WHERE (dm.from_user = contacts.username AND dm.to_user = ?)
+                   OR (dm.from_user = ? AND dm.to_user = contacts.username)
+                ORDER BY dm.id DESC
+                LIMIT 1
+            ) AS last_media_type,
+            (
                 SELECT COUNT(*)
                 FROM direct_messages dm
                 WHERE dm.from_user = contacts.username AND dm.to_user = ? AND dm.read = 0
@@ -320,7 +349,7 @@ app.get('/api/dm/inbox', requireAuth, (req, res) => {
         FROM contacts
         LEFT JOIN users ON users.username = contacts.username
         ORDER BY datetime(last_at) DESC, contacts.username ASC
-    `).all(me, me, me, cutoff, me, me, me, me, me);
+    `).all(me, me, me, cutoff, me, me, me, me, me, me, me);
     res.json(conversations);
 });
 
@@ -335,6 +364,8 @@ app.get('/api/dm/:with', requireAuth, (req, res) => {
             from_user AS from_username,
             to_user AS to_username,
             message,
+            media_url,
+            media_type,
             read,
             created_at
         FROM direct_messages
@@ -348,12 +379,21 @@ app.get('/api/dm/:with', requireAuth, (req, res) => {
 
 app.post('/api/dm/send', requireAuth, (req, res) => {
     const from = req.session.username;
-    const { to, message } = req.body;
-    if (!to || !message?.trim()) return res.status(400).json({ error: 'invalid' });
+    const to = String(req.body.to || '').trim();
+    const message = String(req.body.message || '').trim();
+    if (!to || (!message && !req.body.media_data)) return res.status(400).json({ error: 'invalid' });
+    if (message.length > 500) return res.status(400).json({ error: 'message too long' });
     const toUser = db.prepare('SELECT id FROM users WHERE username=?').get(to);
     if (!toUser) return res.status(404).json({ error: 'user not found' });
-    const result = db.prepare('INSERT INTO direct_messages (from_user, to_user, message, created_at) VALUES (?,?,?,?)').run(from, to, message.trim(), new Date().toISOString());
-    res.json({ ok: true, id: result.lastInsertRowid });
+    let media = { mediaUrl: '', mediaType: '' };
+    try {
+        media = saveChatMedia(`${from}-${to}`, req.body.media_data);
+    } catch (err) {
+        return res.status(400).json({ error: err.message });
+    }
+    const result = db.prepare('INSERT INTO direct_messages (from_user, to_user, message, media_url, media_type, created_at) VALUES (?,?,?,?,?,?)')
+        .run(from, to, message, media.mediaUrl, media.mediaType, new Date().toISOString());
+    res.json({ ok: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 
 app.get('/api/admin/ads', requireAdmin, (req, res) => {
@@ -529,15 +569,22 @@ app.get('/api/messages', (req, res) => {
 });
 
 app.post('/api/messages', requireAuth, (req, res) => {
-    const { message } = req.body;
-    if (!message || !message.trim()) return res.status(400).json({ error: 'ข้อความว่าง' });
-    if (message.trim().length > 300) return res.status(400).json({ error: 'ข้อความยาวเกินไป' });
+    const message = String(req.body.message || '').trim();
+    if (!message && !req.body.media_data) return res.status(400).json({ error: 'Empty message' });
+    if (message.length > 300) return res.status(400).json({ error: 'Message too long' });
     const user = db.prepare('SELECT role FROM users WHERE id=?').get(req.session.userId);
-    const result = db.prepare('INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)').run(req.session.userId, req.session.username, user.role, message.trim());
-    res.json({ success: true, id: result.lastInsertRowid });
+    let media = { mediaUrl: '', mediaType: '' };
+    try {
+        media = saveChatMedia(req.session.username, req.body.media_data);
+    } catch (err) {
+        return res.status(400).json({ error: err.message });
+    }
+    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type) VALUES (?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType);
+    res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 
-// ── ADMIN ──────────────────────────────────────────────────────────────
+// ADMIN
 app.get('/api/admin/users', requireAdmin, (req, res) => {
     const users = db.prepare('SELECT id, username, role, avatar_seed, avatar_url, created_at FROM users ORDER BY created_at DESC').all();
     res.json(users);

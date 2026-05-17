@@ -55,6 +55,8 @@ db.exec(`
     username TEXT NOT NULL,
     role TEXT DEFAULT 'user',
     message TEXT NOT NULL,
+    media_url TEXT DEFAULT '',
+    media_type TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -89,6 +91,8 @@ db.exec(`
     from_user TEXT NOT NULL,
     to_user TEXT NOT NULL,
     message TEXT NOT NULL,
+    media_url TEXT DEFAULT '',
+    media_type TEXT DEFAULT '',
     read INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -107,7 +111,11 @@ const alterations = [
     "ALTER TABLE now_playing ADD COLUMN dj_avatar_seed TEXT DEFAULT ''",
     "ALTER TABLE now_playing ADD COLUMN dj_avatar_url TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN last_seen INTEGER DEFAULT 0",
-    "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''"
+    "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN media_url TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN media_type TEXT DEFAULT ''",
+    "ALTER TABLE direct_messages ADD COLUMN media_url TEXT DEFAULT ''",
+    "ALTER TABLE direct_messages ADD COLUMN media_type TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

@@ -30,6 +30,8 @@ function msgFromApi(m) {
     name: m.username,
     dj: m.role === 'dj',
     text: m.message,
+    media_url: m.media_url || '',
+    media_type: m.media_type || '',
     time: fmtTime(m.created_at),
     id: m.id,
     avatar_seed: m.avatar_seed || m.username,
@@ -214,12 +216,12 @@ function LivePage({
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
-  const onSendChat = async (text) => {
+  const onSendChat = async ({ message, media }) => {
     try {
       await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message, media_data: media?.dataUrl || '' }),
       });
       setHype(h => Math.min(100, h + 2));
     } catch {}
@@ -613,6 +615,7 @@ function LivePage({
 function ChatPanelInline({ messages, onSend, user }) {
   const { useState, useEffect, useRef } = React;
   const [text, setText] = useState('');
+  const [pendingMedia, setPendingMedia] = useState(null);
   const bodyRef = useRef(null);
 
   useEffect(() => {
@@ -621,9 +624,10 @@ function ChatPanelInline({ messages, onSend, user }) {
 
   const submit = (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    onSend(text.trim());
+    if (!text.trim() && !pendingMedia) return;
+    onSend({ message: text.trim(), media: pendingMedia });
     setText('');
+    setPendingMedia(null);
   };
 
   return (
@@ -648,26 +652,23 @@ function ChatPanelInline({ messages, onSend, user }) {
                   <span className="time">{m.time}</span>
                 </div>
                 <div className="text">{m.text}</div>
+                <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
               </div>
             </div>
           )
         ))}
       </div>
 
-      <form className="chat-input" onSubmit={submit}>
-        <div className="field">
-          <i className="fas fa-smile" style={{ color: 'var(--ink-3)' }}></i>
-          <input
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="พิมพ์ข้อความ..."
-            maxLength={300}
-          />
-        </div>
-        <button type="submit" className="send" title="Send">
-          <i className="fas fa-paper-plane"></i>
-        </button>
-      </form>
+      <ChatComposer
+        value={text}
+        onChange={setText}
+        onSubmit={submit}
+        placeholder="Message the room..."
+        maxLength={300}
+        pendingMedia={pendingMedia}
+        onPickMedia={setPendingMedia}
+        onClearMedia={() => setPendingMedia(null)}
+      />
     </>
   );
 }

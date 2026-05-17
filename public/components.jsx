@@ -2,6 +2,55 @@
 
 const { useState, useEffect, useRef, useMemo } = React;
 
+// ── SOUND ENGINE ─────────────────────────────────────────────
+const SoundEngine = (() => {
+  let ctx = null;
+  const getCtx = () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  };
+
+  function playKeyClick() {
+    try {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.04, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 8);
+      const src = ac.createBufferSource();
+      const gain = ac.createGain();
+      gain.gain.setValueAtTime(0.18, ac.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.04);
+      src.buffer = buf;
+      src.connect(gain);
+      gain.connect(ac.destination);
+      src.start();
+    } catch {}
+  }
+
+  function playDMNotify() {
+    try {
+      const ac = getCtx();
+      const freqs = [880, 1100, 1320];
+      freqs.forEach((freq, i) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ac.currentTime + i * 0.1;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      });
+    } catch {}
+  }
+
+  return { playKeyClick, playDMNotify };
+})();
+
 const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 const CHAT_EMOJIS = ['\u2764\ufe0f', '\ud83d\udd25', '\ud83d\ude02', '\ud83d\ude0d', '\ud83e\udd73', '\ud83d\ude2d', '\ud83d\ude4f', '\u2728'];
 
@@ -101,7 +150,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
         <i className="fas fa-face-smile" style={{ color: 'var(--ink-3)' }}></i>
         <input
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => { onChange(e.target.value); SoundEngine.playKeyClick(); }}
           placeholder={placeholder}
           maxLength={maxLength}
         />
@@ -287,6 +336,28 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
       </div>
     </aside>
+  );
+}
+
+// -------- PROMO BANNER -------------------------------------------------------
+function PromoBanner({ onSignup, user }) {
+  if (user && ['vip','dj','admin'].includes(user.role)) return null;
+  const texts = [
+    '💎 สมัคร VIP รับสิทธิพิเศษทันที!',
+    '🎨 เปลี่ยนสีชื่อและสีแชทได้',
+    '📩 ใช้งาน Messenger ส่วนตัวได้',
+    '🖼️ อัปโหลดรูปภาพในแชทได้',
+    '✨ VIP เพียง ฿19/เดือน หรือ ฿45/3 เดือน',
+  ];
+  return (
+    <div className="promo-banner">
+      <div className="promo-track">
+        {[...texts, ...texts].map((t, i) => (
+          <span key={i} className="promo-item">{t}</span>
+        ))}
+      </div>
+      <button className="promo-cta" onClick={onSignup}>สมัครเลย →</button>
+    </div>
   );
 }
 

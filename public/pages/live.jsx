@@ -640,11 +640,38 @@ function ChatPanelInline({ messages, onSend, user }) {
   const { useState, useEffect, useRef } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
+  const [newCount, setNewCount] = useState(0);
+  const [atBottom, setAtBottom] = useState(true);
   const bodyRef = useRef(null);
+  const prevLenRef = useRef(0);
+
+  // track scroll position
+  const onScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    setAtBottom(isBottom);
+    if (isBottom) setNewCount(0);
+  };
 
   useEffect(() => {
-    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    const el = bodyRef.current;
+    if (!el) return;
+    const added = messages.length - prevLenRef.current;
+    prevLenRef.current = messages.length;
+    if (added <= 0) return;
+    if (atBottom) {
+      el.scrollTop = el.scrollHeight;
+      setNewCount(0);
+    } else {
+      setNewCount(n => n + added);
+    }
   }, [messages]);
+
+  const scrollToBottom = () => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    setNewCount(0);
+  };
 
   const submit = (e) => {
     e.preventDefault();
@@ -656,38 +683,46 @@ function ChatPanelInline({ messages, onSend, user }) {
 
   return (
     <>
-      <div className="chat-body" ref={bodyRef}>
-        {messages.map((m, i) => (
-          m.system ? (
-            <div key={i} className="msg system">
-              <div className="body"><div className="text">{m.text}</div></div>
-            </div>
-          ) : (
-            <div key={m.id || i} className={`msg msg-role-${m.role || 'guest'}`}>
-              <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
-                {m.avatar_url
-                  ? <img src={m.avatar_url} alt="" />
-                  : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />
-                }
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className="chat-body" ref={bodyRef} onScroll={onScroll}>
+          {messages.map((m, i) => (
+            m.system ? (
+              <div key={i} className="msg system">
+                <div className="body"><div className="text">{m.text}</div></div>
               </div>
-              <div className="body">
-                <div className="head-line">
-                  <span className="role-badge" title={liveRoleMeta(m.role).label}>{liveRoleMeta(m.role).emoji}</span>
-                  <span
-                    className={`name ${m.dj ? 'dj' : ''}`}
-                    style={m.name_color ? { color: m.name_color } : undefined}
-                  >{m.name}</span>
-                  <span className="time">{m.time}</span>
+            ) : (
+              <div key={m.id || i} className={`msg msg-role-${m.role || 'guest'}`}>
+                <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
+                  {m.avatar_url
+                    ? <img src={m.avatar_url} alt="" />
+                    : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />
+                  }
                 </div>
-                <div
-                  className="text"
-                  style={m.chat_color ? { background: m.chat_color + '22', borderLeft: `2px solid ${m.chat_color}`, paddingLeft: 6, borderRadius: 4 } : undefined}
-                >{m.text}</div>
-                <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                <div className="body">
+                  <div className="head-line">
+                    <span className="role-badge" title={liveRoleMeta(m.role).label}>{liveRoleMeta(m.role).emoji}</span>
+                    <span
+                      className={`name ${m.dj ? 'dj' : ''}`}
+                      style={m.name_color ? { color: m.name_color } : undefined}
+                    >{m.name}</span>
+                    <span className="time">{m.time}</span>
+                  </div>
+                  <div
+                    className="text"
+                    style={m.chat_color ? { background: m.chat_color + '22', borderLeft: `2px solid ${m.chat_color}`, paddingLeft: 6, borderRadius: 4 } : undefined}
+                  >{m.text}</div>
+                  <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                </div>
               </div>
-            </div>
-          )
-        ))}
+            )
+          ))}
+        </div>
+
+        {newCount > 0 && !atBottom && (
+          <button className="new-msg-indicator" onClick={scrollToBottom}>
+            <i className="fas fa-arrow-down"></i> {newCount} ข้อความใหม่
+          </button>
+        )}
       </div>
 
       <ChatComposer

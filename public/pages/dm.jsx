@@ -11,11 +11,18 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
   const bodyRef = useRef(null);
   const lastMsgIdRef = useRef(0);
 
+  const prevUnreadRef = useRef(0);
+
   const loadInbox = async () => {
     try {
       const r = await fetch('/api/dm/inbox');
       const data = await r.json();
-      setConversations(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        const totalUnread = data.reduce((s, c) => s + (c.unread || 0), 0);
+        if (totalUnread > prevUnreadRef.current) SoundEngine.playDMNotify();
+        prevUnreadRef.current = totalUnread;
+        setConversations(data);
+      }
       setLoading(false);
     } catch {
       setLoading(false);

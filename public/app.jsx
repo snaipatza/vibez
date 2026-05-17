@@ -328,6 +328,7 @@ function App() {
       />
 
       <main className="main">
+        <PromoBanner user={user} onSignup={() => setPage('profile')} />
         {page === 'live' && (
           <LivePage
             user={user}

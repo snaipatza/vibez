@@ -1074,20 +1074,43 @@ function closeAdModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
+const AD_MOCK_SLOTS = [
+    { icon: 'fa-bullhorn',   color: '#FF7B6B', label: 'ช่องโฆษณา 1' },
+    { icon: 'fa-star',       color: '#FFB347', label: 'ช่องโฆษณา 2' },
+    { icon: 'fa-tag',        color: '#a855f7', label: 'ช่องโฆษณา 3' },
+    { icon: 'fa-store',      color: '#0891b2', label: 'ช่องโฆษณา 4' },
+];
+
+function mockAdSlot(index) {
+    const m = AD_MOCK_SLOTS[index] || AD_MOCK_SLOTS[0];
+    return `
+        <div class="ad-slot ad-slot-mock">
+            <div class="ad-slot-mock-icon" style="--mock-color:${m.color}">
+                <i class="fas ${m.icon}"></i>
+            </div>
+            <div class="ad-slot-copy">
+                <strong>${m.label}</strong>
+                <span>สนใจลงโฆษณา?<br>ติดต่อ <b>VJ</b> เลย!</span>
+                <span class="ad-mock-cta">📩 ติดต่อ VJ</span>
+            </div>
+        </div>`;
+}
+
 function renderAds(ads) {
     const section = document.getElementById('adsSection');
     const grid = document.getElementById('adsGrid');
     if (!section || !grid) return;
+    section.style.display = 'block';
+
     if (!Array.isArray(ads) || !ads.length) {
-        section.style.display = 'none';
-        grid.innerHTML = '';
+        grid.innerHTML = AD_MOCK_SLOTS.map((_, i) => mockAdSlot(i)).join('');
         return;
     }
-    section.style.display = 'block';
+
     const filled = [...ads];
     while (filled.length < 4) filled.push(null);
     grid.innerHTML = filled.map((ad, index) => {
-        if (!ad) return `<div class="ad-slot ad-slot-empty"><span>ช่องโฆษณา ${index + 1}</span></div>`;
+        if (!ad) return mockAdSlot(index);
         return `
             <button class="ad-slot" type="button" data-ad-id="${ad.id}">
                 <span class="ad-slot-badge">AD</span>

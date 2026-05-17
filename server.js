@@ -405,5 +405,5 @@ app.get('/api/admin', requireAdmin, (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`\n🎧 VIBEZ running at http://localhost:${PORT}\n`);
+    console.log(`\n📻 IMVU Society Radio running at http://localhost:${PORT}\n`);
 });

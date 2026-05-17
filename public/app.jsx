@@ -96,6 +96,7 @@ function App() {
         activeRoom={activeRoom}
         onRoomClick={(id) => { setActiveRoom(id); setPage('live'); }}
         nowPlaying={{ dj: 'IMVU Radio', track: 'IMVU Society Radio', progress: 0, djSeed: 'IMVURADIO' }}
+        onLogout={handleLogout}
       />
 
       <main className="main">

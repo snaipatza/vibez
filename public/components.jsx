@@ -5,7 +5,7 @@ const { useState, useEffect, useRef, useMemo } = React;
 const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(seed)}`;
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onLogout }) {
   const np = nowPlaying || { dj: 'DJ VIBEZ', track: 'Midnight Groove', progress: 38, djSeed: 'DJVIBEZ' };
 
   return (
@@ -109,14 +109,21 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
 
       <div className="user-pill">
         <div className="avatar">
-          <img src={AVATAR(user.name)} alt="" />
+          {user.avatar_url
+            ? <img src={user.avatar_url} alt="" />
+            : <img src={AVATAR(user.avatar_seed || user.name)} alt="" />
+          }
           <div className="status"></div>
         </div>
         <div className="info">
           <div className="name">{user.name}</div>
           <div className="role">{user.role}</div>
         </div>
-        <div className="icon-btn" title="Settings"><i className="fas fa-cog"></i></div>
+        {onLogout && (
+          <div className="icon-btn" title="ออกจากระบบ" onClick={onLogout} style={{ cursor: 'pointer' }}>
+            <i className="fas fa-sign-out-alt"></i>
+          </div>
+        )}
       </div>
     </aside>
   );

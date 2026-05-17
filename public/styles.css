@@ -282,6 +282,29 @@ body {
     flex-direction: column;
     gap: 20px;
 }
+.right-panel {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-color);
+    background: var(--bg-glass);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    min-height: 0;
+}
+.right-panel .request-section {
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 55%;
+    padding: 18px;
+    border-bottom: 1px solid var(--border-color);
+}
+.right-panel .chat-panel.chat-side {
+    flex: 1;
+    border-left: none;
+    background: transparent;
+    backdrop-filter: none;
+    min-height: 0;
+}
 
 /* DJ PLAYER */
 .dj-player {

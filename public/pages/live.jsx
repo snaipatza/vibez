@@ -402,16 +402,37 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
               </div>
             </div>
 
-            {/* Ads */}
-            {ads.length > 0 && (
-              <div className="rail-section">
-                <div className="rail-head">
-                  <div>
-                    <div className="pre">— Sponsored</div>
-                    <h3>ร้านค้าแนะนำ</h3>
-                  </div>
-                  <span className="right">{ads.length} ช่อง</span>
+            {/* Ads — always visible */}
+            <div className="rail-section">
+              <div className="rail-head">
+                <div>
+                  <div className="pre">— Sponsored</div>
+                  <h3>ร้านค้าแนะนำ</h3>
                 </div>
+                <span className="right">{ads.length} ช่อง</span>
+              </div>
+              {ads.length === 0 ? (
+                <div className="ads-list">
+                  {[
+                    { id: 'p1', title: 'ช่องโฆษณา 1', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-store', kind: 'placeholder' },
+                    { id: 'p2', title: 'ช่องโฆษณา 2', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-tag', kind: 'dark' },
+                    { id: 'p3', title: 'ช่องโฆษณา 3', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-ad', kind: 'placeholder' },
+                    { id: 'p4', title: 'ช่องโฆษณา 4', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-bullhorn', kind: 'dark' },
+                  ].map(ad => (
+                    <div key={ad.id} className="ad-card" style={{ opacity: 0.55, cursor: 'default' }}>
+                      <span className="ad-badge">AD</span>
+                      <div className={`ad-img ${ad.kind}`}>
+                        <i className={ad.icon}></i>
+                      </div>
+                      <div className="ad-copy">
+                        <h4>{ad.title}</h4>
+                        <p>{ad.body}</p>
+                        <span className="ad-cta">{ad.cta_text} →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
                 <div className="ads-list">
                   {ads.map(ad => (
                     <div key={ad.id} className="ad-card" onClick={() => setOpenAd(ad)}>
@@ -430,8 +451,8 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </aside>
         )}
       </div>

@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initEventListeners();
     await loadQueue();
     await loadMessages();
+    renderAds([]);
     startPolling();
 });
 

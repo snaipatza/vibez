@@ -570,10 +570,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--mock-color) 12%, white), color-mix(in srgb, var(--mock-color) 6%, white));
-    font-size: 32px;
+    background: rgba(255,248,244,0.9);
+    font-size: 36px;
     color: var(--mock-color);
-    opacity: 0.85;
 }
 .ad-slot-mock .ad-slot-copy {
     padding: 12px 14px 14px;

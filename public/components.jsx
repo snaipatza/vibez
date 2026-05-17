@@ -127,11 +127,14 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
             <div
               key={person.username}
               className="online-user"
+              onClick={() => {
+                if (onOpenDM) onOpenDM(person.username);
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 if (onOpenDM) onOpenDM(person.username);
               }}
-              title={`คลิกขวาเพื่อแชทกับ @${person.username}`}
+              title={`คลิกเพื่อแชทกับ @${person.username}`}
             >
               <div className="avatar">
                 <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />

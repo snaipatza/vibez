@@ -1,5 +1,29 @@
 // IMVU Society Radio - main app shell
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
+
+let appYoutubeApiPromise = null;
+
+function ensureAppYouTubeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (appYoutubeApiPromise) return appYoutubeApiPromise;
+
+  appYoutubeApiPromise = new Promise((resolve) => {
+    const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+    if (!existing) {
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(script);
+    }
+
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      resolve(window.YT);
+    };
+  });
+
+  return appYoutubeApiPromise;
+}
 
 const STATION_ROOM = { id: 'main-stage', name: 'main-stage', listeners: 0, skin: 'pink' };
 
@@ -15,6 +39,18 @@ function App() {
   const [queueCount, setQueueCount] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [dmTarget, setDmTarget] = useState(null);
+  const [playerPlaying, setPlayerPlaying] = useState(false);
+  const [playerProgress, setPlayerProgress] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const [playerVolume, setPlayerVolume] = useState(() => {
+    const stored = Number(window.localStorage.getItem('imvu-radio-volume'));
+    return Number.isFinite(stored) ? Math.min(100, Math.max(0, stored)) : 75;
+  });
+  const [playerMuted, setPlayerMuted] = useState(() => window.localStorage.getItem('imvu-radio-muted') === '1');
+  const ytMountRef = useRef(null);
+  const ytPlayerRef = useRef(null);
+  const loadedYoutubeIdRef = useRef('');
+  const progressTimerRef = useRef(null);
 
   useEffect(() => {
     fetch('/api/me')
@@ -42,13 +78,14 @@ function App() {
           fetch('/api/online').then(r => r.json()),
         ]);
         setNowPlaying(npRes?.youtube_id ? npRes : null);
+        setPlayerPlaying(!!npRes?.is_playing);
         if (onlineRes?.online != null) setListeners(onlineRes.online);
         if (Array.isArray(onlineRes?.users)) setOnlineUsers(onlineRes.users);
       } catch {}
     };
 
     loadStation();
-    const id = setInterval(loadStation, 10000);
+    const id = setInterval(loadStation, 3000);
     return () => clearInterval(id);
   }, []);
 
@@ -63,6 +100,113 @@ function App() {
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
   }, [user]);
+
+  useEffect(() => {
+    window.localStorage.setItem('imvu-radio-volume', String(playerVolume));
+  }, [playerVolume]);
+
+  useEffect(() => {
+    window.localStorage.setItem('imvu-radio-muted', playerMuted ? '1' : '0');
+  }, [playerMuted]);
+
+  useEffect(() => {
+    if (!nowPlaying?.youtube_id) {
+      loadedYoutubeIdRef.current = '';
+      setPlayerProgress(0);
+      setPlayerDuration(0);
+      setPlayerPlaying(false);
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
+      }
+      return;
+    }
+    if (loadedYoutubeIdRef.current === nowPlaying.youtube_id) {
+      try {
+        if (nowPlaying.is_playing) ytPlayerRef.current?.playVideo?.();
+        else ytPlayerRef.current?.pauseVideo?.();
+      } catch {}
+      setPlayerPlaying(!!nowPlaying.is_playing);
+      return;
+    }
+
+    let cancelled = false;
+    loadedYoutubeIdRef.current = nowPlaying.youtube_id;
+
+    const mountPlayer = async () => {
+      const YT = await ensureAppYouTubeApi();
+      if (cancelled || !ytMountRef.current) return;
+
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
+      }
+
+      ytPlayerRef.current = new YT.Player(ytMountRef.current, {
+        videoId: nowPlaying.youtube_id,
+        width: '1',
+        height: '1',
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          start: Math.max(0, Math.floor(nowPlaying.elapsed_seconds || 0)),
+        },
+        events: {
+          onReady: (e) => {
+            try {
+              e.target.setVolume(playerVolume);
+              if (playerMuted || playerVolume === 0) e.target.mute();
+              else e.target.unMute();
+              if (nowPlaying.is_playing === false) e.target.pauseVideo();
+              else e.target.playVideo();
+              setPlayerDuration(e.target.getDuration?.() || nowPlaying.duration || 0);
+            } catch {}
+          },
+          onStateChange: (e) => {
+            if (!window.YT) return;
+            const state = e.data;
+            setPlayerPlaying(state === window.YT.PlayerState.PLAYING || state === window.YT.PlayerState.BUFFERING);
+          },
+        },
+      });
+    };
+
+    mountPlayer();
+    return () => { cancelled = true; };
+  }, [nowPlaying?.youtube_id, nowPlaying?.is_playing]);
+
+  useEffect(() => {
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    progressTimerRef.current = setInterval(() => {
+      const player = ytPlayerRef.current;
+      if (!player || !nowPlaying?.youtube_id) return;
+      try {
+        const current = player.getCurrentTime?.() || 0;
+        const duration = player.getDuration?.() || nowPlaying.duration || 0;
+        if (duration > 0) {
+          setPlayerDuration(duration);
+          setPlayerProgress(Math.min(100, (current / duration) * 100));
+        }
+      } catch {}
+    }, 500);
+
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    };
+  }, [nowPlaying?.youtube_id, nowPlaying?.duration]);
+
+  useEffect(() => {
+    const player = ytPlayerRef.current;
+    if (!player) return;
+    try {
+      player.setVolume(playerVolume);
+      if (playerMuted || playerVolume === 0) player.mute();
+      else player.unMute();
+    } catch {}
+  }, [playerVolume, playerMuted]);
 
   const toast = (msg, kind = '') => {
     const id = Date.now() + Math.random();
@@ -94,6 +238,43 @@ function App() {
     const target = onlineUsers.find((person) => person.username === username);
     setDmTarget(target || { username });
     setPage('dm');
+  };
+
+  const canManagePlayback = user?.role === 'dj';
+
+  const toggleStationPlayback = async () => {
+    if (!canManagePlayback || !nowPlaying?.youtube_id) return;
+    const nextPlaying = !playerPlaying;
+    try {
+      const res = await fetch('/api/now-playing', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_playing: nextPlaying }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || 'ควบคุมเพลงไม่สำเร็จ');
+        return;
+      }
+      setNowPlaying((prev) => (prev ? { ...prev, is_playing: nextPlaying } : prev));
+      setPlayerPlaying(nextPlaying);
+      try {
+        if (nextPlaying) ytPlayerRef.current?.playVideo?.();
+        else ytPlayerRef.current?.pauseVideo?.();
+      } catch {}
+    } catch {
+      toast('ควบคุมเพลงไม่สำเร็จ');
+    }
+  };
+
+  const seekStationPlayback = (ratio) => {
+    if (!canManagePlayback || !nowPlaying?.youtube_id) return;
+    const player = ytPlayerRef.current;
+    if (!player || !playerDuration) return;
+    try {
+      player.seekTo(ratio * playerDuration, true);
+      setPlayerProgress(ratio * 100);
+    } catch {}
   };
 
   if (!loaded) return null;
@@ -149,9 +330,23 @@ function App() {
             setListeners={setListeners}
             setQueueCount={setQueueCount}
             setStationNowPlaying={setNowPlaying}
+            stationNowPlaying={nowPlaying}
             toast={toast}
             floats={floats}
             sendReaction={sendReaction}
+            playerPlaying={playerPlaying}
+            playerProgress={playerProgress}
+            playerDuration={playerDuration}
+            playerVolume={playerVolume}
+            playerMuted={playerMuted}
+            canManagePlayback={canManagePlayback}
+            onTogglePlayback={toggleStationPlayback}
+            onSeekPlayback={seekStationPlayback}
+            onToggleMute={() => setPlayerMuted((v) => !v)}
+            onSetVolume={(next) => {
+              setPlayerVolume(next);
+              if (next > 0) setPlayerMuted(false);
+            }}
           />
         )}
         {page === 'explore' && (
@@ -189,6 +384,11 @@ function App() {
       </main>
 
       <Toasts items={toasts} />
+      <div
+        ref={ytMountRef}
+        aria-hidden="true"
+        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden', left: -9999, top: -9999 }}
+      ></div>
     </div>
   );
 }

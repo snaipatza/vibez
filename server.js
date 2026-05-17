@@ -77,6 +77,11 @@ function requireDJ(req, res, next) {
     if (!['dj', 'admin'].includes(req.session.role)) return res.status(403).json({ error: 'เฉพาะ DJ เท่านั้น' });
     next();
 }
+function requirePlaybackDJ(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.session.role !== 'dj') return res.status(403).json({ error: 'DJ only' });
+    next();
+}
 function requireAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     if (req.session.role !== 'admin') return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้น' });
@@ -393,7 +398,7 @@ app.get('/api/now-playing', (req, res) => {
 });
 
 // DJ: set now playing
-app.post('/api/now-playing', requireDJ, (req, res) => {
+app.post('/api/now-playing', requirePlaybackDJ, (req, res) => {
     const { queue_id, youtube_id, title, artist, thumbnail, youtube_url } = req.body;
     if (!youtube_id) return res.status(400).json({ error: 'youtube_id required' });
     const now = Date.now() / 1000;
@@ -413,7 +418,7 @@ app.post('/api/now-playing', requireDJ, (req, res) => {
 });
 
 // DJ: pause / resume
-app.patch('/api/now-playing', requireDJ, (req, res) => {
+app.patch('/api/now-playing', requirePlaybackDJ, (req, res) => {
     const { is_playing } = req.body;
     const row = db.prepare('SELECT * FROM now_playing WHERE id=1').get();
     if (!row) return res.status(404).json({ error: 'Not found' });
@@ -430,7 +435,7 @@ app.patch('/api/now-playing', requireDJ, (req, res) => {
 });
 
 // DJ: stop
-app.delete('/api/now-playing', requireDJ, (req, res) => {
+app.delete('/api/now-playing', requirePlaybackDJ, (req, res) => {
     db.prepare("UPDATE now_playing SET youtube_id='', is_playing=0, paused_elapsed=0 WHERE id=1").run();
     db.prepare("UPDATE queue SET status='pending' WHERE status='playing'").run();
     res.json({ success: true });

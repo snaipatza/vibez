@@ -293,7 +293,6 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                     </div>
                     <div className="row-actions">
                       {q.youtube_url && <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YouTube</a>}
-                      <button className="btn-mini solid" onClick={() => playQueue(q)} disabled={!q.youtube_id}>PLAY</button>
                       <button className="btn-mini" onClick={() => skipQueue(q.id)}>SKIP</button>
                       <button className="btn-mini danger" onClick={() => removeQueue(q.id)}>REMOVE</button>
                     </div>

@@ -740,6 +740,8 @@ const micState = {
   requests: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
   speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
 };
+let micAudioHeader = null; // stored for late-joining listeners
+let micAudioMime = 'audio/webm;codecs=opus';
 const socketToUser = new Map();
 
 const io = new Server(httpServer, { cors: { origin: '*' } });
@@ -747,18 +749,11 @@ const io = new Server(httpServer, { cors: { origin: '*' } });
 io.on('connection', (socket) => {
   socket.on('auth', ({ userId, username, role, avatar_seed, avatar_url }) => {
     socketToUser.set(socket.id, { userId, username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
-    // If DJ mic is live, notify DJ to send offer to this new listener
-    if (micState.isLive && micState.djSocketId && role !== 'dj' && role !== 'admin') {
-      io.to(micState.djSocketId).emit('listener:ready', { socketId: socket.id });
-    }
     socket.emit('mic:status', micState);
-  });
-
-  socket.on('listener:ready', () => {
-    const user = socketToUser.get(socket.id);
-    if (!user || user.role === 'dj' || user.role === 'admin') return;
-    if (!micState.isLive || !micState.djSocketId) return;
-    io.to(micState.djSocketId).emit('listener:ready', { socketId: socket.id });
+    // Send stored header to late-joining listeners so they can start hearing immediately
+    if (micState.isLive && micAudioHeader && role !== 'dj' && role !== 'admin') {
+      socket.emit('mic:audio_header', { header: micAudioHeader, mime: micAudioMime });
+    }
   });
 
   socket.on('mic:start', () => {
@@ -767,8 +762,7 @@ io.on('connection', (socket) => {
     micState.isLive = true;
     micState.djSocketId = socket.id;
     micState.djUsername = user.username;
-    // Notify all listeners so they can connect
-    socket.broadcast.emit('mic:dj_live', { djSocketId: socket.id });
+    micAudioHeader = null;
     io.emit('mic:status', micState);
   });
 
@@ -778,21 +772,21 @@ io.on('connection', (socket) => {
     micState.djSocketId = null;
     micState.requests = [];
     micState.speakers = [];
+    micAudioHeader = null;
     io.emit('mic:status', micState);
   });
 
-  // WebRTC signaling relay
-  socket.on('mic:offer', ({ targetSocketId, offer }) => {
-    io.to(targetSocketId).emit('mic:offer', { from: socket.id, offer });
+  // Audio broadcast relay (MediaRecorder chunks)
+  socket.on('mic:audio_header', ({ header, mime }) => {
+    if (socket.id !== micState.djSocketId) return;
+    micAudioHeader = header;
+    micAudioMime = mime || 'audio/webm;codecs=opus';
+    socket.broadcast.emit('mic:audio_header', { header, mime: micAudioMime });
   });
-  socket.on('mic:answer', ({ targetSocketId, answer }) => {
-    io.to(targetSocketId).emit('mic:answer', { from: socket.id, answer });
-  });
-  socket.on('mic:ice_to_listener', ({ targetSocketId, candidate }) => {
-    io.to(targetSocketId).emit('mic:ice_to_listener', { from: socket.id, candidate });
-  });
-  socket.on('mic:ice_from_listener', ({ targetSocketId, candidate }) => {
-    io.to(targetSocketId).emit('mic:ice_from_listener', { from: socket.id, candidate });
+
+  socket.on('mic:audio_chunk', (chunk) => {
+    if (socket.id !== micState.djSocketId) return;
+    socket.broadcast.emit('mic:audio_chunk', chunk);
   });
 
   // Raise hand

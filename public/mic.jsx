@@ -16,6 +16,7 @@ function useMic(user, socket) {
   const broadcastPeers = useRef(new Map()); // socketId -> RTCPeerConnection
   const localStreamRef = useRef(null);
   const audioElementsRef = useRef(new Map()); // socketId -> <audio>
+  const micStateRef = useRef({ isLive: false, djSocketId: null, djUsername: null, requests: [], speakers: [] });
 
   const isDJ = user.role === 'dj' || user.role === 'admin';
 
@@ -32,6 +33,11 @@ function useMic(user, socket) {
       localStreamRef.current.getTracks().forEach(t => t.stop());
       localStreamRef.current = null;
     }
+  }
+
+  function requestListenerFeed() {
+    if (!socket || isDJ) return;
+    socket.emit('listener:ready');
   }
 
   async function createListenerConnection(listenerSocketId) {
@@ -62,11 +68,15 @@ function useMic(user, socket) {
       if (!audio) {
         audio = document.createElement('audio');
         audio.autoplay = true;
+        audio.playsInline = true;
         audio.style.display = 'none';
         document.body.appendChild(audio);
         audioElementsRef.current.set(broadcasterSocketId, audio);
       }
       audio.srcObject = e.streams[0];
+      audio.play().catch(() => {
+        setMicError('เบราว์เซอร์บล็อกการเล่นเสียงอัตโนมัติ ให้คลิกที่หน้าเว็บอีกครั้ง');
+      });
     };
 
     pc.onicecandidate = (e) => {
@@ -86,6 +96,7 @@ function useMic(user, socket) {
     if (!socket) return;
 
     socket.on('mic:status', (state) => {
+      micStateRef.current = state;
       setMicState(state);
       // If DJ stopped, cleanup
       if (!state.isLive) {
@@ -93,6 +104,8 @@ function useMic(user, socket) {
         setDjMicOn(false);
         setIsApprovedSpeaker(false);
         setHasRaised(false);
+      } else if (!isDJ) {
+        requestListenerFeed();
       }
     });
 
@@ -103,7 +116,8 @@ function useMic(user, socket) {
 
     // Listeners receive: DJ went live → signal ready
     socket.on('mic:dj_live', ({ djSocketId }) => {
-      // Server will handle telling DJ about us via auth state
+      micStateRef.current = { ...micStateRef.current, isLive: true, djSocketId };
+      requestListenerFeed();
     });
 
     // Receive audio offer (from DJ or approved speaker)
@@ -137,7 +151,10 @@ function useMic(user, socket) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         localStreamRef.current = stream;
         // Connect to DJ
-        await createListenerConnection(micState.djSocketId || '');
+        const targetDjSocketId = micStateRef.current.djSocketId || '';
+        if (targetDjSocketId) {
+          await createListenerConnection(targetDjSocketId);
+        }
       } catch (err) {
         setMicError('ไม่สามารถเปิดไมค์ได้');
       }
@@ -165,7 +182,7 @@ function useMic(user, socket) {
       socket.off('mic:removed');
       cleanupAll();
     };
-  }, [socket]);
+  }, [socket, isDJ]);
 
   const startDJMic = async () => {
     try {

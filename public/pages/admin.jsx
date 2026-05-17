@@ -1,4 +1,4 @@
-// Admin Panel — wired to real APIs
+// Admin Panel - real management tools
 function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
   const { useState, useEffect } = React;
   const [tab, setTab] = useState('dashboard');
@@ -9,14 +9,24 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
   const [stats, setStats] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [adForm, setAdForm] = useState({
+    title: '',
+    body: '',
+    cta_text: '',
+    cta_url: '',
+    image_url: '',
+  });
 
-  // Load stats and users on mount
-  useEffect(() => {
+  const loadAll = () => {
     fetch('/api/admin/stats').then(r => r.json()).then(setStats).catch(() => {});
     fetch('/api/admin/users').then(r => r.json()).then(d => { if (Array.isArray(d)) setUsers(d); }).catch(() => {});
     fetch('/api/queue').then(r => r.json()).then(d => { if (Array.isArray(d)) setQueue(d); }).catch(() => {});
     fetch('/api/online').then(r => r.json()).then(d => { if (d.users) setOnlineUsers(d.users); }).catch(() => {});
     fetch('/api/admin/ads').then(r => r.json()).then(d => { if (Array.isArray(d)) setAds(d); }).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadAll();
   }, []);
 
   const filtered = users.filter(u => u.username.toLowerCase().includes(search.toLowerCase()));
@@ -28,9 +38,10 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
       });
-      if (!res.ok) { const d = await res.json(); toast(d.error || 'เกิดข้อผิดพลาด'); return; }
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
       setUsers(us => us.map(u => u.id === id ? { ...u, role } : u));
-      toast(`อัปเดตยศแล้ว → ${role}`, 'success');
+      toast(`อัปเดตสิทธิ์เป็น ${role}`, 'success');
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
@@ -38,7 +49,8 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     if (!confirm('ลบผู้ใช้นี้?')) return;
     try {
       const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-      if (!res.ok) { const d = await res.json(); toast(d.error || 'เกิดข้อผิดพลาด'); return; }
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
       setUsers(us => us.filter(u => u.id !== id));
       toast('ลบผู้ใช้แล้ว', 'success');
     } catch { toast('เกิดข้อผิดพลาด'); }
@@ -66,6 +78,31 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     } catch {}
   };
 
+  const playQueue = async (item) => {
+    if (!item.youtube_id) {
+      toast('รายการนี้ยังไม่มี YouTube link');
+      return;
+    }
+    try {
+      const res = await fetch('/api/now-playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queue_id: item.id,
+          youtube_id: item.youtube_id,
+          title: item.title,
+          artist: item.artist,
+          thumbnail: item.thumbnail,
+          youtube_url: item.youtube_url,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      toast(`กำลังเล่น ${item.title}`, 'success');
+      loadAll();
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
   const toggleAd = async (ad) => {
     try {
       const res = await fetch(`/api/admin/ads/${ad.id}`, {
@@ -80,12 +117,40 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
+  const createAd = async (e) => {
+    e.preventDefault();
+    if (!adForm.title.trim()) {
+      toast('กรุณาใส่หัวข้อโฆษณา');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: adForm.title.trim(),
+          body: adForm.body.trim(),
+          cta_text: adForm.cta_text.trim(),
+          cta_url: adForm.cta_url.trim(),
+          image_url: adForm.image_url.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      setAdForm({ title: '', body: '', cta_text: '', cta_url: '', image_url: '' });
+      toast('สร้างโฆษณาแล้ว', 'success');
+      loadAll();
+    } catch { toast('เกิดข้อผิดพลาด'); }
+    finally { setLoading(false); }
+  };
+
   return (
     <>
       <TopBar
-        crumb="CONTROL ROOM ⁄ ADMIN"
+        crumb="CONTROL ROOM / ADMIN"
         title="Dashboard"
-        meta="System status: nominal"
+        meta="เครื่องมือดูแล IMVU Society Radio"
         listeners={listeners}
         onToggleChat={() => setChatOpen(v => !v)}
         chatOpen={chatOpen}
@@ -116,12 +181,12 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                 <div className="admin-stat">
                   <div className="label">Messages Total</div>
                   <div className="v">{stats?.totalMessages ?? '...'}</div>
-                  <div className="delta">ข้อความทั้งหมด</div>
+                  <div className="delta">ข้อความในระบบ</div>
                 </div>
                 <div className="admin-stat">
                   <div className="label">Songs in Queue</div>
                   <div className="v">{stats?.totalQueue ?? '...'}</div>
-                  <div className="delta">ทั้งหมดในคิว</div>
+                  <div className="delta">คำขอเพลงทั้งหมด</div>
                 </div>
                 <div className="admin-stat">
                   <div className="label">Live Status</div>
@@ -136,7 +201,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                 <div className="admin-card">
                   <div className="admin-card-head">
                     <div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>— Now Playing</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>- Now Playing</div>
                       <h3>{stats.nowPlaying.title || 'Unknown'}</h3>
                     </div>
                     <span className="tag orange">ON AIR</span>
@@ -154,7 +219,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             <div className="admin-card">
               <div className="admin-card-head">
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>— Manage</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>- Manage</div>
                   <h3>ผู้ใช้ทั้งหมด ({filtered.length})</h3>
                 </div>
                 <div className="search-field" style={{ width: 280 }}>
@@ -164,7 +229,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
               </div>
               <table className="admin-table">
                 <thead>
-                  <tr><th>ผู้ใช้</th><th>ยศ</th><th>วันที่สมัคร</th><th>การจัดการ</th></tr>
+                  <tr><th>ผู้ใช้</th><th>สิทธิ์</th><th>วันที่สมัคร</th><th>จัดการ</th></tr>
                 </thead>
                 <tbody>
                   {filtered.map(u => (
@@ -180,7 +245,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                       </td>
                       <td><span className={`role-tag ${u.role}`}>{u.role}</span></td>
                       <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', fontSize: 11 }}>
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString('th') : '—'}
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('th-TH') : '-'}
                       </td>
                       <td>
                         <div className="row-actions">
@@ -207,7 +272,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             <div className="admin-card">
               <div className="admin-card-head">
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>— Now playing & next</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>- Now playing & next</div>
                   <h3>คิวเพลง ({queue.length})</h3>
                 </div>
               </div>
@@ -220,13 +285,15 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                     <div className="pos">{q.status === 'playing' ? '▶' : String(i + 1).padStart(2, '0')}</div>
                     <div className="info">
                       <div className="t">{q.title}</div>
-                      <div className="a">{q.artist || '—'}</div>
+                      <div className="a">{q.artist || '-'}</div>
                     </div>
                     <div className="req">
                       <img src={AVATAR(q.requested_by || 'user')} alt="" />
                       <span>@{q.requested_by}</span>
                     </div>
                     <div className="row-actions">
+                      {q.youtube_url && <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YouTube</a>}
+                      <button className="btn-mini solid" onClick={() => playQueue(q)} disabled={!q.youtube_id}>PLAY</button>
                       <button className="btn-mini" onClick={() => skipQueue(q.id)}>SKIP</button>
                       <button className="btn-mini danger" onClick={() => removeQueue(q.id)}>REMOVE</button>
                     </div>
@@ -240,10 +307,39 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             <div className="admin-card">
               <div className="admin-card-head">
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>— Promotions</div>
-                  <h3>โฆษณา & ร้านค้า ({ads.length})</h3>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>- Promotions</div>
+                  <h3>โฆษณาและร้านค้า ({ads.length})</h3>
                 </div>
               </div>
+
+              <form onSubmit={createAd} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
+                <div className="field">
+                  <label>Title</label>
+                  <input value={adForm.title} onChange={e => setAdForm(f => ({ ...f, title: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>CTA text</label>
+                  <input value={adForm.cta_text} onChange={e => setAdForm(f => ({ ...f, cta_text: e.target.value }))} />
+                </div>
+                <div className="field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Body</label>
+                  <input value={adForm.body} onChange={e => setAdForm(f => ({ ...f, body: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>CTA URL</label>
+                  <input value={adForm.cta_url} onChange={e => setAdForm(f => ({ ...f, cta_url: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>Image URL</label>
+                  <input value={adForm.image_url} onChange={e => setAdForm(f => ({ ...f, image_url: e.target.value }))} />
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <button className="btn-mini solid" type="submit" disabled={loading}>
+                    {loading ? 'Saving...' : 'Create Ad'}
+                  </button>
+                </div>
+              </form>
+
               {ads.length === 0 && (
                 <div style={{ padding: '20px', color: 'var(--ink-mute)', fontSize: 13 }}>ยังไม่มีโฆษณา</div>
               )}
@@ -257,6 +353,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                     <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 12 }}>{ad.body}</p>
                     <div className="row-actions">
                       <button className="btn-mini" onClick={() => toggleAd(ad)}>{ad.active ? 'PAUSE' : 'ACTIVATE'}</button>
+                      {ad.cta_url && <a className="btn-mini" href={ad.cta_url} target="_blank" rel="noreferrer">Open</a>}
                     </div>
                   </div>
                 ))}
@@ -268,7 +365,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             <div className="admin-card">
               <div className="admin-card-head">
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>— Live</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase' }}>- Live</div>
                   <h3>ผู้ใช้ออนไลน์ ({onlineUsers.length})</h3>
                 </div>
               </div>

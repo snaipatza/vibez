@@ -42,8 +42,8 @@ function LoginPage({ onLogin }) {
 
         <div className="login-art-center">
           <div className="display">
-            FEEL<br />
-            THE <span className="orange">VIBE.</span>
+            IMVU<br />
+            <span className="orange">SOCIETY RADIO</span>
           </div>
           <div className="sub">
             แพลตฟอร์มไลฟ์สตรีมสำหรับ DJ และคนรักเสียงเพลง — ขอเพลง โหวต แชต และฟังสดไปด้วยกัน
@@ -52,13 +52,13 @@ function LoginPage({ onLogin }) {
         </div>
 
         <div className="login-art-bottom">
-          <div><span className="pulse"></span>NOW LIVE — IMVU RADIO</div>
+          <div><span className="pulse"></span>LIVE STATION — IMVU SOCIETY RADIO</div>
           <div>MAIN-STAGE</div>
         </div>
       </div>
 
       <div className="login-form-area">
-        <div className="pre">— Welcome back</div>
+        <div className="pre">— Sign in</div>
         <h1>เข้าสู่<br />คลื่นความถี่</h1>
         <p className="lede">เข้าสู่ระบบเพื่อขอเพลง โหวต และร่วมแชตกับ DJ และผู้ฟังคนอื่นๆ ในห้องไลฟ์</p>
 

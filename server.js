@@ -74,7 +74,7 @@ function requireAuth(req, res, next) {
 }
 function requireDJ(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    if (req.session.role !== 'dj') return res.status(403).json({ error: 'เฉพาะ DJ เท่านั้น' });
+    if (!['dj', 'admin'].includes(req.session.role)) return res.status(403).json({ error: 'เฉพาะ DJ เท่านั้น' });
     next();
 }
 function requireAdmin(req, res, next) {
@@ -98,6 +98,47 @@ function saveAvatarImage(userId, imageData) {
     return `/uploads/avatars/${fileName}`;
 }
 
+function extractYouTubeId(input) {
+    const value = String(input || '').trim();
+    if (!value) return null;
+    const match = value.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i);
+    return match ? match[1] : null;
+}
+
+async function resolveQueueRequest(payload) {
+    const rawTitle = String(payload.title || '').trim();
+    const rawArtist = String(payload.artist || '').trim();
+    const rawYoutubeUrl = String(payload.youtube_url || '').trim();
+    const directVideoId = String(payload.youtube_id || '').trim();
+    const videoId = directVideoId || extractYouTubeId(rawYoutubeUrl || rawTitle);
+    const typedTitleIsYouTube = !!extractYouTubeId(rawTitle);
+
+    if (!videoId) {
+        return {
+            title: rawTitle,
+            artist: rawArtist,
+            youtube_url: rawYoutubeUrl,
+            youtube_id: '',
+            thumbnail: String(payload.thumbnail || '').trim()
+        };
+    }
+
+    let oEmbed = null;
+    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    try {
+        const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`);
+        if (response.ok) oEmbed = await response.json();
+    } catch {}
+
+    return {
+        title: rawTitle && rawTitle !== rawYoutubeUrl && !typedTitleIsYouTube ? rawTitle : (oEmbed?.title || `YouTube Video (${videoId})`),
+        artist: rawArtist || oEmbed?.author_name || '',
+        youtube_url: youtubeUrl,
+        youtube_id: videoId,
+        thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+    };
+}
+
 app.post('/api/register', async (req, res) => {
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '').trim();
@@ -114,7 +155,7 @@ app.post('/api/register', async (req, res) => {
     req.session.userId = result.lastInsertRowid;
     req.session.username = username;
     req.session.role = 'user';
-    res.json({ success: true, username, role: 'user' });
+    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'user', avatar_seed: username, avatar_url: '' });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -127,7 +168,14 @@ app.post('/api/login', async (req, res) => {
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.role = user.role;
-    res.json({ success: true, username: user.username, role: user.role });
+    res.json({
+        success: true,
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        avatar_seed: user.avatar_seed || user.username,
+        avatar_url: user.avatar_url || ''
+    });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -206,19 +254,24 @@ app.get('/api/ads', (req, res) => {
 
 // ── DM ────────────────────────────────────────────────────────────────
 app.get('/api/users/online', requireAuth, (req, res) => {
-    const users = db.prepare(`SELECT username, role, avatar FROM users WHERE username != ? ORDER BY username`).all(req.session.user.username);
+    const users = db.prepare(`
+        SELECT username, role, avatar_seed, avatar_url
+        FROM users
+        WHERE username != ?
+        ORDER BY username
+    `).all(req.session.username);
     res.json(users);
 });
 
 app.get('/api/dm/:with', requireAuth, (req, res) => {
-    const me = req.session.user.username;
+    const me = req.session.username;
     const other = req.params.with;
     const msgs = db.prepare(`SELECT * FROM direct_messages WHERE (from_user=? AND to_user=?) OR (from_user=? AND to_user=?) ORDER BY created_at ASC LIMIT 100`).all(me, other, other, me);
     res.json(msgs);
 });
 
 app.post('/api/dm/send', requireAuth, (req, res) => {
-    const from = req.session.user.username;
+    const from = req.session.username;
     const { to, message } = req.body;
     if (!to || !message?.trim()) return res.status(400).json({ error: 'invalid' });
     const toUser = db.prepare('SELECT id FROM users WHERE username=?').get(to);
@@ -324,20 +377,36 @@ app.get('/api/queue', (req, res) => {
     res.json(queue);
 });
 
-app.post('/api/queue', requireAuth, (req, res) => {
-    const { title, artist, youtube_url, youtube_id, thumbnail } = req.body;
-    if (!title || !title.trim()) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
+app.post('/api/queue', requireAuth, async (req, res) => {
+    const rawTitle = String(req.body.title || '').trim();
+    const rawYoutubeUrl = String(req.body.youtube_url || '').trim();
+    if (!rawTitle && !rawYoutubeUrl) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
     const activeQueueCount = db.prepare("SELECT COUNT(*) as c FROM queue WHERE status IN ('pending','playing')").get().c;
     if (activeQueueCount >= 20) return res.status(409).json({ error: 'คิวเพลงเต็มแล้ว จำกัดสูงสุด 20 เพลง' });
 
+    const resolved = await resolveQueueRequest(req.body);
+    if (!resolved.title) return res.status(400).json({ error: 'กรุณาใส่ชื่อเพลง' });
+    if (resolved.youtube_id) {
+        const duplicate = db.prepare("SELECT id FROM queue WHERE youtube_id=? AND status IN ('pending','playing')").get(resolved.youtube_id);
+        if (duplicate) return res.status(409).json({ error: 'เพลงนี้อยู่ในคิวแล้ว' });
+    }
+
     const result = db.prepare(
         'INSERT INTO queue (title,artist,youtube_url,youtube_id,thumbnail,requested_by,user_id) VALUES (?,?,?,?,?,?,?)'
-    ).run(title.trim(), artist || '', youtube_url || '', youtube_id || '', thumbnail || '', req.session.username, req.session.userId);
+    ).run(
+        resolved.title,
+        resolved.artist || '',
+        resolved.youtube_url || '',
+        resolved.youtube_id || '',
+        resolved.thumbnail || '',
+        req.session.username,
+        req.session.userId
+    );
 
     db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)")
-      .run(0, 'SYSTEM', 'system', `🎵 ${req.session.username} ขอเพลง "${title.trim()}"`);
+      .run(0, 'SYSTEM', 'system', `🎵 ${req.session.username} ขอเพลง "${resolved.title}"`);
 
-    res.json({ success: true, id: result.lastInsertRowid });
+    res.json({ success: true, id: result.lastInsertRowid, item: resolved });
 });
 
 app.post('/api/queue/:id/vote', requireAuth, (req, res) => {
@@ -451,6 +520,13 @@ io.on('connection', (socket) => {
       io.to(micState.djSocketId).emit('listener:ready', { socketId: socket.id });
     }
     socket.emit('mic:status', micState);
+  });
+
+  socket.on('listener:ready', () => {
+    const user = socketToUser.get(socket.id);
+    if (!user || user.role === 'dj' || user.role === 'admin') return;
+    if (!micState.isLive || !micState.djSocketId) return;
+    io.to(micState.djSocketId).emit('listener:ready', { socketId: socket.id });
   });
 
   socket.on('mic:start', () => {

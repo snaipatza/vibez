@@ -1,4 +1,4 @@
-/* Shared building blocks for VIBEZ */
+/* Shared building blocks for IMVU Society Radio */
 
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -6,13 +6,13 @@ const AVATAR = (seed) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${enco
 
 // -------- SIDEBAR -----------------------------------------------------------
 function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onLogout }) {
-  const np = nowPlaying || { dj: 'DJ VIBEZ', track: 'Midnight Groove', progress: 38, djSeed: 'DJVIBEZ' };
+  const np = nowPlaying || { dj: 'IMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
 
   return (
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark orange">V</div>
-        <div className="brand-name">VIBEZ</div>
+        <div className="brand-name">IMVU Society Radio</div>
         <div className="brand-tag">FM/01</div>
       </div>
 
@@ -25,7 +25,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
         <div className="now-mini-body">
           <div className="now-mini-avatar">
-            <img src={AVATAR(np.djSeed)} alt="" />
+            <img src={np.djAvatarUrl || AVATAR(np.djSeed)} alt="" />
           </div>
           <div className="now-mini-info">
             <div className="t">{np.dj}</div>

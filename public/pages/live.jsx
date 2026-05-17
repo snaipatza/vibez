@@ -43,7 +43,7 @@ function adIcon(ad) {
   return 'fas ' + icons[ad.id % icons.length];
 }
 
-function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQueueCount, toast, floats, sendReaction }) {
+function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQueueCount, setStationNowPlaying, toast, floats, sendReaction }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(75);
@@ -99,6 +99,9 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
             title: q.title,
             artist: q.artist || '',
             requester: q.requested_by || '',
+            youtube_url: q.youtube_url || '',
+            youtube_id: q.youtube_id || '',
+            thumbnail: q.thumbnail || '',
             votes: q.votes || 0,
             voted: q.userVoted || false,
             status: q.status,
@@ -122,6 +125,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
         // Now playing
         if (npRes.youtube_id) {
           setNowPlaying(npRes);
+          setStationNowPlaying?.(npRes);
           setPlaying(!!npRes.is_playing);
           if (npRes.duration) totalSecRef.current = npRes.duration;
           if (npRes.elapsed_seconds != null) {
@@ -130,6 +134,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
           }
         } else {
           setNowPlaying(null);
+          setStationNowPlaying?.(null);
           setPlaying(false);
           setProgress(0);
         }
@@ -185,11 +190,13 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
   const submitRequest = async (e) => {
     e.preventDefault();
     if (!searchVal.trim()) return;
+    const value = searchVal.trim();
+    const looksLikeUrl = /(?:youtube\.com|youtu\.be)/i.test(value);
     try {
       const res = await fetch('/api/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: searchVal.trim() }),
+        body: JSON.stringify(looksLikeUrl ? { youtube_url: value, title: value } : { title: value }),
       });
       const data = await res.json();
       if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
@@ -216,6 +223,39 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
     setHype(h => Math.min(100, h + 6));
   };
 
+  const playQueueItem = async (item) => {
+    if (!item.youtube_id) {
+      toast('รายการนี้ยังไม่มี YouTube link');
+      return;
+    }
+    try {
+      const res = await fetch('/api/now-playing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          queue_id: item.id,
+          youtube_id: item.youtube_id,
+          title: item.title,
+          artist: item.artist,
+          thumbnail: item.thumbnail,
+          youtube_url: item.youtube_url,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      toast(`กำลังเล่น ${item.title}`, 'success');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
+  const stopPlaying = async () => {
+    try {
+      const res = await fetch('/api/now-playing', { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      toast('หยุดการออกอากาศแล้ว', 'success');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
   const sendTip = () => {
     if (!tipBtnRef.current) return;
     const btn = tipBtnRef.current.getBoundingClientRect();
@@ -235,7 +275,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
 
   const djSeed = nowPlaying?.dj_avatar_seed || 'IMVURADIO';
   const djAvatarUrl = nowPlaying?.dj_avatar_url || '';
-  const djName = nowPlaying?.dj_username || 'IMVU Radio';
+  const djName = nowPlaying?.dj_username || 'IMVU Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
 
@@ -313,9 +353,18 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                 {/* Mood picker + tip jar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                   <MoodPicker mood={mood} onPick={setMood} />
+                  {(user.role === 'dj' || user.role === 'admin') && nowPlaying?.youtube_id && (
+                    <button className="btn-mini solid" onClick={stopPlaying}>
+                      Stop Live
+                    </button>
+                  )}
                   <div style={{ marginLeft: 'auto' }}>
                     <TipJar count={tips} onTip={sendTip} btnRef={tipBtnRef} />
                   </div>
+                </div>
+
+                <div style={{ marginTop: 18 }}>
+                  <MicPanel user={user} socket={socketRef.current} />
                 </div>
               </div>
             </div>
@@ -329,9 +378,6 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
               ))}
             </div>
           </div>
-
-          {/* Mic / Voice Panel */}
-          <MicPanel user={user} socket={socketRef.current} />
 
           {/* Chat */}
           <div className="section">
@@ -378,7 +424,7 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                 <div className="search-field">
                   <i className="fas fa-search"></i>
                   <input
-                    placeholder="ชื่อเพลง — ศิลปิน..."
+                    placeholder="ชื่อเพลง หรือวาง YouTube link"
                     value={searchVal}
                     onChange={e => setSearchVal(e.target.value)}
                   />
@@ -387,6 +433,9 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                   <i className="fas fa-paper-plane"></i> ส่งคำขอ
                 </button>
               </form>
+              <div style={{ marginTop: 8, color: 'var(--ink-3)', fontSize: 12 }}>
+                รองรับทั้งชื่อเพลงทั่วไป และ YouTube URL เพื่อดึงชื่อเพลงจริงเข้าคิวอัตโนมัติ
+              </div>
             </div>
 
             {/* Queue */}
@@ -411,10 +460,23 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                       <div className="t">{q.title}</div>
                       <div className="a">{q.artist}{q.artist && q.requester ? ' · ' : ''}{q.requester ? `@${q.requester}` : ''}</div>
                     </div>
-                    <button className={`vote ${q.voted ? 'up' : ''}`} onClick={() => vote(q.id)}>
-                      <i className="fas fa-chevron-up"></i>
-                      <span>{q.votes}</span>
-                    </button>
+                    {(user.role === 'dj' || user.role === 'admin') ? (
+                      <div className="row-actions">
+                        {q.youtube_url && (
+                          <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">
+                            YouTube
+                          </a>
+                        )}
+                        <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>
+                          Play
+                        </button>
+                      </div>
+                    ) : (
+                      <button className={`vote ${q.voted ? 'up' : ''}`} onClick={() => vote(q.id)}>
+                        <i className="fas fa-chevron-up"></i>
+                        <span>{q.votes}</span>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -430,25 +492,8 @@ function LivePage({ user, chatOpen, setChatOpen, listeners, setListeners, setQue
                 <span className="right">{ads.length} ช่อง</span>
               </div>
               {ads.length === 0 ? (
-                <div className="ads-list">
-                  {[
-                    { id: 'p1', title: 'ช่องโฆษณา 1', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-store', kind: 'placeholder' },
-                    { id: 'p2', title: 'ช่องโฆษณา 2', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-tag', kind: 'dark' },
-                    { id: 'p3', title: 'ช่องโฆษณา 3', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-ad', kind: 'placeholder' },
-                    { id: 'p4', title: 'ช่องโฆษณา 4', body: 'ติดต่อแอดมินเพื่อลงโฆษณาของคุณ', cta_text: 'ติดต่อ', icon: 'fas fa-bullhorn', kind: 'dark' },
-                  ].map(ad => (
-                    <div key={ad.id} className="ad-card" style={{ opacity: 0.55, cursor: 'default' }}>
-                      <span className="ad-badge">AD</span>
-                      <div className={`ad-img ${ad.kind}`}>
-                        <i className={ad.icon}></i>
-                      </div>
-                      <div className="ad-copy">
-                        <h4>{ad.title}</h4>
-                        <p>{ad.body}</p>
-                        <span className="ad-cta">{ad.cta_text} →</span>
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ padding: '14px 10px', color: 'var(--ink-mute)', fontSize: 13 }}>
+                  ยังไม่มีโฆษณาที่เปิดใช้งานอยู่
                 </div>
               ) : (
                 <div className="ads-list">

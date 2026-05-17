@@ -114,12 +114,12 @@ for (const sql of alterations) {
 }
 
 // Create default DJ account
-const djExists = db.prepare("SELECT id FROM users WHERE username = 'DJVIBEZ'").get();
+const djExists = db.prepare("SELECT id FROM users WHERE username = 'IMVURADIO'").get();
 if (!djExists) {
     const hash = bcrypt.hashSync('vibez1234', 10);
-    db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES ('DJVIBEZ', ?, 'dj', 'dj-vibez')")
+    db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES ('IMVURADIO', ?, 'dj', 'imvu-society-radio')")
       .run(hash);
-    console.log('✅ DJ account: DJVIBEZ / vibez1234');
+    console.log('✅ DJ account: IMVURADIO / vibez1234');
 }
 
 // Create default admin account

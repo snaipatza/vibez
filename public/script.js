@@ -645,7 +645,7 @@ function initEventListeners() {
     if (toggleChatBtn) {
         toggleChatBtn.addEventListener('click', () => {
             const panel = document.getElementById('chatPanel');
-            if (!panel || panel.classList.contains('request-panel')) return;
+            if (!panel || !panel.classList.contains('chat-col')) return;
             panel.classList.toggle('hidden');
             panel.classList.toggle('visible');
         });
@@ -653,7 +653,7 @@ function initEventListeners() {
     if (closeChatBtn) {
         closeChatBtn.addEventListener('click', () => {
             const panel = document.getElementById('chatPanel');
-            if (!panel || panel.classList.contains('request-panel')) return;
+            if (!panel || !panel.classList.contains('chat-col')) return;
             panel.classList.add('hidden');
             panel.classList.remove('visible');
         });

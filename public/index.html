@@ -87,6 +87,10 @@
             <div class="content-area">
                 <div class="stream-section">
 
+                    <!-- Top zone: player (left) + chat (right, same height) -->
+                    <div class="top-zone">
+                    <div class="player-col">
+
                     <!-- DJ Player Card -->
                     <div class="dj-player">
                         <div class="player-visual">
@@ -179,8 +183,41 @@
 
                         </div>
                     </div>
+                    </div><!-- close player-col -->
 
-                    <!-- ขอเพลง + คิวเพลง (inline in stream) -->
+                    <!-- Chat column (same height as player) -->
+                    <div class="chat-col" id="chatPanel">
+                        <div class="chat-header">
+                            <h3><i class="fas fa-comments"></i> Live Chat</h3>
+                            <div class="chat-header-actions">
+                                <button class="icon-btn-sm" id="closeChatBtn" style="display:none"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="chatMessages"></div>
+                        <div class="chat-input-area">
+                            <div class="emoji-picker" id="emojiPicker">
+                                <div class="emoji-grid">
+                                    <button onclick="insertEmoji('😀')">😀</button><button onclick="insertEmoji('😂')">😂</button>
+                                    <button onclick="insertEmoji('🔥')">🔥</button><button onclick="insertEmoji('❤️')">❤️</button>
+                                    <button onclick="insertEmoji('🎵')">🎵</button><button onclick="insertEmoji('🎉')">🎉</button>
+                                    <button onclick="insertEmoji('💜')">💜</button><button onclick="insertEmoji('🤩')">🤩</button>
+                                    <button onclick="insertEmoji('👏')">👏</button><button onclick="insertEmoji('💃')">💃</button>
+                                    <button onclick="insertEmoji('🕺')">🕺</button><button onclick="insertEmoji('🎧')">🎧</button>
+                                    <button onclick="insertEmoji('🎤')">🎤</button><button onclick="insertEmoji('⚡')">⚡</button>
+                                    <button onclick="insertEmoji('✨')">✨</button><button onclick="insertEmoji('🙌')">🙌</button>
+                                </div>
+                            </div>
+                            <div class="chat-input-wrapper">
+                                <button class="tts-btn" id="ttsToggleBtn" title="เปิด/ปิด TTS" style="display:none"><i class="fas fa-volume-up"></i></button>
+                                <button class="emoji-btn" id="emojiBtn"><i class="fas fa-smile"></i></button>
+                                <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" maxlength="300">
+                                <button class="chat-send-btn" id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div><!-- close chat-col -->
+                    </div><!-- close top-zone -->
+
+                    <!-- ขอเพลง + คิวเพลง (below both player and chat) -->
                     <div class="request-section">
                         <div class="section-header">
                             <h3><i class="fas fa-hand-paper"></i> ขอเพลง</h3>
@@ -240,37 +277,6 @@
                         <div class="ads-grid" id="adsGrid"></div>
                     </section>
                 </div>
-
-                <!-- Right Panel: Live Chat -->
-                <aside class="request-panel" id="chatPanel">
-                    <div class="chat-header">
-                        <h3><i class="fas fa-comments"></i> Live Chat</h3>
-                        <div class="chat-header-actions">
-                            <button class="icon-btn-sm" id="closeChatBtn" style="display:none"><i class="fas fa-times"></i></button>
-                        </div>
-                    </div>
-                    <div class="chat-messages" id="chatMessages"></div>
-                    <div class="chat-input-area">
-                        <div class="emoji-picker" id="emojiPicker">
-                            <div class="emoji-grid">
-                                <button onclick="insertEmoji('😀')">😀</button><button onclick="insertEmoji('😂')">😂</button>
-                                <button onclick="insertEmoji('🔥')">🔥</button><button onclick="insertEmoji('❤️')">❤️</button>
-                                <button onclick="insertEmoji('🎵')">🎵</button><button onclick="insertEmoji('🎉')">🎉</button>
-                                <button onclick="insertEmoji('💜')">💜</button><button onclick="insertEmoji('🤩')">🤩</button>
-                                <button onclick="insertEmoji('👏')">👏</button><button onclick="insertEmoji('💃')">💃</button>
-                                <button onclick="insertEmoji('🕺')">🕺</button><button onclick="insertEmoji('🎧')">🎧</button>
-                                <button onclick="insertEmoji('🎤')">🎤</button><button onclick="insertEmoji('⚡')">⚡</button>
-                                <button onclick="insertEmoji('✨')">✨</button><button onclick="insertEmoji('🙌')">🙌</button>
-                            </div>
-                        </div>
-                        <div class="chat-input-wrapper">
-                            <button class="tts-btn" id="ttsToggleBtn" title="เปิด/ปิด TTS" style="display:none"><i class="fas fa-volume-up"></i></button>
-                            <button class="emoji-btn" id="emojiBtn"><i class="fas fa-smile"></i></button>
-                            <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." autocomplete="off" maxlength="300">
-                            <button class="chat-send-btn" id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
-                        </div>
-                    </div>
-                </aside>
             </div>
         </main>
     </div>

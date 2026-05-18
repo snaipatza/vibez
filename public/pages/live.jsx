@@ -12,8 +12,10 @@ const REACTIONS_INIT = [
 
 function fmtTime(d) {
   try {
-    const t = new Date(d);
-    return `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    // Treat bare SQLite timestamps as UTC (Railway server runs in UTC)
+    const str = typeof d === 'string' && !d.includes('Z') && !d.includes('+') ? d + 'Z' : d;
+    const t = new Date(str);
+    return t.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
   } catch { return ''; }
 }
 
@@ -35,7 +37,7 @@ function liveRoleLevel(role) { return liveRoleMeta(role).level; }
 
 function msgFromApi(m) {
   if (m.role === 'system' || m.username === 'SYSTEM') {
-    return { system: true, text: m.message };
+    return { system: true, text: m.message, id: m.id }; // id needed for deduplication
   }
   return {
     name: m.username,
@@ -573,10 +575,9 @@ function LivePage({
                   </div>
                 )}
 
-                {/* Mood picker + tip jar + color picker */}
+                {/* Mood picker + tip jar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                   <MoodPicker mood={mood} onPick={setMood} />
-                  <ColorPickerPanel user={user} toast={toast} />
                   {user.role === 'dj' && (
                     stageActive ? (
                       <button className="btn-stage-off" onClick={leaveStage}>
@@ -613,12 +614,13 @@ function LivePage({
 
           {/* Chat */}
           <div className="section">
-            <div className="section-head">
+            <div className="section-head chat-section-head">
               <div>
                 <div className="pre">— Live Chat</div>
                 <h2>แชทห้อง {activeRoom}</h2>
               </div>
-              <div className="right">
+              <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <ColorPickerPanel user={user} toast={toast} />
                 <span>{listeners} กำลังออนไลน์</span>
                 <span>·</span>
                 <span style={{ color: 'var(--orange-deep)' }}>● LIVE</span>

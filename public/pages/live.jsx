@@ -410,6 +410,17 @@ function LivePage({
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
+  const removeQueueItem = async (id) => {
+    try {
+      const res = await fetch(`/api/queue/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      setDjQueue(q => q.filter(x => x.id !== id));
+      setUserQueue(q => q.filter(x => x.id !== id));
+      setQueue(q => q.filter(x => x.id !== id));
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
   const sendTip = () => {
     if (!tipBtnRef.current) return;
     const btn = tipBtnRef.current.getBoundingClientRect();
@@ -701,6 +712,9 @@ function LivePage({
                             <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YT</a>
                           )}
                           <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>▶</button>
+                          <button className="btn-mini danger" onClick={() => removeQueueItem(q.id)} title="เอาเพลงออก">
+                            <i className="fas fa-times"></i>
+                          </button>
                         </div>
                       ) : (
                         <button className={`vote ${q.voted ? 'up' : ''}`} onClick={() => vote(q.id)}>
@@ -734,6 +748,9 @@ function LivePage({
                           <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YT</a>
                         )}
                         <button className="btn-mini solid" onClick={() => playQueueItem(q)} disabled={!q.youtube_id}>▶</button>
+                        <button className="btn-mini danger" onClick={() => removeQueueItem(q.id)} title="เอาเพลงออก">
+                          <i className="fas fa-times"></i>
+                        </button>
                       </div>
                     </div>
                   ))}

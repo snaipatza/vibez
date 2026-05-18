@@ -2526,7 +2526,8 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
 }
 .btn-mini:hover { background: var(--ink); color: var(--bg); }
-.btn-mini.danger:hover { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-mini.danger { border-color: var(--red, #ff4d4d); color: var(--red, #ff4d4d); }
+.btn-mini.danger:hover { background: var(--red, #ff4d4d); border-color: var(--red, #ff4d4d); color: #fff; }
 .btn-mini.solid { background: var(--ink); color: var(--bg); }
 .btn-mini.solid:hover { background: var(--orange); border-color: var(--orange); }
 

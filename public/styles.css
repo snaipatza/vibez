@@ -2038,7 +2038,7 @@ a { color: inherit; text-decoration: none; }
   display: flex; gap: 8px; align-items: baseline;
   margin-bottom: 2px;
 }
-.msg .name { font-weight: 700; font-size: 13px; }
+.msg .name { font-weight: 700; font-size: 15px; }
 .msg .name.dj { color: var(--orange-deep); }
 .msg .name.dj::after {
   content: 'DJ';
@@ -2059,10 +2059,10 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-mute);
 }
 .msg .text {
-  font-size: 13px;
-  color: var(--ink-2);
+  font-size: 15px;
+  color: var(--ink);
   word-wrap: break-word;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 .chat-media {
   position: relative;
@@ -3499,7 +3499,7 @@ a { color: inherit; text-decoration: none; }
   border: 1.5px solid #c77dff55;
   border-radius: 10px;
   padding: 6px 10px 4px;
-  background: linear-gradient(135deg, #f9f0ff 0%, #fdf6ff 100%);
+  background: var(--bg-card);
   position: relative;
 }
 .msg.vip-msg .body::before {
@@ -3507,7 +3507,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, #c77dff22, #e040fb11);
+  background: transparent;
   pointer-events: none;
 }
 
@@ -3945,7 +3945,7 @@ a { color: inherit; text-decoration: none; }
   border: 1.5px solid #ff3cac55;
   border-radius: 10px;
   padding: 6px 10px 4px;
-  background: linear-gradient(135deg, #fff0f6 0%, #fff5fb 100%);
+  background: var(--bg-card);
 }
 
 /* 🎧 DJ — orange/amber accent */
@@ -3953,15 +3953,15 @@ a { color: inherit; text-decoration: none; }
   border: 1.5px solid #ff9f1c88;
   border-radius: 10px;
   padding: 6px 10px 4px;
-  background: linear-gradient(135deg, #fff8ec 0%, #fffcf5 100%);
+  background: var(--bg-card);
 }
 
-/* 💎 VIP — purple accent (replaces old .msg.vip-msg) */
+/* 💎 VIP — purple accent */
 .msg-role-vip .body {
   border: 1.5px solid #c77dff55;
   border-radius: 10px;
   padding: 6px 10px 4px;
-  background: linear-gradient(135deg, #f9f0ff 0%, #fdf6ff 100%);
+  background: var(--bg-card);
 }
 
 /* 👤 Member — blue accent (subtle) */
@@ -3970,7 +3970,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid #4d96ff33;
   border-radius: 10px;
   padding: 6px 10px 4px;
-  background: linear-gradient(135deg, #f5f9ff 0%, #fafcff 100%);
+  background: var(--bg-card);
 }
 
 /* 🌍 Guest — gray, minimal */

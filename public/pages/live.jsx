@@ -1238,7 +1238,7 @@ const AVATAR_FRAMES = [
 function AvatarFramePicker({ user, toast, onFrameChange }) {
   const { useState } = React;
   const level = liveRoleLevel(user.role);
-  if (level < 1) return null;
+  if (level < 2) return null; // VIP+ only
   const [frame, setFrame] = useState(user.avatar_frame || '');
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);

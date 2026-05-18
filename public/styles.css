@@ -2026,7 +2026,7 @@ a { color: inherit; text-decoration: none; }
   align-items: flex-start;
 }
 .msg .av {
-  width: 26px; height: 26px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   background: var(--orange-soft);
   flex-shrink: 0;

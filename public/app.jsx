@@ -51,6 +51,14 @@ function App() {
   });
   const [playerMuted, setPlayerMuted] = useState(() => window.localStorage.getItem('imvu-radio-muted') === '1');
   const [micActive, setMicActive] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('vibez-theme') || 'light'; } catch { return 'light'; }
+  });
+  const toggleTheme = () => setTheme(v => {
+    const next = v === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem('vibez-theme', next); } catch {}
+    return next;
+  });
   const ytMountRef = useRef(null);
   const ytPlayerRef = useRef(null);
   const loadedYoutubeIdRef = useRef('');
@@ -371,7 +379,7 @@ function App() {
       };
 
   return (
-    <div className="app" data-skin="pink">
+    <div className="app" data-skin="pink" data-theme={theme}>
       <Sidebar
         page={page}
         onNav={setPage}
@@ -388,6 +396,8 @@ function App() {
         onOpenDM={openDirectMessage}
         onLogout={handleLogout}
         onOpenProfile={() => setPage('profile')}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <main className="main">

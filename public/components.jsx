@@ -243,6 +243,10 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
               {page === 'admin' && <div className="pulse-bars"><span /><span /><span /></div>}
             </div>
           )}
+          <div className={`nav-item ${page === 'rules' ? 'active' : ''}`} onClick={() => onNav('rules')}>
+            <i className="fas fa-clipboard-list nav-icon"></i>
+            <span>กฎห้อง</span>
+          </div>
         </div>
       </div>
 

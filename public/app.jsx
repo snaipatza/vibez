@@ -423,6 +423,7 @@ function App() {
             toast={toast}
           />
         )}
+        {page === 'rules' && <RulesPage />}
       </main>
 
       <Toasts items={toasts} />

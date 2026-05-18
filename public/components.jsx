@@ -80,12 +80,26 @@ function readFileAsDataUrl(file) {
 }
 
 function ChatMessageMedia({ mediaUrl, mediaType }) {
+  const { useState } = React;
+  const [lightbox, setLightbox] = useState(false);
   if (!mediaUrl) return null;
   return (
-    <div className={`chat-media ${mediaType === 'gif' ? 'gif' : 'image'}`}>
-      <img src={mediaUrl} alt="" />
-      {mediaType === 'gif' && <span className="media-badge">GIF</span>}
-    </div>
+    <>
+      <div className={`chat-media ${mediaType === 'gif' ? 'gif' : 'image'}`} onClick={() => setLightbox(true)} style={{ cursor: 'zoom-in' }}>
+        <img src={mediaUrl} alt="" />
+        {mediaType === 'gif' && <span className="media-badge">GIF</span>}
+      </div>
+      {lightbox && (
+        <div className="img-lightbox" onClick={() => setLightbox(false)}>
+          <div className="img-lightbox-inner" onClick={e => e.stopPropagation()}>
+            <img src={mediaUrl} alt="" />
+            <button className="img-lightbox-close" onClick={() => setLightbox(false)}>
+              <i className="fas fa-times" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

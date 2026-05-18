@@ -873,10 +873,14 @@ function ChatPanelInline({ messages, onSend, user }) {
     const el = bodyRef.current;
     if (!el) return;
     const added = messages.length - prevLenRef.current;
+    const wasEmpty = prevLenRef.current === 0;
     prevLenRef.current = messages.length;
     if (added <= 0) return;
-    if (atBottom) {
-      el.scrollTop = el.scrollHeight;
+    if (atBottom || wasEmpty) {
+      // Use rAF so the browser has painted the new messages before we measure scrollHeight
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = el.scrollHeight;
+      });
       setNewCount(0);
     } else {
       setNewCount(n => n + added);

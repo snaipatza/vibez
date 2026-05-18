@@ -165,7 +165,30 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+  const { useState: useSt } = React;
+  const [showCreateRoom, setShowCreateRoom] = useSt(false);
+  const [newRoomName, setNewRoomName] = useSt('');
+  const [newRoomSkin, setNewRoomSkin] = useSt('pink');
+  const [createError, setCreateError] = useSt('');
+  const [creating, setCreating] = useSt(false);
+  const canManageRooms = user && (user.role === 'dj' || user.role === 'admin');
+
+  const submitCreateRoom = async () => {
+    if (!newRoomName.trim()) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      await onCreateRoom(newRoomName.trim(), newRoomSkin);
+      setNewRoomName('');
+      setShowCreateRoom(false);
+    } catch (e) {
+      setCreateError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const np = nowPlaying || { dj: 'IIMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
   const allOnlineUsers = Array.isArray(onlineUsers)
     ? onlineUsers.filter((person) => person?.username)
@@ -267,16 +290,51 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
       <div>
         <div className="section-label">
           <span>Rooms</span>
-          <span><i className="fas fa-plus" style={{ fontSize: 9, color: 'var(--ink-3)' }}></i></span>
+          {canManageRooms && (
+            <span
+              className="room-add-btn"
+              title="สร้างห้องใหม่"
+              onClick={() => { setShowCreateRoom(v => !v); setCreateError(''); }}
+            >
+              <i className="fas fa-plus" style={{ fontSize: 9 }}></i>
+            </span>
+          )}
         </div>
+
+        {showCreateRoom && canManageRooms && (
+          <div className="room-create-form">
+            <input
+              className="room-create-input"
+              placeholder="ชื่อห้อง (a-z, 0-9, -)"
+              value={newRoomName}
+              onChange={e => setNewRoomName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitCreateRoom()}
+              maxLength={30}
+              autoFocus
+            />
+            <div className="room-skin-picker">
+              {[['pink','#E87BA1'],['peach','#F19772'],['indigo','#9387D8'],['ocher','#D4A442']].map(([s, c]) => (
+                <span
+                  key={s}
+                  className={`room-skin-dot ${newRoomSkin === s ? 'selected' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setNewRoomSkin(s)}
+                />
+              ))}
+            </div>
+            {createError && <div className="room-create-error">{createError}</div>}
+            <div className="room-create-actions">
+              <button className="room-create-submit" onClick={submitCreateRoom} disabled={creating}>
+                {creating ? '...' : 'สร้างห้อง'}
+              </button>
+              <button className="room-create-cancel" onClick={() => setShowCreateRoom(false)}>ยกเลิก</button>
+            </div>
+          </div>
+        )}
+
         <div className="rooms">
           {rooms.map(r => {
-            const skinColor = {
-              pink: '#E87BA1',
-              peach: '#F19772',
-              indigo: '#9387D8',
-              ocher: '#D4A442',
-            }[r.skin] || '#E87BA1';
+            const skinColor = { pink: '#E87BA1', peach: '#F19772', indigo: '#9387D8', ocher: '#D4A442' }[r.skin] || '#E87BA1';
             return (
               <div
                 key={r.id}
@@ -284,9 +342,18 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
                 onClick={() => onRoomClick && onRoomClick(r.id)}
               >
                 <span className="hash">#</span>
-                <span>{r.name}</span>
-                <span className="listeners">{r.listeners}</span>
+                <span className="room-name">{r.name}</span>
+                {r.listeners > 0 && <span className="listeners">{r.listeners}</span>}
                 <span className="skin-dot" style={{ background: skinColor }}></span>
+                {canManageRooms && !r.is_default && (
+                  <span
+                    className="room-delete-btn"
+                    title="ลบห้อง"
+                    onClick={e => { e.stopPropagation(); onDeleteRoom && onDeleteRoom(r.id); }}
+                  >
+                    <i className="fas fa-times"></i>
+                  </span>
+                )}
               </div>
             );
           })}

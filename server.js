@@ -692,17 +692,48 @@ app.post('/api/stage/off', requireDJ, (req, res) => {
     res.json({ success: true });
 });
 
+// ── ROOMS ─────────────────────────────────────────────────────────────
+app.get('/api/rooms', (req, res) => {
+    const rooms = db.prepare('SELECT * FROM rooms ORDER BY is_default DESC, created_at ASC').all();
+    res.json(rooms);
+});
+
+app.post('/api/rooms', requireAuth, (req, res) => {
+    if (!['dj', 'admin'].includes(req.session.role)) return res.status(403).json({ error: 'เฉพาะ DJ ขึ้นไปเท่านั้น' });
+    const rawName = String(req.body.name || '').trim();
+    const name = rawName.toLowerCase().replace(/[^a-z0-9ก-๙-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+    if (!name) return res.status(400).json({ error: 'ชื่อห้องไม่ถูกต้อง' });
+    const skin = ['pink', 'peach', 'indigo', 'ocher'].includes(req.body.skin) ? req.body.skin : 'pink';
+    const id = name + '-' + Date.now();
+    try {
+        db.prepare('INSERT INTO rooms (id, name, skin, created_by) VALUES (?,?,?,?)').run(id, name, skin, req.session.username);
+        res.json({ success: true, id, name, skin });
+    } catch {
+        res.status(400).json({ error: 'ชื่อห้องนี้มีอยู่แล้ว' });
+    }
+});
+
+app.delete('/api/rooms/:id', requireAuth, (req, res) => {
+    if (!['dj', 'admin'].includes(req.session.role)) return res.status(403).json({ error: 'เฉพาะ DJ ขึ้นไปเท่านั้น' });
+    const room = db.prepare('SELECT * FROM rooms WHERE id=?').get(req.params.id);
+    if (!room) return res.status(404).json({ error: 'ไม่พบห้อง' });
+    if (room.is_default) return res.status(400).json({ error: 'ไม่สามารถลบห้องหลักได้' });
+    db.prepare('DELETE FROM rooms WHERE id=?').run(req.params.id);
+    res.json({ success: true });
+});
+
 // ── MESSAGES ──────────────────────────────────────────────────────────
 app.get('/api/messages', (req, res) => {
     const after = parseInt(req.query.after) || 0;
+    const roomId = String(req.query.room || 'main-stage').slice(0, 80);
     const messages = db.prepare(`
         SELECT messages.*, users.avatar_seed, users.avatar_url
         FROM messages
         LEFT JOIN users ON users.id = messages.user_id
-        WHERE messages.id > ?
+        WHERE messages.id > ? AND messages.room_id = ?
         ORDER BY messages.created_at ASC
         LIMIT 60
-    `).all(after);
+    `).all(after, roomId);
     res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '' })));
 });
 
@@ -710,6 +741,9 @@ app.post('/api/messages', requireAuth, (req, res) => {
     const message = String(req.body.message || '').trim();
     if (!message && !req.body.media_data) return res.status(400).json({ error: 'Empty message' });
     if (message.length > 300) return res.status(400).json({ error: 'Message too long' });
+    const roomId = String(req.body.room_id || 'main-stage').slice(0, 80);
+    const roomExists = db.prepare('SELECT id FROM rooms WHERE id=?').get(roomId);
+    if (!roomExists) return res.status(400).json({ error: 'ห้องไม่มีอยู่' });
     const user = db.prepare('SELECT role, name_color, chat_color FROM users WHERE id=?').get(req.session.userId);
     if (req.body.media_data && roleLevel(user.role) < 2)
         return res.status(403).json({ error: 'เฉพาะ VIP ขึ้นไปเท่านั้นที่อัปโหลดรูปได้' });
@@ -719,8 +753,8 @@ app.post('/api/messages', requireAuth, (req, res) => {
     } catch (err) {
         return res.status(400).json({ error: err.message });
     }
-    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color) VALUES (?,?,?,?,?,?,?,?)')
-        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '');
+    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color,room_id) VALUES (?,?,?,?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '', roomId);
     res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 

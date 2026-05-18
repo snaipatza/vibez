@@ -25,7 +25,7 @@ function ensureAppYouTubeApi() {
   return appYoutubeApiPromise;
 }
 
-const STATION_ROOM = { id: 'main-stage', name: 'main-stage', listeners: 0, skin: 'pink' };
+const DEFAULT_ROOM_ID = 'main-stage';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -39,6 +39,8 @@ function App() {
   const [queueCount, setQueueCount] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [dmTarget, setDmTarget] = useState(null);
+  const [rooms, setRooms] = useState([{ id: DEFAULT_ROOM_ID, name: 'main-stage', skin: 'pink', is_default: 1 }]);
+  const [activeRoom, setActiveRoom] = useState(DEFAULT_ROOM_ID);
   const [playerPlaying, setPlayerPlaying] = useState(false);
   const [playerProgress, setPlayerProgress] = useState(0);
   const [playerDuration, setPlayerDuration] = useState(0);
@@ -119,6 +121,35 @@ function App() {
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
   }, [user]);
+
+  useEffect(() => {
+    const load = () => fetch('/api/rooms').then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setRooms(data);
+    }).catch(() => {});
+    load();
+    const id = setInterval(load, 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleCreateRoom = async (name, skin) => {
+    const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, skin }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'ไม่สามารถสร้างห้องได้');
+    const newRooms = await fetch('/api/rooms').then(r => r.json());
+    if (Array.isArray(newRooms)) setRooms(newRooms);
+    setActiveRoom(data.id);
+    setPage('live');
+    return data;
+  };
+
+  const handleDeleteRoom = async (id) => {
+    const res = await fetch(`/api/rooms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'ลบห้องไม่ได้');
+    if (activeRoom === id) setActiveRoom(DEFAULT_ROOM_ID);
+    const newRooms = await fetch('/api/rooms').then(r => r.json());
+    if (Array.isArray(newRooms)) setRooms(newRooms);
+  };
 
   useEffect(() => {
     window.localStorage.setItem('imvu-radio-volume', String(playerVolume));
@@ -344,9 +375,11 @@ function App() {
         onNav={setPage}
         user={user}
         queueCount={queueCount}
-        rooms={[{ ...STATION_ROOM, listeners }]}
-        activeRoom={STATION_ROOM.id}
-        onRoomClick={() => setPage('live')}
+        rooms={rooms.map(r => r.id === DEFAULT_ROOM_ID ? { ...r, listeners } : r)}
+        activeRoom={activeRoom}
+        onRoomClick={(id) => { setActiveRoom(id); setPage('live'); }}
+        onCreateRoom={handleCreateRoom}
+        onDeleteRoom={handleDeleteRoom}
         nowPlaying={sidebarNowPlaying}
         onlineUsers={onlineUsers}
         onOpenDM={openDirectMessage}
@@ -383,6 +416,7 @@ function App() {
               if (next > 0) setPlayerMuted(false);
             }}
             onMicLive={setMicActive}
+            activeRoom={activeRoom}
           />
         )}
         {page === 'explore' && (

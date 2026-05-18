@@ -126,6 +126,7 @@ function LivePage({
   onToggleMute,
   onSetVolume,
   onMicLive,
+  activeRoom = 'main-stage',
 }) {
   const [queue, setQueue] = useState([]);
   const [chat, setChat] = useState([]);
@@ -166,13 +167,19 @@ function LivePage({
     return () => s.disconnect();
   }, []);
 
+  // Reset chat when switching rooms
+  useEffect(() => {
+    setChat([]);
+    lastMsgIdRef.current = 0;
+  }, [activeRoom]);
+
   // Poll every 3s
   useEffect(() => {
     const loadAll = async () => {
       try {
         const [qRes, mRes, npRes, onRes] = await Promise.all([
           fetch('/api/queue').then(r => r.json()),
-          fetch(`/api/messages?after=${lastMsgIdRef.current}`).then(r => r.json()),
+          fetch(`/api/messages?after=${lastMsgIdRef.current}&room=${encodeURIComponent(activeRoom)}`).then(r => r.json()),
           fetch('/api/now-playing').then(r => r.json()),
           fetch('/api/online').then(r => r.json()),
         ]);
@@ -349,7 +356,7 @@ function LivePage({
       await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, media_data: media?.dataUrl || '' }),
+        body: JSON.stringify({ message, media_data: media?.dataUrl || '', room_id: activeRoom }),
       });
       setHype(h => Math.min(100, h + 2));
     } catch {}

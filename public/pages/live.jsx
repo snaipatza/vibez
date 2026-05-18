@@ -914,9 +914,9 @@ function ChatPanelInline({ messages, onSend, user }) {
     if (isBottom) setNewCount(0);
   };
 
-  // Scroll helper using the anchor element — more reliable than scrollTop = scrollHeight
   const scrollToBottomNow = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+    const el = bodyRef.current;
+    if (el) el.scrollTop = el.scrollHeight + 9999;
   }, []);
 
   // useLayoutEffect: runs synchronously after DOM mutation, before browser paint.

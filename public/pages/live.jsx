@@ -154,6 +154,11 @@ function LivePage({
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [djSearchVal, setDjSearchVal] = useState('');
   const [stageActive, setStageActive] = useState(false);
+  const [chatSoundOn, setChatSoundOn] = useState(() => { try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; } });
+  const [typeSoundOn, setTypeSoundOn] = useState(() => { try { return localStorage.getItem('typeSoundOff') !== '1'; } catch { return true; } });
+  const toggleChatSound = () => setChatSoundOn(v => { const n = !v; try { localStorage.setItem('chatSoundOff', n ? '0' : '1'); } catch {} return n; });
+  const toggleTypeSound = () => setTypeSoundOn(v => { const n = !v; try { localStorage.setItem('typeSoundOff', n ? '0' : '1'); } catch {} return n; });
+
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
   const activeRoomRef = useRef(activeRoom); // avoid stale closure in poll
@@ -619,16 +624,21 @@ function LivePage({
                 <div className="pre">— Live Chat</div>
                 <h2>แชทห้อง {activeRoom}</h2>
               </div>
-              <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <ColorPickerPanel user={user} toast={toast} />
-                <span>{listeners} กำลังออนไลน์</span>
-                <span>·</span>
+                <button className={`chat-header-btn${chatSoundOn ? ' active' : ''}`} onClick={toggleChatSound} title={chatSoundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}>
+                  <i className={`fas fa-${chatSoundOn ? 'bell' : 'bell-slash'}`} />
+                </button>
+                <button className={`chat-header-btn${typeSoundOn ? ' active' : ''}`} onClick={toggleTypeSound} title={typeSoundOn ? 'ปิดเสียงพิม' : 'เปิดเสียงพิม'}>
+                  <i className={`fas fa-keyboard`} />
+                </button>
+                <span>{listeners} ออนไลน์</span>
                 <span style={{ color: 'var(--orange-deep)' }}>● LIVE</span>
               </div>
             </div>
 
             <div className="chat-card">
-              <ChatPanelInline messages={chat} onSend={onSendChat} user={user} />
+              <ChatPanelInline messages={chat} onSend={onSendChat} user={user} soundOn={chatSoundOn} typeSoundOn={typeSoundOn} />
             </div>
 
             {poll && <LivePoll poll={poll} onVote={(idx) => {
@@ -865,23 +875,22 @@ function LivePage({
 }
 
 // Inline chat (no header — header lives in section above)
-function ChatPanelInline({ messages, onSend, user }) {
+function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn = true }) {
   const { useState, useEffect, useRef, useCallback } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
-  const [replyTo, setReplyTo] = useState(null); // { id, name, text }
+  const [replyTo, setReplyTo] = useState(null);
   const [newCount, setNewCount] = useState(0);
   const [atBottom, setAtBottom] = useState(true);
-  const [soundOn, setSoundOn] = useState(() => {
-    try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; }
-  });
   const bodyRef = useRef(null);
   const bottomRef = useRef(null);
-  const prevMsgsRef = useRef(messages); // track previous messages reference
+  const prevMsgsRef = useRef(messages);
   const soundLenRef = useRef(0);
   const soundOnRef = useRef(soundOn);
+  const typeSoundOnRef = useRef(typeSoundOn);
   const atBottomRef = useRef(true);
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
+  useEffect(() => { typeSoundOnRef.current = typeSoundOn; }, [typeSoundOn]);
 
   const playDing = useCallback(() => {
     try {
@@ -896,13 +905,18 @@ function ChatPanelInline({ messages, onSend, user }) {
     } catch {}
   }, []);
 
-  const toggleSound = () => {
-    setSoundOn(v => {
-      const next = !v;
-      try { localStorage.setItem('chatSoundOff', next ? '0' : '1'); } catch {}
-      return next;
-    });
-  };
+  const playTypeSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 600;
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      osc.start(); osc.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }, []);
 
   // track scroll position — 150px threshold so minor layout shifts don't break auto-scroll
   const onScroll = () => {
@@ -956,11 +970,11 @@ function ChatPanelInline({ messages, onSend, user }) {
   const submit = (e) => {
     e.preventDefault();
     if (!text.trim() && !pendingMedia) return;
+    if (typeSoundOnRef.current) playTypeSound();
     onSend({ message: text.trim(), media: pendingMedia, replyTo });
     setText('');
     setPendingMedia(null);
     setReplyTo(null);
-    // always scroll to bottom when user sends a message
     atBottomRef.current = true;
     setTimeout(scrollToBottomNow, 50);
   };
@@ -968,15 +982,6 @@ function ChatPanelInline({ messages, onSend, user }) {
   return (
     <>
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Sound toggle */}
-        <button
-          className={`chat-sound-btn ${soundOn ? 'on' : 'off'}`}
-          onClick={toggleSound}
-          title={soundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}
-        >
-          <i className={`fas fa-${soundOn ? 'bell' : 'bell-slash'}`}></i>
-        </button>
-
         <div className="chat-body" ref={bodyRef} onScroll={onScroll}>
           {messages.map((m, i) => (
             m.system ? (

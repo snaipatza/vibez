@@ -877,8 +877,9 @@ function ChatPanelInline({ messages, onSend, user }) {
   });
   const bodyRef = useRef(null);
   const prevLenRef = useRef(0);  // scroll tracking
-  const soundLenRef = useRef(0); // separate counter for sound (avoid sharing state with scroll)
+  const soundLenRef = useRef(0); // separate counter for sound
   const soundOnRef = useRef(soundOn);
+  const atBottomRef = useRef(true); // mirror of atBottom for use inside closures/timeouts
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
 
   const playDing = useCallback(() => {
@@ -907,12 +908,20 @@ function ChatPanelInline({ messages, onSend, user }) {
     const el = bodyRef.current;
     if (!el) return;
     const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    atBottomRef.current = isBottom;
     setAtBottom(isBottom);
     if (isBottom) setNewCount(0);
   };
 
-  // useLayoutEffect: runs synchronously after DOM update, before browser paint
-  // This guarantees scrollHeight is correct and the user never sees the unscrolled state
+  // Scroll helper — always reads live ref so no stale-closure risk
+  const scrollToBottomNow = useCallback(() => {
+    const el = bodyRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  // useLayoutEffect: runs synchronously after DOM mutation, before browser paint.
+  // We scroll immediately, then again after a short delay so any images that finish
+  // loading after the first paint also push the scroll to the true bottom.
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -920,9 +929,13 @@ function ChatPanelInline({ messages, onSend, user }) {
     const wasEmpty = prevLenRef.current === 0;
     prevLenRef.current = messages.length;
     if (added <= 0) return;
-    if (atBottom || wasEmpty) {
+    if (atBottomRef.current || wasEmpty) {
+      atBottomRef.current = true;
       el.scrollTop = el.scrollHeight;
       setNewCount(0);
+      // Re-scroll after images / GIFs may have loaded and changed scrollHeight
+      const t = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 200);
+      return () => clearTimeout(t);
     } else {
       setNewCount(n => n + added);
     }

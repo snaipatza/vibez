@@ -151,7 +151,10 @@ function LivePage({
   const [stageActive, setStageActive] = useState(false);
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
+  const activeRoomRef = useRef(activeRoom); // avoid stale closure in poll
   const socketRef = useRef(null);
+
+  useEffect(() => { activeRoomRef.current = activeRoom; }, [activeRoom]);
 
   // Initialize Socket.io + auth
   useEffect(() => {
@@ -176,10 +179,13 @@ function LivePage({
   // Poll every 3s
   useEffect(() => {
     const loadAll = async () => {
+      // Snapshot current room + afterId at call time (avoids stale closure)
+      const currentRoom = activeRoomRef.current;
+      const afterId = lastMsgIdRef.current;
       try {
         const [qRes, mRes, npRes, onRes] = await Promise.all([
           fetch('/api/queue').then(r => r.json()),
-          fetch(`/api/messages?after=${lastMsgIdRef.current}&room=${encodeURIComponent(activeRoom)}`).then(r => r.json()),
+          fetch(`/api/messages?after=${afterId}&room=${encodeURIComponent(currentRoom)}`).then(r => r.json()),
           fetch('/api/now-playing').then(r => r.json()),
           fetch('/api/online').then(r => r.json()),
         ]);
@@ -210,16 +216,19 @@ function LivePage({
           setQueueCount(mapped.filter(q => q.status !== 'played').length);
         }
 
-        // Messages — append new ones
+        // Messages — discard if room changed while fetch was in flight
+        if (activeRoomRef.current !== currentRoom) return;
         if (Array.isArray(mRes) && mRes.length > 0) {
           const newMsgs = mRes.map(msgFromApi);
+          const lastId = mRes[mRes.length - 1].id;
           setChat(prev => {
             const existingIds = new Set(prev.filter(m => m.id).map(m => m.id));
             const toAdd = newMsgs.filter(m => !m.id || !existingIds.has(m.id));
             if (toAdd.length === 0) return prev;
             return [...prev, ...toAdd].slice(-100);
           });
-          lastMsgIdRef.current = mRes[mRes.length - 1].id;
+          // Only advance pointer if this fetch was for the same starting point
+          if (afterId === lastMsgIdRef.current) lastMsgIdRef.current = lastId;
         }
 
         // Now playing
@@ -897,7 +906,7 @@ function ChatPanelInline({ messages, onSend, user }) {
                 <div className="body"><div className="text">{m.text}</div></div>
               </div>
             ) : (
-              <div key={m.id || i} className={`msg msg-role-${m.role || 'guest'}`}>
+              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`}>
                 <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />

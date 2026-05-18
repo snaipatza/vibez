@@ -929,10 +929,14 @@ function ChatPanelInline({ messages, onSend, user }) {
       atBottomRef.current = true;
       scrollToBottomNow();
       setNewCount(0);
-      // Re-scroll after images / GIFs may have loaded and changed layout
-      const t1 = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 150);
-      const t2 = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 500);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      // For initial load: re-scroll multiple times to catch slow-loading images/avatars.
+      // Force atBottomRef=true each time so image layout shifts don't abort the scroll.
+      const delays = wasEmpty ? [100, 300, 700, 1400] : [150, 500];
+      const timers = delays.map(d => setTimeout(() => {
+        atBottomRef.current = true;
+        scrollToBottomNow();
+      }, d));
+      return () => timers.forEach(clearTimeout);
     } else {
       setNewCount(n => n + added);
     }

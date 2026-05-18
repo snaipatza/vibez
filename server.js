@@ -75,6 +75,144 @@ app.use(session({
 const ROLE_LEVEL = { guest: 0, user: 1, member: 1, vip: 2, dj: 3, admin: 4 };
 function roleLevel(role) { return ROLE_LEVEL[role] || 0; }
 
+function normalizePhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length < 9 || digits.length > 15) return null;
+    return digits;
+}
+
+function maskPhone(phone) {
+    const digits = normalizePhone(phone);
+    if (!digits) return '';
+    if (digits.length <= 4) return digits;
+    return `${digits.slice(0, 3)}-${'*'.repeat(Math.max(0, digits.length - 6))}${digits.slice(-3)}`;
+}
+
+function bangkokDateKey(ts = Date.now()) {
+    return new Date(ts + (7 * 60 * 60 * 1000)).toISOString().slice(0, 10);
+}
+
+function computeLevelSummary(totalSeconds = 0) {
+    const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = Math.floor(safeSeconds / 60);
+    const block = 90;
+    const level = Math.min(50, Math.floor(minutes / block) + 1);
+    const currentBase = (level - 1) * block;
+    const nextBase = level * block;
+    const progress = Math.max(0, Math.min(100, ((minutes - currentBase) / block) * 100));
+    return {
+        level,
+        minutes,
+        hours: Number((safeSeconds / 3600).toFixed(1)),
+        progress,
+        next_level_minutes: nextBase,
+        label: level >= 15 ? 'Legend Listener' : level >= 10 ? 'Night Rider' : level >= 5 ? 'Vibe Supporter' : 'Fresh Listener',
+    };
+}
+
+function buildUnlocks(level) {
+    return [
+        { level: 1, title: 'Member Chat', unlocked: level >= 1 },
+        { level: 2, title: 'Profile badges', unlocked: level >= 2 },
+        { level: 3, title: 'Priority requests', unlocked: level >= 3 },
+        { level: 5, title: 'DJ follow alerts', unlocked: level >= 5 },
+        { level: 8, title: 'Rare frame flex', unlocked: level >= 8 },
+    ];
+}
+
+function buildBadges(user, extra = {}) {
+    const badges = [];
+    const listen = computeLevelSummary(user.total_listen_seconds || 0);
+    if (['vip', 'dj', 'admin'].includes(user.role)) badges.push({ id: 'vip', label: 'VIP Access', tone: 'violet' });
+    if (user.role === 'dj') badges.push({ id: 'dj', label: 'On Air DJ', tone: 'orange' });
+    if ((user.checkin_streak || 0) >= 3) badges.push({ id: 'streak', label: `${user.checkin_streak} Day Streak`, tone: 'gold' });
+    if (listen.hours >= 10) badges.push({ id: 'listener', label: `${listen.hours}h Listener`, tone: 'blue' });
+    if ((extra.followCount || 0) >= 3) badges.push({ id: 'supporter', label: 'DJ Supporter', tone: 'green' });
+    if ((extra.coins || user.coins || 0) >= 100) badges.push({ id: 'coins', label: 'Coin Collector', tone: 'rose' });
+    return badges;
+}
+
+function touchListening(userId) {
+    const row = db.prepare('SELECT total_listen_seconds, last_listen_ping FROM users WHERE id=?').get(userId);
+    if (!row) return;
+    const now = Date.now();
+    let nextSeconds = row.total_listen_seconds || 0;
+    const delta = row.last_listen_ping ? now - row.last_listen_ping : 0;
+    if (delta >= 20000 && delta <= 120000) nextSeconds += Math.round(Math.min(delta, 30000) / 1000);
+    db.prepare('UPDATE users SET total_listen_seconds=?, last_listen_ping=? WHERE id=?').run(nextSeconds, now, userId);
+}
+
+function createFollowerNotifications(djUserId, djUsername, title) {
+    const followers = db.prepare(`
+        SELECT u.id
+        FROM dj_follows f
+        JOIN users u ON u.id = f.user_id
+        WHERE f.dj_user_id = ?
+    `).all(djUserId);
+    if (!followers.length) return;
+    const insert = db.prepare('INSERT INTO live_notifications (user_id, type, title, body) VALUES (?, ?, ?, ?)');
+    const tx = db.transaction(() => {
+        for (const follower of followers) {
+            insert.run(follower.id, 'dj_live', `${djUsername} is live now`, title || 'Jump back into the room and listen live.');
+        }
+    });
+    tx();
+}
+
+function buildUserResponse(userRow, sessionData = {}) {
+    const followCount = db.prepare('SELECT COUNT(*) AS c FROM dj_follows WHERE user_id=?').get(userRow.id).c;
+    const followed = db.prepare(`
+        SELECT u.username, u.display_name, u.avatar_seed, u.avatar_url
+        FROM dj_follows f
+        JOIN users u ON u.id = f.dj_user_id
+        WHERE f.user_id=?
+        ORDER BY f.created_at DESC
+        LIMIT 8
+    `).all(userRow.id);
+    const notifications = db.prepare(`
+        SELECT id, type, title, body, read_at, created_at
+        FROM live_notifications
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 8
+    `).all(userRow.id);
+    const unreadNotifications = notifications.filter((item) => !item.read_at).length;
+    const level = computeLevelSummary(userRow.total_listen_seconds || 0);
+    return {
+        loggedIn: true,
+        userId: userRow.id,
+        username: userRow.username,
+        role: userRow.role,
+        avatar_seed: userRow.avatar_seed || userRow.username,
+        avatar_url: userRow.avatar_url || '',
+        name_color: userRow.name_color || '',
+        chat_color: userRow.chat_color || '',
+        chat_frame: userRow.chat_frame || '',
+        avatar_frame: userRow.avatar_frame || '',
+        display_name: userRow.display_name || '',
+        vip_expires_at: userRow.vip_expires_at || 0,
+        can_admin: !!userRow.can_admin,
+        phone: userRow.phone || '',
+        phone_masked: maskPhone(userRow.phone || ''),
+        phone_verified: !!userRow.phone_verified,
+        coins: userRow.coins || 0,
+        checkin_streak: userRow.checkin_streak || 0,
+        last_checkin_date: userRow.last_checkin_date || '',
+        total_listen_seconds: userRow.total_listen_seconds || 0,
+        level: level.level,
+        level_progress: level.progress,
+        level_label: level.label,
+        hours_listened: level.hours,
+        badges: buildBadges(userRow, { followCount, coins: userRow.coins || 0 }),
+        unlocks: buildUnlocks(level.level),
+        unread_notifications: unreadNotifications,
+        notifications,
+        followed_djs: followed,
+        ...sessionData,
+    };
+}
+
 function requireAuth(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
     next();
@@ -187,9 +325,100 @@ async function resolveQueueRequest(payload) {
     };
 }
 
+app.post('/api/auth/request-reset', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const phone = normalizePhone(req.body.phone);
+    if (!username || !phone) return res.status(400).json({ error: 'Username and phone are required' });
+
+    const user = db.prepare('SELECT id, username, phone FROM users WHERE LOWER(username)=LOWER(?)').get(username);
+    if (!user || normalizePhone(user.phone) !== phone) {
+        return res.status(404).json({ error: 'User or phone number not found' });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + 10 * 60 * 1000;
+    db.prepare('UPDATE password_otps SET used_at=? WHERE user_id=? AND used_at=0').run(Date.now(), user.id);
+    db.prepare('INSERT INTO password_otps (user_id, phone, code, expires_at) VALUES (?, ?, ?, ?)').run(user.id, phone, code, expiresAt);
+
+    const payload = {
+        success: true,
+        phone_masked: maskPhone(phone),
+        expires_in_seconds: 600,
+        delivery: process.env.SMS_PROVIDER ? 'sms' : 'demo',
+    };
+    if (!process.env.SMS_PROVIDER) payload.demo_code = code;
+    res.json(payload);
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const phone = normalizePhone(req.body.phone);
+    const code = String(req.body.code || '').trim();
+    const newPassword = String(req.body.new_password || '').trim();
+    if (!username || !phone || !code || !newPassword) return res.status(400).json({ error: 'Missing reset fields' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
+
+    const user = db.prepare('SELECT id, username, phone FROM users WHERE LOWER(username)=LOWER(?)').get(username);
+    if (!user || normalizePhone(user.phone) !== phone) return res.status(404).json({ error: 'User or phone number not found' });
+
+    const otp = db.prepare(`
+        SELECT *
+        FROM password_otps
+        WHERE user_id=? AND phone=? AND code=? AND used_at=0
+        ORDER BY id DESC
+        LIMIT 1
+    `).get(user.id, phone, code);
+    if (!otp || otp.expires_at < Date.now()) return res.status(400).json({ error: 'OTP is invalid or expired' });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash=?, phone_verified=1 WHERE id=?').run(hash, user.id);
+    db.prepare('UPDATE password_otps SET used_at=? WHERE id=?').run(Date.now(), otp.id);
+    res.json({ success: true });
+});
+
 app.post('/api/register', async (req, res) => {
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '').trim();
+    const phone = normalizePhone(req.body.phone);
+    if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
+    if (!phone) return res.status(400).json({ error: 'Invalid phone number' });
+    if (username.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: 'Username can only use a-z, 0-9 and _' });
+
+    const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    if (existing) return res.status(400).json({ error: 'Username already exists' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed, phone, phone_verified, coins) VALUES (?, ?, 'guest', ?, ?, 1, 10)").run(username, hash, username + Math.random(), phone);
+    req.session.userId = result.lastInsertRowid;
+    req.session.username = username;
+    req.session.role = 'guest';
+    const userRow = db.prepare('SELECT * FROM users WHERE id=?').get(result.lastInsertRowid);
+    res.json({ success: true, ...buildUserResponse(userRow) });
+});
+
+app.post('/api/login', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '').trim();
+    const remember = !!req.body.remember;
+    if (!username || !password) return res.status(400).json({ error: 'Missing credentials' });
+    const user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+        return res.status(401).json({ error: 'Username or password is incorrect' });
+    }
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role;
+    req.session.cookie.maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+    db.prepare('UPDATE users SET last_listen_ping=? WHERE id=?').run(Date.now(), user.id);
+    res.json({ success: true, ...buildUserResponse(user, { remember }) });
+});
+
+app.post('/api/register', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '').trim();
+    const phone = normalizePhone(req.body.phone);
     if (!username || !password) return res.status(400).json({ error: 'กรุณากรอก username และ password' });
     if (username.length < 3) return res.status(400).json({ error: 'Username ต้องมีอย่างน้อย 3 ตัวอักษร' });
     if (password.length < 6) return res.status(400).json({ error: 'Password ต้องมีอย่างน้อย 6 ตัวอักษร' });
@@ -244,6 +473,57 @@ function checkVipExpiry(userId, sessionRole) {
     }
     return row.role;
 }
+
+app.get('/api/me', (req, res) => {
+    if (!req.session.userId) return res.json({ loggedIn: false });
+    db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
+    const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.userId);
+    if (!user) return res.json({ loggedIn: false });
+    const currentRole = checkVipExpiry(req.session.userId, user.role || req.session.role);
+    if (currentRole !== req.session.role) req.session.role = currentRole;
+    res.json(buildUserResponse({ ...user, role: currentRole }));
+});
+
+app.patch('/api/me', requireAuth, (req, res) => {
+    const avatarSeed = String(req.body.avatar_seed || '').trim();
+    const displayName = String(req.body.display_name ?? '').trim().slice(0, 30);
+    const phone = req.body.phone === undefined ? undefined : normalizePhone(req.body.phone);
+    if (!avatarSeed) return res.status(400).json({ error: 'Profile seed is required' });
+    if (avatarSeed.length > 60) return res.status(400).json({ error: 'Profile seed is too long' });
+    if (req.body.phone !== undefined && !phone) return res.status(400).json({ error: 'Invalid phone number' });
+
+    let avatarUrl = '';
+    try {
+        avatarUrl = saveAvatarImage(req.session.userId, req.body.avatar_image) || '';
+    } catch (err) {
+        return res.status(400).json({ error: err.message });
+    }
+
+    const current = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.userId);
+    const finalAvatarUrl = avatarUrl || current?.avatar_url || '';
+    db.prepare(`
+        UPDATE users SET
+            avatar_seed=?,
+            avatar_url=?,
+            display_name=?,
+            phone=CASE WHEN ? IS NULL THEN phone ELSE ? END,
+            phone_verified=CASE WHEN ? IS NULL THEN phone_verified WHEN ? != COALESCE(phone, '') THEN 1 ELSE phone_verified END
+        WHERE id=?
+    `).run(avatarSeed, finalAvatarUrl, displayName, phone ?? null, phone ?? '', phone ?? null, phone ?? '', req.session.userId);
+
+    const updated = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.userId);
+    res.json({ success: true, ...buildUserResponse(updated) });
+});
+
+app.post('/api/ping', requireAuth, (req, res) => {
+    db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
+    touchListening(req.session.userId);
+    const cutoff = Date.now() - 2 * 60 * 1000;
+    const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
+    const user = db.prepare('SELECT total_listen_seconds FROM users WHERE id=?').get(req.session.userId);
+    const level = computeLevelSummary(user?.total_listen_seconds || 0);
+    res.json({ online: count, total_listen_seconds: user?.total_listen_seconds || 0, level: level.level, level_progress: level.progress });
+});
 
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
@@ -366,6 +646,95 @@ app.get('/api/ad', (req, res) => {
 app.get('/api/ads', (req, res) => {
     const ads = db.prepare('SELECT * FROM ads WHERE active=1 ORDER BY id DESC LIMIT 4').all();
     res.json(ads);
+});
+
+app.get('/api/profile/activity', requireAuth, (req, res) => {
+    const activity = db.prepare(`
+        SELECT 'message' AS type, message AS title, created_at
+        FROM messages
+        WHERE user_id = ?
+        UNION ALL
+        SELECT 'request' AS type, title, created_at
+        FROM queue
+        WHERE user_id = ?
+        UNION ALL
+        SELECT 'follow' AS type, 'Followed DJ' AS title, datetime(created_at, 'unixepoch') AS created_at
+        FROM dj_follows
+        WHERE user_id = ?
+        UNION ALL
+        SELECT 'checkin' AS type, 'Daily check-in' AS title, last_checkin_date || ' 00:00:00' AS created_at
+        FROM users
+        WHERE id = ? AND last_checkin_date != ''
+        ORDER BY created_at DESC
+        LIMIT 12
+    `).all(req.session.userId, req.session.userId, req.session.userId, req.session.userId);
+    res.json(activity);
+});
+
+app.get('/api/notifications', requireAuth, (req, res) => {
+    const items = db.prepare(`
+        SELECT id, type, title, body, read_at, created_at
+        FROM live_notifications
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 20
+    `).all(req.session.userId);
+    res.json(items);
+});
+
+app.post('/api/notifications/read', requireAuth, (req, res) => {
+    db.prepare('UPDATE live_notifications SET read_at=? WHERE user_id=? AND read_at=0').run(Date.now(), req.session.userId);
+    res.json({ success: true });
+});
+
+app.post('/api/check-in', requireAuth, (req, res) => {
+    const today = bangkokDateKey();
+    const user = db.prepare('SELECT last_checkin_date, checkin_streak, coins FROM users WHERE id=?').get(req.session.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.last_checkin_date === today) {
+        return res.json({ success: true, already_checked_in: true, coins: user.coins || 0, checkin_streak: user.checkin_streak || 0 });
+    }
+    const yesterday = bangkokDateKey(Date.now() - 24 * 60 * 60 * 1000);
+    const nextStreak = user.last_checkin_date === yesterday ? (user.checkin_streak || 0) + 1 : 1;
+    const reward = nextStreak >= 7 ? 25 : nextStreak >= 3 ? 15 : 10;
+    db.prepare('UPDATE users SET last_checkin_date=?, checkin_streak=?, coins=coins+? WHERE id=?').run(today, nextStreak, reward, req.session.userId);
+    res.json({ success: true, reward, checkin_streak: nextStreak });
+});
+
+app.get('/api/djs', requireAuth, (req, res) => {
+    const djs = db.prepare(`
+        SELECT id, username, display_name, avatar_seed, avatar_url, role
+        FROM users
+        WHERE role IN ('dj', 'admin')
+        ORDER BY username ASC
+    `).all();
+    res.json(djs);
+});
+
+app.get('/api/follows', requireAuth, (req, res) => {
+    const items = db.prepare(`
+        SELECT u.username, u.display_name, u.avatar_seed, u.avatar_url
+        FROM dj_follows f
+        JOIN users u ON u.id = f.dj_user_id
+        WHERE f.user_id=?
+        ORDER BY f.created_at DESC
+    `).all(req.session.userId);
+    res.json(items);
+});
+
+app.post('/api/follows/:username', requireAuth, (req, res) => {
+    const target = db.prepare(`SELECT id, username FROM users WHERE LOWER(username)=LOWER(?) AND role IN ('dj', 'admin')`).get(req.params.username);
+    if (!target) return res.status(404).json({ error: 'DJ not found' });
+    if (target.id === req.session.userId) return res.status(400).json({ error: 'You cannot follow yourself' });
+    db.prepare('INSERT OR IGNORE INTO dj_follows (user_id, dj_user_id) VALUES (?, ?)').run(req.session.userId, target.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/follows/:username', requireAuth, (req, res) => {
+    const target = db.prepare(`SELECT id FROM users WHERE LOWER(username)=LOWER(?) AND role IN ('dj', 'admin')`).get(req.params.username);
+    if (!target) return res.status(404).json({ error: 'DJ not found' });
+    db.prepare('DELETE FROM dj_follows WHERE user_id=? AND dj_user_id=?').run(req.session.userId, target.id);
+    res.json({ success: true });
 });
 
 // ── DM ────────────────────────────────────────────────────────────────
@@ -515,6 +884,35 @@ app.delete('/api/admin/ads/:id', requireAdmin, (req, res) => {
 });
 
 // ── NOW PLAYING ────────────────────────────────────────────────────────
+app.post('/api/shoutout', requireDJ, (req, res) => {
+    const targetName = String(req.body.target_name || '').trim().slice(0, 40);
+    if (!targetName) return res.status(400).json({ error: 'Target name is required' });
+    const until = Date.now() + 12 * 1000;
+    db.prepare('UPDATE now_playing SET shoutout_text=?, shoutout_until=?, shoutout_by=? WHERE id=1').run(targetName, until, req.session.username);
+    db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)")
+      .run(0, 'SYSTEM', 'system', `Shoutout to ${targetName} from @${req.session.username}`);
+    res.json({ success: true, shoutout_text: targetName, shoutout_until: until, shoutout_by: req.session.username });
+});
+
+app.post('/api/collab', requireDJ, (req, res) => {
+    const username = String(req.body.username || '').trim();
+    if (!username) {
+        db.prepare("UPDATE now_playing SET collab_dj_username='', collab_dj_user_id=0, collab_dj_avatar_seed='', collab_dj_avatar_url='' WHERE id=1").run();
+        return res.json({ success: true, cleared: true });
+    }
+    const collab = db.prepare(`SELECT id, username, avatar_seed, avatar_url FROM users WHERE LOWER(username)=LOWER(?) AND role IN ('dj', 'admin')`).get(username);
+    if (!collab) return res.status(404).json({ error: 'Collaborator not found' });
+    db.prepare(`
+        UPDATE now_playing SET
+            collab_dj_username=?,
+            collab_dj_user_id=?,
+            collab_dj_avatar_seed=?,
+            collab_dj_avatar_url=?
+        WHERE id=1
+    `).run(collab.username, collab.id, collab.avatar_seed || collab.username, collab.avatar_url || '');
+    res.json({ success: true, collab });
+});
+
 app.get('/api/now-playing', (req, res) => {
     const row = db.prepare('SELECT * FROM now_playing WHERE id = 1').get();
     if (!row || !row.youtube_id) return res.json({ youtube_id: null, is_playing: false });
@@ -542,6 +940,7 @@ app.post('/api/now-playing', requirePlaybackDJ, (req, res) => {
     `).run(queue_id || null, youtube_id, title || '', artist || '', thumbnail || '', youtube_url || '', now,
            req.session.username, req.session.userId, dj.avatar_seed || req.session.username, dj.avatar_url || '');
     if (queue_id) db.prepare("UPDATE queue SET status='playing' WHERE id=?").run(queue_id);
+    createFollowerNotifications(req.session.userId, req.session.username, title || youtube_id);
     db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)")
       .run(0, 'SYSTEM', 'system', `🎧 ${req.session.username} กำลังเล่น "${title || youtube_id}"`);
     res.json({ success: true });
@@ -688,6 +1087,7 @@ app.post('/api/queue/play-next', requirePlaybackDJ, async (req, res) => {
     db.prepare(`UPDATE now_playing SET queue_id=?, youtube_id=?, title=?, artist=?, thumbnail=?, youtube_url=?, started_at=?, paused_elapsed=0, is_playing=1, dj_username=?, dj_user_id=?, dj_avatar_seed=?, dj_avatar_url=? WHERE id=1`)
       .run(next.id, next.youtube_id, next.title, next.artist||'', next.thumbnail||'', next.youtube_url||'', now, req.session.username, req.session.userId, dj.avatar_seed||req.session.username, dj.avatar_url||'');
     db.prepare("UPDATE queue SET status='playing' WHERE id=?").run(next.id);
+    createFollowerNotifications(req.session.userId, req.session.username, next.title || next.youtube_id);
     db.prepare("INSERT INTO messages (user_id,username,role,message) VALUES (?,?,?,?)").run(0,'SYSTEM','system',`🎧 ${req.session.username} กำลังเล่น "${next.title}"`);
     res.json({ success: true, next });
 });

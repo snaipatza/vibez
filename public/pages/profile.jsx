@@ -1,60 +1,44 @@
-// ── Mic Test Card ─────────────────────────────────────────────────────────
 function MicTestCard() {
   const { useState, useEffect, useRef } = React;
-  const [status, setStatus] = useState('idle'); // idle | testing | error
+  const [status, setStatus] = useState('idle');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState('');
-  const [deviceLabel, setDeviceLabel] = useState('');
-
   const streamRef = useRef(null);
   const contextRef = useRef(null);
   const rafRef = useRef(null);
 
   const stopTest = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     if (contextRef.current) { try { contextRef.current.close(); } catch {} }
     streamRef.current = null;
     contextRef.current = null;
     setStatus('idle');
     setVolume(0);
-    setDeviceLabel('');
   };
 
   const startTest = async () => {
     setError('');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-
-      const track = stream.getAudioTracks()[0];
-      setDeviceLabel(track?.label || 'ไมโครโฟน');
-
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       contextRef.current = ctx;
-
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 128;
-
-      // loopback: source → analyser → speakers
       source.connect(analyser);
-      analyser.connect(ctx.destination);
-
       setStatus('testing');
-
       const data = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
         analyser.getByteFrequencyData(data);
-        const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        const avg = data.reduce((sum, value) => sum + value, 0) / data.length;
         setVolume(Math.min(100, Math.round((avg / 128) * 100)));
         rafRef.current = requestAnimationFrame(tick);
       };
       tick();
     } catch {
-      setError('ไม่สามารถเข้าถึงไมค์ได้ — ตรวจสอบการอนุญาตในเบราว์เซอร์');
+      setError('เปิดไมค์ไม่สำเร็จ');
       setStatus('idle');
     }
   };
@@ -62,68 +46,50 @@ function MicTestCard() {
   useEffect(() => () => stopTest(), []);
 
   return (
-    <div className="mic-test-card">
-      <div className="profile-card-head">— ทดสอบไมค์</div>
-      <div className="mic-test-desc">
-        กดปุ่มแล้วพูด — คุณจะได้ยินเสียงตัวเองผ่านหูฟัง<br/>
-        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>ใช้เพื่อตรวจสอบว่าไมค์และเสียงทำงานได้ก่อน go live</span>
-      </div>
-
-      <div className="mic-test-meter-wrap">
-        <i className="fas fa-microphone" style={{ color: status === 'testing' ? 'var(--orange)' : 'var(--ink-3)', fontSize: 14 }}></i>
-        <div className="mic-test-meter">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div
-              key={i}
-              className="mic-test-bar-seg"
-              style={{
-                background: (i / 20) * 100 < volume
-                  ? (i < 14 ? 'var(--orange)' : i < 18 ? '#f9c74f' : '#ef476f')
-                  : 'var(--line)',
-              }}
-            />
-          ))}
+    <div className="profile-card">
+      <div className="profile-card-head">Mic test</div>
+      <div className="profile-mic-meter">
+        <div className="profile-mic-bar">
+          <div className="profile-mic-fill" style={{ width: `${volume}%` }}></div>
         </div>
-        <span className="mic-test-vol">{volume}%</span>
+        <span>{volume}%</span>
       </div>
-
-      {deviceLabel && status === 'testing' && (
-        <div className="mic-test-device">{deviceLabel}</div>
-      )}
-
-      {status === 'idle' ? (
-        <button className="mic-test-btn" onClick={startTest}>
-          <i className="fas fa-microphone"></i>
-          <span>เริ่มทดสอบไมค์</span>
-        </button>
-      ) : (
-        <button className="mic-test-btn active" onClick={stopTest}>
-          <span className="mic-pulse"></span>
-          <i className="fas fa-microphone"></i>
-          <span>กำลังทดสอบ — กดเพื่อหยุด</span>
-        </button>
-      )}
-
-      {error && <div className="mic-test-error">{error}</div>}
+      <button className="btn-primary orange" onClick={status === 'testing' ? stopTest : startTest}>
+        {status === 'testing' ? 'หยุดทดสอบไมค์' : 'เริ่มทดสอบไมค์'}
+      </button>
+      {error && <div className="login-inline-error" style={{ marginTop: 10 }}>{error}</div>}
     </div>
   );
 }
 
-// Profile Page — 2-column layout
 function ProfilePage({ user, onUpdate, toast }) {
-  const { useState, useRef } = React;
-
+  const { useState, useEffect, useRef } = React;
   const [displayName, setDisplayName] = useState(user.display_name || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [avatarPreview, setAvatarPreview] = useState(user.avatar_url || '');
   const [avatarData, setAvatarData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [activity, setActivity] = useState([]);
+  const [notifications, setNotifications] = useState(user.notifications || []);
+  const [followedDjs, setFollowedDjs] = useState(user.followed_djs || []);
+  const [checkInState, setCheckInState] = useState({ loading: false });
   const fileRef = useRef(null);
 
-  const rm = roleMeta(user.role);
-  const isVIP  = ['vip','dj','admin'].includes(user.role);
-  const expTs  = user.vip_expires_at || 0;
-  const expDate = expTs > 0 ? new Date(expTs) : null;
-  const expired = expDate && expDate < new Date();
+  useEffect(() => {
+    fetch('/api/profile/activity')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setActivity(data); })
+      .catch(() => {});
+    fetch('/api/notifications')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setNotifications(data); })
+      .catch(() => {});
+    fetch('/api/follows')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setFollowedDjs(data); })
+      .catch(() => {});
+    fetch('/api/notifications/read', { method: 'POST' }).catch(() => {});
+  }, []);
 
   const pickAvatar = (e) => {
     const file = e.target.files?.[0];
@@ -146,163 +112,189 @@ function ProfilePage({ user, onUpdate, toast }) {
         body: JSON.stringify({
           avatar_seed: user.avatar_seed || user.name,
           display_name: displayName,
+          phone,
           avatar_image: avatarData || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { toast(data.error || 'บันทึกไม่สำเร็จ'); return; }
-      onUpdate({ ...user, display_name: data.display_name ?? displayName, avatar_url: data.avatar_url || avatarPreview });
+      if (!res.ok) {
+        toast(data.error || 'Save failed');
+        return;
+      }
+      onUpdate({ ...user, ...data });
       setAvatarData(null);
-      toast('บันทึกโปรไฟล์แล้ว ✓', 'success');
-    } catch { toast('บันทึกไม่สำเร็จ'); }
-    finally { setSaving(false); }
+      toast('อัปเดตโปรไฟล์แล้ว', 'success');
+    } catch {
+      toast('Save failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const BANK_INFO = 'กสิกรไทย xxx-x-xxxxx-x\nชื่อบัญชี: IIMVU Society Radio\nส่งสลิปมาที่ Line: @imvuradio';
+  const dailyCheckIn = async () => {
+    setCheckInState({ loading: true });
+    try {
+      const res = await fetch('/api/check-in', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || 'Check-in failed');
+        return;
+      }
+      if (data.already_checked_in) {
+        toast('เช็กอินวันนี้ไปแล้ว');
+      } else {
+        toast(`รับ ${data.reward} coins แล้ว`, 'success');
+        onUpdate({
+          ...user,
+          coins: (user.coins || 0) + (data.reward || 0),
+          checkin_streak: data.checkin_streak || user.checkin_streak || 0,
+        });
+      }
+    } catch {
+      toast('Check-in failed');
+    } finally {
+      setCheckInState({ loading: false });
+    }
+  };
+
+  const statCards = [
+    { label: 'Level', value: `Lv.${user.level || 1}` },
+    { label: 'Hours listened', value: `${user.hours_listened || 0}h` },
+    { label: 'Coins', value: user.coins || 0 },
+    { label: 'Daily streak', value: `${user.checkin_streak || 0}d` },
+  ];
 
   return (
     <>
       <TopBar
         crumb="ACCOUNT"
-        title="โปรไฟล์ของฉัน"
+        title="User profile"
         meta={`@${user.name}`}
         listeners={0}
         onToggleChat={() => {}}
         chatOpen={false}
       />
 
-      <div className="profile-layout">
-
-        {/* ── LEFT: edit profile ── */}
+      <div className="profile-layout profile-layout-modern">
         <div className="profile-col">
-          <div className="profile-card">
-            <div className="profile-card-head">— แก้ไขโปรไฟล์</div>
-
-            {/* Avatar */}
+          <div className="profile-card profile-hero-card">
             <div className="profile-avatar-center">
-              <div className="profile-avatar-ring" onClick={() => fileRef.current?.click()} title="คลิกเพื่อเปลี่ยนรูป">
+              <div className="profile-avatar-ring" onClick={() => fileRef.current?.click()} title="Change avatar">
                 <img
                   src={avatarPreview || AVATAR(user.avatar_seed || user.name)}
-                  className={`profile-avatar-img ${isVIP ? 'vip-ring' : ''}`}
+                  className="profile-avatar-img"
                   alt="avatar"
                 />
                 <div className="profile-avatar-overlay"><i className="fas fa-camera"></i></div>
               </div>
               <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={pickAvatar} />
               <div className="profile-avatar-info">
-                <div className="profile-username">{user.display_name || user.name}</div>
+                <div className="profile-username">{displayName || user.display_name || user.name}</div>
                 <div className="profile-at">@{user.name}</div>
-                <div className="profile-role-pill" style={{ background: isVIP ? '#f3e8ff' : 'var(--bg-soft)', color: isVIP ? '#7b2d8b' : 'var(--ink-3)', border: isVIP ? '1px solid #c77dff' : '1px solid var(--line)' }}>
-                  {rm.emoji} {rm.label}
-                </div>
+                <div className="profile-role-pill">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
               </div>
             </div>
 
-            <div className="profile-divider" />
-
-            {/* Fields */}
-            <div className="profile-field">
-              <label>ชื่อเล่น (Display Name)</label>
-              <input
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                placeholder={user.name}
-                maxLength={30}
-              />
-              <div className="hint">ชื่อที่แสดงในแชทและ sidebar — max 30 ตัวอักษร</div>
-            </div>
-
-            <div className="profile-field">
-              <label>Username</label>
-              <input value={user.name} disabled style={{ opacity: 0.45, cursor: 'not-allowed' }} />
-              <div className="hint">ไม่สามารถเปลี่ยน username ได้</div>
-            </div>
-
-            <button className="btn-primary orange" style={{ width: '100%', marginTop: 4 }} onClick={save} disabled={saving}>
-              {saving ? 'กำลังบันทึก...' : 'บันทึกโปรไฟล์'}
-            </button>
-          </div>
-        </div>
-
-        {/* ── RIGHT: subscription ── */}
-        <div className="profile-col">
-          <div className="sub-card">
-            <div className="profile-card-head">— สมาชิกและ VIP</div>
-
-            {/* Current role */}
-            <div className={`sub-role-badge ${user.role === 'user' ? 'member' : (user.role || 'guest')}`} style={{ marginBottom: 10 }}>
-              {rm.emoji} {rm.label}
-            </div>
-
-            {/* Expiry */}
-            {user.role === 'vip' && expDate && (
-              <div className={`sub-expiry ${expired ? 'expired' : ''}`}>
-                {expired ? '⚠️ VIP หมดอายุแล้ว กรุณาต่ออายุ'
-                  : <>หมดอายุ: <strong>{expDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></>}
-              </div>
-            )}
-            {user.role === 'vip' && !expDate && (
-              <div className="sub-expiry">VIP ตลอดชีพ ✨</div>
-            )}
-            {!['vip','dj','admin'].includes(user.role) && (
-              <div className="sub-expiry">อัปเกรดเป็น VIP เพื่อรับสิทธิพิเศษ</div>
-            )}
-
-            <div className="profile-divider" />
-
-            {/* Perks */}
-            <div className="sub-perks-title">⭐ สิทธิ์ VIP</div>
-            <div className="sub-perks-list">
-              {[
-                'เปลี่ยนสีชื่อและสีแชทได้',
-                'กรอบ VIP รอบ message bubble',
-                'ใช้งาน Messenger ส่วนตัวได้',
-                'อัปโหลดรูปภาพในแชทได้',
-                'ใช้กรอบโปรไฟล์พิเศษ',
-              ].map(p => (
-                <div key={p} className={`sub-perk-row ${isVIP ? 'unlocked' : 'locked'}`}>
-                  <span className="perk-icon">{isVIP ? '✅' : '🔒'}</span>
-                  <span>{p}</span>
+            <div className="profile-stat-grid">
+              {statCards.map((card) => (
+                <div key={card.label} className="profile-stat-box">
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
                 </div>
               ))}
             </div>
 
-            {/* Plans — only for non-dj/admin */}
-            {!['dj','admin'].includes(user.role) && (
-              <>
-                <div className="profile-divider" />
-                <div className="sub-perks-title">แพ็กเกจ VIP</div>
-                <div className="sub-plans">
-                  <div className="sub-plan">
-                    <div className="sub-plan-label">รายเดือน</div>
-                    <div className="sub-plan-price">฿19<span>/เดือน</span></div>
-                  </div>
-                  <div className="sub-plan popular">
-                    <div className="sub-plan-label">3 เดือน 🔥</div>
-                    <div className="sub-plan-price">฿45<span>/3 เดือน</span></div>
-                    <div className="sub-plan-tag">ประหยัด ฿12</div>
-                  </div>
-                </div>
-
-                <div className="sub-bank">
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>📋 วิธีสมัคร VIP</div>
-                  <div>1. โอนเงินตามแพ็กเกจที่เลือก</div>
-                  <div>2. แจ้ง Admin พร้อมสลิปและ Username</div>
-                  <div>3. Admin จะเปิด VIP ให้ภายใน 24 ชม.</div>
-                  <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--bg-card)', borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 12, whiteSpace: 'pre-line' }}>
-                    {BANK_INFO}
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="profile-level-meter">
+              <div className="profile-level-head">
+                <span>{user.level_label || 'Fresh Listener'}</span>
+                <span>{Math.round(user.level_progress || 0)}%</span>
+              </div>
+              <div className="profile-mic-bar">
+                <div className="profile-mic-fill" style={{ width: `${user.level_progress || 0}%` }}></div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* ── Mic Test — full width ── */}
-        <div className="profile-section-full">
+          <div className="profile-card">
+            <div className="profile-card-head">Edit profile</div>
+            <div className="profile-field">
+              <label>Display name</label>
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={user.name} maxLength={30} />
+            </div>
+            <div className="profile-field">
+              <label>Phone for OTP reset</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08x-xxx-xxxx" />
+              <div className="hint">เบอร์นี้จะใช้สำหรับ flow OTP ตอนลืมรหัสผ่าน</div>
+            </div>
+            <button className="btn-primary orange" style={{ width: '100%' }} onClick={save} disabled={saving}>
+              {saving ? 'Saving...' : 'บันทึกโปรไฟล์'}
+            </button>
+          </div>
+
           <MicTestCard />
         </div>
 
+        <div className="profile-col">
+          <div className="profile-card">
+            <div className="profile-card-head">Daily check-in</div>
+            <div className="profile-checkin-card">
+              <p>เข้าเว็บทุกวันเพื่อรับ coins เพิ่ม และดัน streak ให้ยาวขึ้น</p>
+              <button className="btn-primary orange" onClick={dailyCheckIn} disabled={checkInState.loading}>
+                {checkInState.loading ? 'Checking...' : 'รับเช็กอินวันนี้'}
+              </button>
+            </div>
+          </div>
+
+          <div className="profile-card">
+            <div className="profile-card-head">Reward badges</div>
+            <div className="profile-badge-grid">
+              {(user.badges || []).length > 0 ? (user.badges || []).map((badge) => (
+                <div key={badge.id} className={`profile-badge-chip tone-${badge.tone || 'orange'}`}>
+                  {badge.label}
+                </div>
+              )) : <div className="hint">ยังไม่มี badge มากนัก ลองฟังต่อและเช็กอินต่อเนื่อง</div>}
+            </div>
+          </div>
+
+          <div className="profile-card">
+            <div className="profile-card-head">Followed DJs</div>
+            <div className="profile-follow-list">
+              {followedDjs.length > 0 ? followedDjs.map((dj) => (
+                <div key={dj.username} className="profile-follow-row">
+                  <img src={dj.avatar_url || AVATAR(dj.avatar_seed || dj.username)} alt="" />
+                  <div>
+                    <strong>{dj.display_name || dj.username}</strong>
+                    <span>@{dj.username}</span>
+                  </div>
+                </div>
+              )) : <div className="hint">ยังไม่ได้ follow DJ คนไหน</div>}
+            </div>
+          </div>
+
+          <div className="profile-card">
+            <div className="profile-card-head">Recent notifications</div>
+            <div className="profile-activity-list">
+              {notifications.length > 0 ? notifications.map((item) => (
+                <div key={item.id} className="profile-activity-row">
+                  <strong>{item.title}</strong>
+                  <span>{item.body}</span>
+                </div>
+              )) : <div className="hint">ยังไม่มี notification</div>}
+            </div>
+          </div>
+
+          <div className="profile-card">
+            <div className="profile-card-head">History</div>
+            <div className="profile-activity-list">
+              {activity.length > 0 ? activity.map((item, index) => (
+                <div key={`${item.type}-${index}`} className="profile-activity-row">
+                  <strong>{item.type}</strong>
+                  <span>{item.title}</span>
+                </div>
+              )) : <div className="hint">ยังไม่มี activity มากพอ</div>}
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );

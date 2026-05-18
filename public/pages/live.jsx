@@ -141,6 +141,11 @@ function LivePage({
   const [searchVal, setSearchVal] = useState('');
   const [reactions, setReactions] = useState(REACTIONS_INIT);
   const [openAd, setOpenAd] = useState(null);
+  const [followedDjs, setFollowedDjs] = useState([]);
+  const [shoutoutName, setShoutoutName] = useState('');
+  const [collabName, setCollabName] = useState('');
+  const [djOptions, setDjOptions] = useState([]);
+  const [checkInBusy, setCheckInBusy] = useState(false);
 
   // Feature state
   const [hype, setHype] = useState(20);
@@ -268,6 +273,15 @@ function LivePage({
         if (Array.isArray(d)) setAds(d);
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/follows').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setFollowedDjs(d.map(x => x.username));
+    }).catch(() => {});
+    fetch('/api/djs').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setDjOptions(d);
+    }).catch(() => {});
   }, []);
 
   // Hype decay
@@ -482,6 +496,79 @@ function LivePage({
   const djName = nowPlaying?.dj_username || 'IIMVU Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
+  const isFollowingCurrentDj = !!djName && followedDjs.includes(djName);
+  const shoutoutActive = nowPlaying?.shoutout_text && Number(nowPlaying?.shoutout_until || 0) > Date.now();
+
+  const toggleFollowDj = async () => {
+    if (!nowPlaying?.dj_username || !user) return;
+    try {
+      const method = isFollowingCurrentDj ? 'DELETE' : 'POST';
+      const res = await fetch(`/api/follows/${encodeURIComponent(nowPlaying.dj_username)}`, { method });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Follow action failed'); return; }
+      setFollowedDjs(prev => isFollowingCurrentDj ? prev.filter((name) => name !== nowPlaying.dj_username) : [...prev, nowPlaying.dj_username]);
+      toast(isFollowingCurrentDj ? `Unfollowed @${nowPlaying.dj_username}` : `Following @${nowPlaying.dj_username}`, 'success');
+    } catch {
+      toast('Follow action failed');
+    }
+  };
+
+  const fireShoutout = async () => {
+    if (!shoutoutName.trim()) return;
+    try {
+      const res = await fetch('/api/shoutout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_name: shoutoutName.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Shoutout failed'); return; }
+      setShoutoutName('');
+      setStationNowPlaying(prev => prev ? { ...prev, shoutout_text: data.shoutout_text, shoutout_until: data.shoutout_until, shoutout_by: data.shoutout_by } : prev);
+      toast('Shoutout sent', 'success');
+    } catch {
+      toast('Shoutout failed');
+    }
+  };
+
+  const saveCollab = async () => {
+    try {
+      const res = await fetch('/api/collab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: collabName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Collab update failed'); return; }
+      if (!collabName) {
+        setStationNowPlaying(prev => prev ? { ...prev, collab_dj_username: '', collab_dj_avatar_seed: '', collab_dj_avatar_url: '' } : prev);
+      } else {
+        setStationNowPlaying(prev => prev ? {
+          ...prev,
+          collab_dj_username: data.collab.username,
+          collab_dj_avatar_seed: data.collab.avatar_seed,
+          collab_dj_avatar_url: data.collab.avatar_url,
+        } : prev);
+      }
+      toast(collabName ? 'Collab DJ updated' : 'Collab DJ cleared', 'success');
+    } catch {
+      toast('Collab update failed');
+    }
+  };
+
+  const quickCheckIn = async () => {
+    setCheckInBusy(true);
+    try {
+      const res = await fetch('/api/check-in', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'Check-in failed'); return; }
+      toast(data.already_checked_in ? 'Checked in already today' : `Received ${data.reward} coins`, data.already_checked_in ? '' : 'success');
+    } catch {
+      toast('Check-in failed');
+    } finally {
+      setCheckInBusy(false);
+    }
+  };
 
   return (
     <>
@@ -522,6 +609,12 @@ function LivePage({
                     }
                   </div>
                   <MoodSticker mood={mood} />
+                  {shoutoutActive && (
+                    <div className="shoutout-pop">
+                      <span>Shoutout</span>
+                      <strong>{nowPlaying.shoutout_text}</strong>
+                    </div>
+                  )}
                   <div className="dj-handle">@{djName}</div>
                 </div>
               </div>
@@ -540,6 +633,12 @@ function LivePage({
                       <span className="by">by</span>
                       {trackArtist}
                     </p>
+                  )}
+                  {nowPlaying?.collab_dj_username && (
+                    <div className="collab-banner">
+                      <i className="fas fa-user-friends"></i>
+                      <span>Collab DJ: @{nowPlaying.collab_dj_username}</span>
+                    </div>
                   )}
                 </div>
 
@@ -585,6 +684,16 @@ function LivePage({
                 {/* Mood picker + tip jar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
                   <MoodPicker mood={mood} onPick={setMood} />
+                  {nowPlaying?.dj_username && user.role !== 'dj' && user.role !== 'admin' && (
+                    <button className={`btn-mini solid ${isFollowingCurrentDj ? 'active-frame-btn' : ''}`} onClick={toggleFollowDj}>
+                      <i className={`fas fa-${isFollowingCurrentDj ? 'heart' : 'bell'}`}></i>
+                      {isFollowingCurrentDj ? 'Following DJ' : 'Follow DJ'}
+                    </button>
+                  )}
+                  <button className="btn-mini solid" onClick={quickCheckIn} disabled={checkInBusy}>
+                    <i className="fas fa-coins"></i>
+                    {checkInBusy ? 'Checking...' : `Check-in · Lv.${user.level || 1}`}
+                  </button>
                   {user.role === 'dj' && (
                     stageActive ? (
                       <button className="btn-stage-off" onClick={leaveStage}>
@@ -600,6 +709,23 @@ function LivePage({
                     <button className="btn-mini solid" onClick={stopPlaying}>
                       Stop Live
                     </button>
+                  )}
+                  {(user.role === 'dj' || user.role === 'admin') && (
+                    <div className="live-control-strip">
+                      <input value={shoutoutName} onChange={(e) => setShoutoutName(e.target.value)} placeholder="viewer name" />
+                      <button className="btn-mini solid" onClick={fireShoutout}>Shoutout</button>
+                    </div>
+                  )}
+                  {(user.role === 'dj' || user.role === 'admin') && (
+                    <div className="live-control-strip">
+                      <select value={collabName} onChange={(e) => setCollabName(e.target.value)}>
+                        <option value="">No collab DJ</option>
+                        {djOptions.filter((dj) => dj.username !== user.name).map((dj) => (
+                          <option key={dj.username} value={dj.username}>@{dj.username}</option>
+                        ))}
+                      </select>
+                      <button className="btn-mini solid" onClick={saveCollab}>Save collab</button>
+                    </div>
                   )}
                   <div style={{ marginLeft: 'auto' }}>
                     <TipJar count={tips} onTip={sendTip} btnRef={tipBtnRef} />

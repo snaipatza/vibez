@@ -86,6 +86,20 @@ function App() {
                 display_name: data.display_name || '',
                 vip_expires_at: data.vip_expires_at || 0,
                 can_admin: data.can_admin || false,
+                phone: data.phone || '',
+                phone_masked: data.phone_masked || '',
+                coins: data.coins || 0,
+                checkin_streak: data.checkin_streak || 0,
+                total_listen_seconds: data.total_listen_seconds || 0,
+                level: data.level || 1,
+                level_progress: data.level_progress || 0,
+                level_label: data.level_label || '',
+                hours_listened: data.hours_listened || 0,
+                badges: data.badges || [],
+                unlocks: data.unlocks || [],
+                notifications: data.notifications || [],
+                unread_notifications: data.unread_notifications || 0,
+                followed_djs: data.followed_djs || [],
               };
               if (prev && prev.role !== data.role) {
                 toast(`ยศของคุณถูกเปลี่ยนเป็น ${data.role.toUpperCase()}`, 'success');
@@ -297,7 +311,27 @@ function App() {
   };
 
   const handleLogin = (u) => {
-    setUser({ ...u, name_color: u.name_color || '', chat_color: u.chat_color || '', display_name: u.display_name || '', vip_expires_at: u.vip_expires_at || 0 });
+    setUser({
+      ...u,
+      name_color: u.name_color || '',
+      chat_color: u.chat_color || '',
+      display_name: u.display_name || '',
+      vip_expires_at: u.vip_expires_at || 0,
+      phone: u.phone || '',
+      phone_masked: u.phone_masked || '',
+      coins: u.coins || 0,
+      checkin_streak: u.checkin_streak || 0,
+      total_listen_seconds: u.total_listen_seconds || 0,
+      level: u.level || 1,
+      level_progress: u.level_progress || 0,
+      level_label: u.level_label || '',
+      hours_listened: u.hours_listened || 0,
+      badges: u.badges || [],
+      unlocks: u.unlocks || [],
+      notifications: u.notifications || [],
+      unread_notifications: u.unread_notifications || 0,
+      followed_djs: u.followed_djs || [],
+    });
     toast(`ยินดีต้อนรับ @${u.name}`, 'success');
   };
 

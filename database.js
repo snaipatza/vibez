@@ -122,6 +122,34 @@ db.exec(`
   );
 
   INSERT OR IGNORE INTO rooms (id, name, skin, is_default) VALUES ('main-stage', 'main-stage', 'pink', 1);
+
+  CREATE TABLE IF NOT EXISTS password_otps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    phone TEXT NOT NULL,
+    code TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used_at INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS dj_follows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    dj_user_id INTEGER NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    UNIQUE(user_id, dj_user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS live_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT DEFAULT 'dj_live',
+    title TEXT NOT NULL,
+    body TEXT DEFAULT '',
+    read_at INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
 `);
 
 // Add new columns to existing databases (safe to run multiple times)
@@ -152,7 +180,21 @@ const alterations = [
     "ALTER TABLE users ADD COLUMN chat_frame TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN chat_frame TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN avatar_frame TEXT DEFAULT ''",
-    "ALTER TABLE messages ADD COLUMN avatar_frame TEXT DEFAULT ''"
+    "ALTER TABLE messages ADD COLUMN avatar_frame TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN phone_verified INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN checkin_streak INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN last_checkin_date TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN total_listen_seconds INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN last_listen_ping INTEGER DEFAULT 0",
+    "ALTER TABLE now_playing ADD COLUMN shoutout_text TEXT DEFAULT ''",
+    "ALTER TABLE now_playing ADD COLUMN shoutout_until INTEGER DEFAULT 0",
+    "ALTER TABLE now_playing ADD COLUMN shoutout_by TEXT DEFAULT ''",
+    "ALTER TABLE now_playing ADD COLUMN collab_dj_username TEXT DEFAULT ''",
+    "ALTER TABLE now_playing ADD COLUMN collab_dj_user_id INTEGER DEFAULT 0",
+    "ALTER TABLE now_playing ADD COLUMN collab_dj_avatar_seed TEXT DEFAULT ''",
+    "ALTER TABLE now_playing ADD COLUMN collab_dj_avatar_url TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

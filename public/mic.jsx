@@ -389,7 +389,14 @@ function MicStageCompact({ user, socket, onMicLive }) {
 
   return (
     <>
-      {/* Circular mic button for broadcaster */}
+      {/* Expanding voice rings around DJ portrait when on air */}
+      {djMicOn && (
+        <div className="dj-speak-rings">
+          <span /><span /><span />
+        </div>
+      )}
+
+      {/* Circular mic button */}
       {canBroadcast && (
         <button
           className={`mic-circle-btn${djMicOn ? ' on' : ''}`}
@@ -408,13 +415,15 @@ function MicStageCompact({ user, socket, onMicLive }) {
         </button>
       )}
 
-      {/* Speaker avatars below DJ */}
+      {/* Speaker avatars — horizontal row at bottom, with voice animation */}
       {micState.speakers.length > 0 && (
         <div className="mic-stage-speakers">
           {micState.speakers.map(s => (
             <div key={s.socketId} className="mic-stage-spk" title={s.username}>
+              <span className="spk-voice-ring" />
+              <span className="spk-voice-ring" style={{ animationDelay: '0.5s' }} />
               <img src={s.avatar_url || AVATAR(s.avatar_seed || s.username)} alt="" />
-              <span className="mic-on-dot" />
+              <span className="spk-label">{(s.username || '').split('').slice(0,8).join('')}</span>
             </div>
           ))}
         </div>

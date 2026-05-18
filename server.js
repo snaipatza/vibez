@@ -993,8 +993,31 @@ io.on('connection', (socket) => {
     io.emit('mic:status', micState);
   });
 
+  // ── WebRTC signaling ──────────────────────────────────────────────────
+  socket.on('rtc:request', () => {
+    if (micState.isLive && micState.djSocketId && socket.id !== micState.djSocketId) {
+      io.to(micState.djSocketId).emit('rtc:new-listener', { listenerSocketId: socket.id });
+    }
+  });
+
+  socket.on('rtc:offer', ({ listenerSocketId, offer }) => {
+    io.to(listenerSocketId).emit('rtc:offer', { djSocketId: socket.id, offer });
+  });
+
+  socket.on('rtc:answer', ({ djSocketId, answer }) => {
+    io.to(djSocketId).emit('rtc:answer', { listenerSocketId: socket.id, answer });
+  });
+
+  socket.on('rtc:ice', ({ targetSocketId, candidate }) => {
+    io.to(targetSocketId).emit('rtc:ice', { fromSocketId: socket.id, candidate });
+  });
+
   socket.on('disconnect', () => {
     const sid = socket.id;
+    // Notify DJ when a listener leaves so it can clean up its RTCPeerConnection
+    if (micState.isLive && micState.djSocketId && micState.djSocketId !== sid) {
+      io.to(micState.djSocketId).emit('rtc:listener-left', { listenerSocketId: sid });
+    }
     micState.requests = micState.requests.filter(r => r.socketId !== sid);
     micState.speakers = micState.speakers.filter(s => s.socketId !== sid);
     if (micState.djSocketId === sid) {

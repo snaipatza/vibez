@@ -982,7 +982,7 @@ function ChatPanelInline({ messages, onSend, user }) {
               </div>
             ) : (
               <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`}>
-                <div className={`av ${m.role === 'vip' ? 'vip-frame' : ''}`}>
+                <div className={`av${m.role === 'admin' ? ' av-frame-admin' : m.role === 'dj' ? ' av-frame-dj' : m.role === 'vip+' ? ' av-frame-vipplus' : m.role === 'vip' ? ' av-frame-vip' : m.role === 'co-admin' ? ' av-frame-coadmin' : ''}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />
                     : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />

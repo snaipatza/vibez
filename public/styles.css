@@ -4592,6 +4592,74 @@ a { color: inherit; text-decoration: none; }
 }
 .theme-toggle-btn:hover { color: var(--orange); background: var(--orange-tint); }
 
+/* ── ROLE AVATAR FRAMES (Discord-style rotating gradient ring) ──── */
+.av.av-frame-dj,
+.av.av-frame-vip,
+.av.av-frame-vipplus,
+.av.av-frame-admin,
+.av.av-frame-coadmin {
+  overflow: visible;
+  background: transparent;
+  position: relative;
+}
+
+.av.av-frame-dj > img,
+.av.av-frame-vip > img,
+.av.av-frame-vipplus > img,
+.av.av-frame-admin > img,
+.av.av-frame-coadmin > img {
+  clip-path: circle(50%);
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.av.av-frame-dj::before,
+.av.av-frame-vip::before,
+.av.av-frame-vipplus::before,
+.av.av-frame-admin::before,
+.av.av-frame-coadmin::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: 0;
+  animation: spin 3s linear infinite;
+}
+
+/* 🎧 DJ — orange fire */
+.av.av-frame-dj::before {
+  background: conic-gradient(from 0deg, #ff9f1c, #ffcb47, #ff6b35, #ff3cac, #ff9f1c);
+  animation-duration: 2.5s;
+}
+
+/* 💎 VIP — purple shimmer */
+.av.av-frame-vip::before {
+  background: conic-gradient(from 0deg, #c77dff, #9b4dca, #e040fb, #c77dff);
+  animation-duration: 3.5s;
+}
+
+/* 💎+ VIP+ — rainbow holographic */
+.av.av-frame-vipplus::before {
+  background: conic-gradient(from 0deg, #ffd700, #ff6b35, #c77dff, #00d4ff, #ff3cac, #ffd700);
+  animation-duration: 2s;
+}
+
+/* 🛡 Admin — red/crimson */
+.av.av-frame-admin::before {
+  background: conic-gradient(from 0deg, #ff3cac, #ff0044, #ff6b6b, #ff3cac);
+  animation-duration: 2s;
+}
+
+/* ★ Co-Admin — deep purple/pink */
+.av.av-frame-coadmin::before {
+  background: conic-gradient(from 0deg, #f72585, #b5179e, #7209b7, #f72585);
+  animation-duration: 3s;
+}
+
 /* ── MIC STAGE COMPACT ───────────────────────────────────────────── */
 .mic-circle-btn {
   position: absolute;

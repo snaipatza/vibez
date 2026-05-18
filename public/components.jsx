@@ -83,7 +83,7 @@ function ChatMessageMedia({ mediaUrl, mediaType }) {
   if (!mediaUrl) return null;
   return (
     <div className={`chat-media ${mediaType === 'gif' ? 'gif' : 'image'}`}>
-      <img src={mediaUrl} alt="" loading="lazy" />
+      <img src={mediaUrl} alt="" />
       {mediaType === 'gif' && <span className="media-badge">GIF</span>}
     </div>
   );

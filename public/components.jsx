@@ -201,7 +201,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
         </div>
       </div>
 
-      <div>
+      <div className="sidebar-nav-section">
         <div className="section-label">
           <span>Navigate</span>
         </div>

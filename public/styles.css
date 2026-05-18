@@ -3993,4 +3993,212 @@ a { color: inherit; text-decoration: none; }
   gap: 6px;
   transition: all 0.15s;
 }
+
+/* ============================================
+   MOBILE — max-width: 767px
+   Desktop layout untouched above this line.
+   ============================================ */
+@media (max-width: 767px) {
+
+  /* Allow scroll on body */
+  body:has(.app) { overflow: auto; }
+
+  /* ── APP SHELL ── */
+  .app {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  /* ── SIDEBAR → FIXED BOTTOM NAV ── */
+  .sidebar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0; top: auto;
+    height: auto;
+    width: 100%;
+    border-right: none;
+    border-top: 1px solid var(--line);
+    flex-direction: row;
+    padding: 0;
+    gap: 0;
+    z-index: 998;
+    background: var(--bg);
+  }
+  /* Hide everything in sidebar except nav section */
+  .sidebar > *:not(.sidebar-nav-section) { display: none !important; }
+  .sidebar-nav-section { width: 100%; }
+  .sidebar-nav-section .section-label { display: none; }
+
+  /* Nav items: horizontal row */
+  .sidebar .nav {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    padding: 0;
+    gap: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sidebar .nav::-webkit-scrollbar { display: none; }
+  .sidebar .nav-item {
+    flex: 1;
+    min-width: 50px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px 10px;
+    border-radius: 0;
+    font-size: 10px;
+    position: relative;
+    border-bottom: 2px solid transparent;
+  }
+  .sidebar .nav-item.active {
+    border-bottom: 2px solid var(--pink);
+    background: none;
+    color: var(--pink);
+  }
+  .sidebar .nav-item .nav-icon { font-size: 18px; }
+  .sidebar .nav-item span { font-size: 9px; line-height: 1.2; text-align: center; }
+  .sidebar .nav-item .pulse-bars,
+  .sidebar .nav-item .live-dot { display: none; }
+  .sidebar .nav-item .badge {
+    position: absolute;
+    top: 5px;
+    right: calc(50% - 18px);
+    font-size: 8px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    padding-bottom: 60px;
+    overflow-y: auto;
+    min-height: 100dvh;
+    height: auto;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    padding: 10px 14px;
+    min-height: 50px;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar .crumb,
+  .topbar .sep,
+  .topbar .meta { display: none; }
+  .topbar .title { font-size: 16px; }
+  .listener-pill { padding: 5px 10px; font-size: 11px; }
+  .listener-pill .pulse { width: 6px; height: 6px; }
+  .icon-square { width: 34px; height: 34px; border-radius: 10px; }
+
+  /* ── CONTENT ── */
+  .content,
+  .content.no-chat {
+    grid-template-columns: 1fr;
+    overflow: visible;
+    height: auto;
+    display: block;
+  }
+
+  /* ── STAGE ── */
+  .stage {
+    padding: 12px 12px 20px;
+    overflow: visible;
+    height: auto;
+    min-height: auto;
+  }
+
+  /* ── PLAYER ── */
+  .player { margin-bottom: 0; }
+  .player-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .vinyl-stage {
+    height: 180px;
+    border-radius: 14px;
+  }
+  .dj-portrait { transform: scale(0.85); }
+  .track-title { font-size: 18px !important; }
+  .track-artist { font-size: 13px; }
+  .controls { gap: 8px; flex-wrap: wrap; }
+  .volume-row input[type="range"] { width: 80px !important; }
+  .volume-val { font-size: 11px; }
+  .hype-meter { height: 3px; }
+
+  /* Mood/stage/tip row: wrap */
+  .player-body > div:last-child { flex-wrap: wrap; gap: 8px; }
+
+  /* ── RIGHT RAIL ── */
+  .right-rail {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 12px;
+  }
+
+  /* ── CHAT ── */
+  .section { padding: 0 12px 16px; }
+  .section-head { padding: 16px 0 10px; }
+  .chat-card { height: 320px; border-radius: 10px; }
+  .chat-card .chat-body { padding: 12px 14px; }
+  .chat-card .chat-input { padding: 10px 12px; }
+
+  /* ── REACTIONS ── */
+  .reactions { gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .reaction { padding: 6px 10px; font-size: 13px; }
+
+  /* ── MIC PANEL ── */
+  .mic-panel { padding: 12px; }
+  .mic-panel-head h3 { font-size: 14px; }
+
+  /* ── RAIL SECTIONS ── */
+  .rail-section { padding: 14px 0; }
+  .rail-head h3 { font-size: 14px; }
+  .queue-tabs { gap: 6px; }
+  .qtab { padding: 6px 12px; font-size: 12px; }
+
+  /* ── RULES PAGE ── */
+  .rules-page { padding: 16px 14px 40px; }
+  .rules-grid { grid-template-columns: 1fr; gap: 12px; }
+  .rules-hero { padding: 20px 0 28px; }
+  .rules-hero h1 { font-size: 22px; }
+  .rules-hero-icon { font-size: 36px; }
+
+  /* ── ADMIN PAGE ── */
+  .admin-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .admin-table { font-size: 11px; }
+  .admin-table th, .admin-table td { padding: 8px 5px; }
+  .admin-table .row-actions { flex-wrap: wrap; gap: 4px; }
+
+  /* ── PROFILE PAGE ── */
+  .profile-page { padding: 12px 14px 40px; }
+  .profile-layout { grid-template-columns: 1fr !important; }
+
+  /* ── DM PAGE ── */
+  .dm-layout { grid-template-columns: 1fr !important; }
+  .dm-sidebar { display: none; }
+  .dm-sidebar.show { display: flex; }
+
+  /* ── LOGIN PAGE ── */
+  .login-wrap { padding: 16px; }
+  .login-card { padding: 24px 18px; }
+
+  /* ── EXPLORE PAGE ── */
+  .explore-hero { padding: 24px 14px 18px; }
+  .explore-hero h1 { font-size: 24px; }
+
+  /* ── PROMO BANNER ── */
+  .promo-banner { padding: 5px 10px; font-size: 11px; }
+  .promo-item { gap: 10px; }
+}
 .btn-stage-off:hover { color: var(--red); border-color: var(--red); }

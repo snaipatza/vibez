@@ -1,13 +1,14 @@
 // Mic / Voice Panel — WebRTC Edition
 // DJ: getUserMedia → RTCPeerConnection (one per listener) → WebRTC track
 // Listener: RTCPeerConnection ← offer/answer signaling → ontrack → Audio
+// Anyone who is NOT the active streamer will listen — regardless of role.
 
 const RTC_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.relay.metered.ca:80' },
-    { urls: 'turn:global.relay.metered.ca:80',               username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
-    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
-    { urls: 'turn:global.relay.metered.ca:443',              username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
+    { urls: 'turn:global.relay.metered.ca:80',                username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp',  username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
+    { urls: 'turn:global.relay.metered.ca:443',               username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
     { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: 'd91d99e6381de288fb10db22', credential: 'G4iDacxv7LMthtk3' },
   ],
 };
@@ -21,12 +22,17 @@ function useMic(user, socket, onMicLive) {
   const [needsClick, setNeedsClick] = useState(false);
 
   const localStreamRef     = useRef(null);
-  const peerConnectionsRef = useRef(new Map()); // DJ side: listenerSocketId → RTCPeerConnection
-  const peerConnectionRef  = useRef(null);       // Listener side: single PC to DJ
-  const audioRef           = useRef(null);        // Listener audio element
+  const peerConnectionsRef = useRef(new Map()); // streamer side: listenerSocketId → RTCPeerConnection
+  const peerConnectionRef  = useRef(null);       // listener side: single PC to streamer
+  const audioRef           = useRef(null);        // listener audio element
   const isLiveRef          = useRef(false);
+  const djSocketIdRef      = useRef(null);        // socket ID of whoever is currently on air
 
-  const isDJ = user.role === 'dj' || user.role === 'admin';
+  // Can this user start broadcasting?
+  const canBroadcast = user.role === 'dj' || user.role === 'admin';
+
+  // Am I the one currently on air? (computed fresh each render)
+  const isActiveStreamer = socket && micState.djSocketId === socket.id;
 
   // ── Listener: tear down connection ───────────────────────────────────
   const stopListening = useCallback(() => {
@@ -42,13 +48,13 @@ function useMic(user, socket, onMicLive) {
     setNeedsClick(false);
   }, []);
 
-  // ── DJ: close all peer connections ───────────────────────────────────
+  // ── Streamer: close all peer connections ─────────────────────────────
   const closeDJPeers = useCallback(() => {
     peerConnectionsRef.current.forEach(pc => { try { pc.close(); } catch {} });
     peerConnectionsRef.current.clear();
   }, []);
 
-  // ── DJ: create RTCPeerConnection for one listener ─────────────────────
+  // ── Streamer: create RTCPeerConnection for one listener ───────────────
   const createDJPeer = useCallback((listenerSocketId) => {
     const stream = localStreamRef.current;
     if (!stream || !socket) return;
@@ -74,7 +80,7 @@ function useMic(user, socket, onMicLive) {
       .catch(() => {});
   }, [socket]);
 
-  // ── DJ controls ──────────────────────────────────────────────────────
+  // ── Broadcaster controls ─────────────────────────────────────────────
   const startDJMic = async () => {
     try {
       setMicError('');
@@ -104,36 +110,39 @@ function useMic(user, socket, onMicLive) {
     socket.on('mic:status', (state) => {
       const wasLive = isLiveRef.current;
       isLiveRef.current = state.isLive;
+      djSocketIdRef.current = state.djSocketId;
       setMicState(state);
+
+      const amIStreamer = socket.id === state.djSocketId;
 
       if (!state.isLive) {
         setDjMicOn(false);
         setHasRaised(false);
-        if (!isDJ) stopListening();
-        if (isDJ) closeDJPeers();
-      } else if (state.isLive && !isDJ && !wasLive) {
-        // DJ just went live → request a connection
+        if (!amIStreamer) stopListening();
+        if (amIStreamer) closeDJPeers();
+      } else if (state.isLive && !amIStreamer && !wasLive) {
+        // Mic just went live and I'm not the streamer → request audio
         socket.emit('rtc:request');
       }
       onMicLive?.(state.isLive);
     });
 
-    // ── DJ: a listener wants audio ─────────────────────────────────────
+    // ── Streamer: a listener wants audio ──────────────────────────────
     socket.on('rtc:new-listener', ({ listenerSocketId }) => {
-      if (!isDJ) return;
+      if (socket.id !== djSocketIdRef.current) return;
       createDJPeer(listenerSocketId);
     });
 
-    // ── DJ: listener sent answer ───────────────────────────────────────
+    // ── Streamer: listener sent answer ────────────────────────────────
     socket.on('rtc:answer', ({ listenerSocketId, answer }) => {
-      if (!isDJ) return;
+      if (socket.id !== djSocketIdRef.current) return;
       const pc = peerConnectionsRef.current.get(listenerSocketId);
       if (pc) pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(() => {});
     });
 
-    // ── Listener: DJ sent offer ────────────────────────────────────────
+    // ── Listener: streamer sent offer ─────────────────────────────────
     socket.on('rtc:offer', ({ djSocketId, offer }) => {
-      if (isDJ) return;
+      if (socket.id === djSocketIdRef.current) return; // I'm the streamer, skip
       stopListening();
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
@@ -157,10 +166,10 @@ function useMic(user, socket, onMicLive) {
         .catch(() => {});
     });
 
-    // ── Both sides: relay ICE candidates ──────────────────────────────
+    // ── Both sides: relay ICE candidates ─────────────────────────────
     socket.on('rtc:ice', ({ fromSocketId, candidate }) => {
       try {
-        if (isDJ) {
+        if (socket.id === djSocketIdRef.current) {
           const pc = peerConnectionsRef.current.get(fromSocketId);
           if (pc) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
         } else {
@@ -170,9 +179,9 @@ function useMic(user, socket, onMicLive) {
       } catch {}
     });
 
-    // ── DJ: listener disconnected → clean up its PC ───────────────────
+    // ── Streamer: listener disconnected → clean up its PC ─────────────
     socket.on('rtc:listener-left', ({ listenerSocketId }) => {
-      if (!isDJ) return;
+      if (socket.id !== djSocketIdRef.current) return;
       const pc = peerConnectionsRef.current.get(listenerSocketId);
       if (pc) { try { pc.close(); } catch {} peerConnectionsRef.current.delete(listenerSocketId); }
     });
@@ -191,9 +200,9 @@ function useMic(user, socket, onMicLive) {
       socket.off('mic:approved');
       socket.off('mic:rejected');
       socket.off('mic:removed');
-      if (!isDJ) stopListening();
+      stopListening();
     };
-  }, [socket, isDJ, stopListening, closeDJPeers, createDJPeer]);
+  }, [socket, stopListening, closeDJPeers, createDJPeer]);
 
   // ── Listener helpers ─────────────────────────────────────────────────
   const clickToListen = useCallback(() => {
@@ -213,7 +222,8 @@ function useMic(user, socket, onMicLive) {
   const removeSpeaker  = (sid) => socket.emit('hand:remove',  { socketId: sid });
 
   return {
-    micState, djMicOn, hasRaised, micError, needsClick, isDJ,
+    micState, djMicOn, hasRaised, micError, needsClick,
+    canBroadcast, isActiveStreamer,
     startDJMic, stopDJMic, raiseHand, lowerHand,
     approveRequest, rejectRequest, removeSpeaker, clickToListen,
   };
@@ -221,7 +231,7 @@ function useMic(user, socket, onMicLive) {
 
 function MicPanel({ user, socket, onMicLive }) {
   const mic = useMic(user, socket, onMicLive);
-  const { micState, djMicOn, hasRaised, micError, needsClick, isDJ } = mic;
+  const { micState, djMicOn, hasRaised, micError, needsClick, canBroadcast, isActiveStreamer } = mic;
 
   if (!socket) return null;
 
@@ -241,7 +251,8 @@ function MicPanel({ user, socket, onMicLive }) {
         </div>
       </div>
 
-      {isDJ && (
+      {/* Broadcaster controls — anyone with dj/admin role */}
+      {canBroadcast && (
         <div className="mic-dj-controls">
           {!djMicOn ? (
             <button className="mic-open-btn" onClick={mic.startDJMic}>
@@ -258,14 +269,16 @@ function MicPanel({ user, socket, onMicLive }) {
         </div>
       )}
 
-      {!isDJ && micState.isLive && needsClick && (
+      {/* "Click to listen" prompt — shown when browser blocks autoplay */}
+      {!isActiveStreamer && micState.isLive && needsClick && (
         <button className="mic-listen-btn" onClick={mic.clickToListen}>
           <i className="fas fa-volume-up"></i>
           <span>กดเพื่อฟังเสียง DJ</span>
         </button>
       )}
 
-      {!isDJ && (
+      {/* Listener controls — everyone except the active streamer */}
+      {!isActiveStreamer && (
         <div className="mic-user-controls">
           {micState.isLive ? (
             hasRaised ? (
@@ -313,7 +326,7 @@ function MicPanel({ user, socket, onMicLive }) {
                 }
                 <span className="mic-avatar-name">{s.username}</span>
                 <span className="mic-on-dot"></span>
-                {isDJ && (
+                {canBroadcast && (
                   <button className="mic-remove-btn" onClick={() => mic.removeSpeaker(s.socketId)}>
                     <i className="fas fa-times"></i>
                   </button>
@@ -324,7 +337,7 @@ function MicPanel({ user, socket, onMicLive }) {
         </div>
       )}
 
-      {isDJ && micState.requests.length > 0 && (
+      {canBroadcast && micState.requests.length > 0 && (
         <div className="mic-requests">
           <div className="mic-stage-label">ขอพูด ({micState.requests.length})</div>
           <div className="mic-request-list">
@@ -348,7 +361,7 @@ function MicPanel({ user, socket, onMicLive }) {
         </div>
       )}
 
-      {!isDJ && micState.requests.length > 0 && (
+      {!isActiveStreamer && micState.requests.length > 0 && (
         <div className="mic-requests-mini">
           <div className="mic-stage-label">กำลังขอพูด</div>
           <div className="mic-stage-row">

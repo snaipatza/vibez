@@ -866,7 +866,7 @@ function LivePage({
 
 // Inline chat (no header — header lives in section above)
 function ChatPanelInline({ messages, onSend, user }) {
-  const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
+  const { useState, useEffect, useRef, useCallback } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
   const [replyTo, setReplyTo] = useState(null); // { id, name, text }
@@ -876,11 +876,11 @@ function ChatPanelInline({ messages, onSend, user }) {
     try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; }
   });
   const bodyRef = useRef(null);
-  const bottomRef = useRef(null); // anchor element at end of list
-  const prevLenRef = useRef(0);  // scroll tracking
-  const soundLenRef = useRef(0); // separate counter for sound
+  const bottomRef = useRef(null);
+  const prevMsgsRef = useRef(messages); // track previous messages reference
+  const soundLenRef = useRef(0);
   const soundOnRef = useRef(soundOn);
-  const atBottomRef = useRef(true); // mirror of atBottom for use inside closures/timeouts
+  const atBottomRef = useRef(true);
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
 
   const playDing = useCallback(() => {
@@ -919,22 +919,21 @@ function ChatPanelInline({ messages, onSend, user }) {
     if (el) el.scrollTop = el.scrollHeight + 9999;
   }, []);
 
-  // useLayoutEffect: runs synchronously after DOM mutation, before browser paint.
-  useLayoutEffect(() => {
+  useEffect(() => {
+    const prev = prevMsgsRef.current;
+    prevMsgsRef.current = messages;
+    if (messages.length === 0) return;
+    // Fire on every new messages array (including when length stays 100 after slice)
+    const wasEmpty = prev.length === 0;
     const el = bodyRef.current;
     if (!el) return;
-    const added = messages.length - prevLenRef.current;
-    const wasEmpty = prevLenRef.current === 0;
-    prevLenRef.current = messages.length;
-    if (added <= 0) return;
     atBottomRef.current = true;
-    scrollToBottomNow();
+    el.scrollTop = el.scrollHeight + 9999;
     setNewCount(0);
-    // Re-scroll multiple times to catch slow-loading images/avatars shifting layout.
-    const delays = wasEmpty ? [100, 300, 700, 1400] : [150, 500];
+    const delays = wasEmpty ? [50, 150, 400, 900] : [50, 200];
     const timers = delays.map(d => setTimeout(() => {
-      atBottomRef.current = true;
-      scrollToBottomNow();
+      const e = bodyRef.current;
+      if (e) { atBottomRef.current = true; e.scrollTop = e.scrollHeight + 9999; }
     }, d));
     return () => timers.forEach(clearTimeout);
   }, [messages]);

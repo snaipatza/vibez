@@ -4715,33 +4715,86 @@ a { color: inherit; text-decoration: none; }
   100% { transform: scale(2.2); opacity: 0; }
 }
 
+/* DJ voice rings — expanding when on air */
+.dj-speak-rings {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  pointer-events: none;
+  z-index: 3;
+}
+.dj-speak-rings span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--orange);
+  opacity: 0;
+  animation: djVoiceRing 2s ease-out infinite;
+}
+.dj-speak-rings span:nth-child(2) { animation-delay: 0.66s; }
+.dj-speak-rings span:nth-child(3) { animation-delay: 1.32s; }
+@keyframes djVoiceRing {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Speaker avatars — centered row at bottom of stage */
 .mic-stage-speakers {
   position: absolute;
-  bottom: 78px;
-  right: 18px;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(calc(-50% - 36px));
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  gap: 10px;
   z-index: 20;
 }
 .mic-stage-spk {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid var(--orange);
-  box-shadow: 0 0 10px rgba(232,123,161,0.55);
+  overflow: visible;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.mic-stage-spk img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.mic-stage-spk .mic-on-dot {
-  position: absolute;
-  bottom: 1px;
-  right: 1px;
-  width: 8px;
-  height: 8px;
+.mic-stage-spk img {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: var(--orange);
-  border: 1.5px solid #000;
+  object-fit: cover;
+  display: block;
+  border: 2.5px solid var(--orange);
+  box-shadow: 0 0 12px rgba(232,123,161,0.6);
+  position: relative;
+  z-index: 1;
+}
+.spk-voice-ring {
+  position: absolute;
+  top: 0; left: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--orange);
+  opacity: 0;
+  animation: spkVoiceRing 1.4s ease-out infinite;
+  z-index: 0;
+}
+@keyframes spkVoiceRing {
+  0%   { transform: scale(1);   opacity: 0.75; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.spk-label {
+  margin-top: 4px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }

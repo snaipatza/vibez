@@ -246,7 +246,7 @@ function checkVipExpiry(userId, sessionRole) {
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const user = db.prepare('SELECT role, avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at, can_admin FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT role, avatar_seed, avatar_url, name_color, chat_color, chat_frame, display_name, vip_expires_at, can_admin FROM users WHERE id=?').get(req.session.userId);
     const currentRole = checkVipExpiry(req.session.userId, user?.role || req.session.role);
     if (currentRole !== req.session.role) req.session.role = currentRole;
     res.json({
@@ -258,6 +258,7 @@ app.get('/api/me', (req, res) => {
         avatar_url: user?.avatar_url || '',
         name_color: user?.name_color || '',
         chat_color: user?.chat_color || '',
+        chat_frame: user?.chat_frame || '',
         display_name: user?.display_name || '',
         vip_expires_at: user?.vip_expires_at || 0,
         can_admin: user?.can_admin ? true : false,
@@ -728,14 +729,18 @@ app.delete('/api/rooms/:id', requireAuth, (req, res) => {
 app.get('/api/messages', (req, res) => {
     const after = parseInt(req.query.after) || 0;
     const roomId = String(req.query.room || 'main-stage').slice(0, 80);
+    // On initial load (after=0), only return messages from the last 1 hour
+    const cutoff = after === 0
+        ? new Date(Date.now() - 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+        : '2000-01-01 00:00:00';
     const messages = db.prepare(`
         SELECT messages.*, users.avatar_seed, users.avatar_url
         FROM messages
         LEFT JOIN users ON users.id = messages.user_id
-        WHERE messages.id > ? AND messages.room_id = ?
+        WHERE messages.id > ? AND messages.room_id = ? AND messages.created_at >= ?
         ORDER BY messages.created_at ASC
         LIMIT 60
-    `).all(after, roomId);
+    `).all(after, roomId, cutoff);
     res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '' })));
 });
 

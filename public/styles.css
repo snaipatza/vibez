@@ -2530,6 +2530,30 @@ a { color: inherit; text-decoration: none; }
 .btn-mini.danger:hover { background: var(--red, #ff4d4d); border-color: var(--red, #ff4d4d); color: #fff; }
 .btn-mini.solid { background: var(--ink); color: var(--bg); }
 .btn-mini.solid:hover { background: var(--orange); border-color: var(--orange); }
+.btn-co-admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1.5px solid #c77dff;
+  background: transparent;
+  color: #c77dff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.btn-co-admin:hover { background: #c77dff22; }
+.btn-co-admin.active {
+  background: linear-gradient(135deg, #c77dff33, #7b2d8b33);
+  border-color: #c77dff;
+  color: #c77dff;
+  box-shadow: 0 0 8px #c77dff55;
+}
+.btn-co-admin.active i { filter: drop-shadow(0 0 4px #c77dff); }
+.co-admin-tag { color: #c77dff; font-size: 10px; }
 
 /* ============================================
    DM - Direct Messages

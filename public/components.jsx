@@ -236,10 +236,10 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
               {page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
             </div>
           )}
-          {user.role === 'admin' && (
+          {(user.role === 'admin' || user.can_admin) && (
             <div className={`nav-item ${page === 'admin' ? 'active' : ''}`} onClick={() => onNav('admin')}>
               <i className="fas fa-sliders-h nav-icon"></i>
-              <span>Admin</span>
+              <span>Admin{user.can_admin && user.role !== 'admin' && <span className="co-admin-tag"> ★</span>}</span>
               {page === 'admin' && <div className="pulse-bars"><span /><span /><span /></div>}
             </div>
           )}

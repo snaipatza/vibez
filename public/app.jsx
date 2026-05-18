@@ -70,6 +70,7 @@ function App() {
                 chat_color: data.chat_color || '',
                 display_name: data.display_name || '',
                 vip_expires_at: data.vip_expires_at || 0,
+                can_admin: data.can_admin || false,
               };
               if (prev && prev.role !== data.role) {
                 toast(`ยศของคุณถูกเปลี่ยนเป็น ${data.role.toUpperCase()}`, 'success');
@@ -397,7 +398,7 @@ function App() {
             }}
           />
         )}
-        {page === 'admin' && user.role === 'admin' && (
+        {page === 'admin' && (user.role === 'admin' || user.can_admin) && (
           <AdminPage
             user={user}
             listeners={listeners}

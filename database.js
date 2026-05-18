@@ -132,7 +132,8 @@ const alterations = [
     "ALTER TABLE direct_messages ADD COLUMN media_url TEXT DEFAULT ''",
     "ALTER TABLE direct_messages ADD COLUMN media_type TEXT DEFAULT ''",
     "ALTER TABLE queue ADD COLUMN type TEXT DEFAULT 'user'",
-    "ALTER TABLE queue ADD COLUMN order_idx INTEGER DEFAULT 0"
+    "ALTER TABLE queue ADD COLUMN order_idx INTEGER DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN can_admin INTEGER DEFAULT 0"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

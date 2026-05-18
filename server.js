@@ -101,6 +101,14 @@ function requirePlaybackDJ(req, res, next) {
 }
 function requireAdmin(req, res, next) {
     if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.session.role === 'admin') return next();
+    // Co-admin: DJ granted admin rights by a real admin
+    const u = db.prepare('SELECT can_admin FROM users WHERE id=?').get(req.session.userId);
+    if (u?.can_admin) return next();
+    return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้น' });
+}
+function requireRealAdmin(req, res, next) {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
     if (req.session.role !== 'admin') return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้น' });
     next();
 }
@@ -238,7 +246,7 @@ function checkVipExpiry(userId, sessionRole) {
 app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ loggedIn: false });
     db.prepare('UPDATE users SET last_seen=? WHERE id=?').run(Date.now(), req.session.userId);
-    const user = db.prepare('SELECT role, avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT role, avatar_seed, avatar_url, name_color, chat_color, display_name, vip_expires_at, can_admin FROM users WHERE id=?').get(req.session.userId);
     const currentRole = checkVipExpiry(req.session.userId, user?.role || req.session.role);
     if (currentRole !== req.session.role) req.session.role = currentRole;
     res.json({
@@ -252,6 +260,7 @@ app.get('/api/me', (req, res) => {
         chat_color: user?.chat_color || '',
         display_name: user?.display_name || '',
         vip_expires_at: user?.vip_expires_at || 0,
+        can_admin: user?.can_admin ? true : false,
     });
 });
 
@@ -735,6 +744,17 @@ app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
         db.prepare('UPDATE users SET vip_expires_at=? WHERE id=?').run(exp, req.params.id);
     }
     res.json({ success: true });
+});
+
+// Toggle co-admin (only real admin can grant/revoke)
+app.post('/api/admin/users/:id/co-admin', requireRealAdmin, (req, res) => {
+    const target = db.prepare('SELECT id, role, can_admin FROM users WHERE id=?').get(req.params.id);
+    if (!target) return res.status(404).json({ error: 'User not found' });
+    if (target.role === 'admin') return res.status(400).json({ error: 'ไม่จำเป็นสำหรับ Admin จริง' });
+    if (target.role !== 'dj') return res.status(400).json({ error: 'ให้สิทธิ์ได้เฉพาะ DJ เท่านั้น' });
+    const newVal = target.can_admin ? 0 : 1;
+    db.prepare('UPDATE users SET can_admin=? WHERE id=?').run(newVal, target.id);
+    res.json({ success: true, can_admin: !!newVal });
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {

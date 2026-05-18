@@ -61,6 +61,16 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
+  const toggleCoAdmin = async (id) => {
+    try {
+      const res = await fetch(`/api/admin/users/${id}/co-admin`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      setUsers(us => us.map(u => u.id === id ? { ...u, can_admin: data.can_admin ? 1 : 0 } : u));
+      toast(data.can_admin ? '✅ มอบสิทธิ์ Co-Admin แล้ว' : '🔒 ถอนสิทธิ์ Co-Admin แล้ว', data.can_admin ? 'success' : '');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+  };
+
   const removeUser = async (id) => {
     if (!confirm('ลบผู้ใช้นี้?')) return;
     try {
@@ -292,6 +302,16 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                                   value={u.vip_expires_at ? new Date(u.vip_expires_at).toISOString().slice(0,10) : ''}
                                   onChange={e => setVipExpiry(u.id, e.target.value)}
                                 />
+                              )}
+                              {u.role === 'dj' && user.role === 'admin' && (
+                                <button
+                                  className={`btn-co-admin ${u.can_admin ? 'active' : ''}`}
+                                  onClick={() => toggleCoAdmin(u.id)}
+                                  title={u.can_admin ? 'ถอนสิทธิ์ Co-Admin' : 'มอบสิทธิ์ Co-Admin'}
+                                >
+                                  <i className="fas fa-shield-alt"></i>
+                                  {u.can_admin ? ' Co-Admin' : ' ให้สิทธิ์'}
+                                </button>
                               )}
                               {u.id !== user.id && (
                                 <button className="btn-mini danger" onClick={() => removeUser(u.id)}>Ban</button>

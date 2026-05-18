@@ -627,7 +627,7 @@ function LivePage({
               </div>
               <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <ColorPickerPanel user={user} toast={toast} />
-                <ChatFramePicker user={user} toast={toast} />
+                <ChatFramePicker user={user} toast={toast} onFrameChange={frame => setChat(prev => prev.map(m => m.name === user.name ? { ...m, chat_frame: frame } : m))} />
                 <button className={`chat-header-btn${chatSoundOn ? ' active' : ''}`} onClick={toggleChatSound} title={chatSoundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}>
                   <i className={`fas fa-${chatSoundOn ? 'bell' : 'bell-slash'}`} />
                 </button>
@@ -1158,7 +1158,7 @@ const CHAT_FRAMES = [
   { id: 'red-alert',   label: 'เรดอเลิร์ท',  preview: '#ff0044' },
 ];
 
-function ChatFramePicker({ user, toast }) {
+function ChatFramePicker({ user, toast, onFrameChange }) {
   const { useState } = React;
   const level = liveRoleLevel(user.role);
   if (level < 1) return null;
@@ -1178,6 +1178,7 @@ function ChatFramePicker({ user, toast }) {
       const data = await res.json();
       if (!res.ok) { toast(data.error || 'บันทึกไม่สำเร็จ'); return; }
       user.chat_frame = fid;
+      onFrameChange?.(fid); // update all existing messages in chat state
       toast('บันทึกกรอบสำเร็จ ✓', 'success');
     } catch { toast('บันทึกไม่สำเร็จ'); }
     finally { setSaving(false); setOpen(false); }

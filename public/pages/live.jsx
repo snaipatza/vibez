@@ -927,21 +927,16 @@ function ChatPanelInline({ messages, onSend, user }) {
     const wasEmpty = prevLenRef.current === 0;
     prevLenRef.current = messages.length;
     if (added <= 0) return;
-    if (atBottomRef.current || wasEmpty) {
+    atBottomRef.current = true;
+    scrollToBottomNow();
+    setNewCount(0);
+    // Re-scroll multiple times to catch slow-loading images/avatars shifting layout.
+    const delays = wasEmpty ? [100, 300, 700, 1400] : [150, 500];
+    const timers = delays.map(d => setTimeout(() => {
       atBottomRef.current = true;
       scrollToBottomNow();
-      setNewCount(0);
-      // For initial load: re-scroll multiple times to catch slow-loading images/avatars.
-      // Force atBottomRef=true each time so image layout shifts don't abort the scroll.
-      const delays = wasEmpty ? [100, 300, 700, 1400] : [150, 500];
-      const timers = delays.map(d => setTimeout(() => {
-        atBottomRef.current = true;
-        scrollToBottomNow();
-      }, d));
-      return () => timers.forEach(clearTimeout);
-    } else {
-      setNewCount(n => n + added);
-    }
+    }, d));
+    return () => timers.forEach(clearTimeout);
   }, [messages]);
 
   // Sound notification (useEffect is fine here — timing doesn't matter)

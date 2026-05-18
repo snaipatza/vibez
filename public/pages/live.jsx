@@ -50,6 +50,9 @@ function msgFromApi(m) {
     id: m.id,
     avatar_seed: m.avatar_seed || m.username,
     avatar_url: m.avatar_url || '',
+    reply_to_id: m.reply_to_id || 0,
+    reply_to_name: m.reply_to_name || '',
+    reply_to_text: m.reply_to_text || '',
   };
 }
 
@@ -360,12 +363,23 @@ function LivePage({
     toast('ลงจากเวทีแล้ว', '');
   };
 
-  const onSendChat = async ({ message, media }) => {
+  const onSendChat = async ({ message, media, replyTo }) => {
     try {
+      const body = { message, room_id: activeRoom };
+      if (media?.isExternal) {
+        body.gif_url = media.dataUrl;
+      } else if (media?.dataUrl) {
+        body.media_data = media.dataUrl;
+      }
+      if (replyTo?.id) {
+        body.reply_to_id = replyTo.id;
+        body.reply_to_name = replyTo.name;
+        body.reply_to_text = (replyTo.text || '').slice(0, 120);
+      }
       await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, media_data: media?.dataUrl || '', room_id: activeRoom }),
+        body: JSON.stringify(body),
       });
       setHype(h => Math.min(100, h + 2));
     } catch {}
@@ -604,7 +618,7 @@ function LivePage({
             <div className="section-head">
               <div>
                 <div className="pre">— Live Chat</div>
-                <h2>แชทห้อง main-stage</h2>
+                <h2>แชทห้อง {activeRoom}</h2>
               </div>
               <div className="right">
                 <span>{listeners} กำลังออนไลน์</span>
@@ -852,13 +866,40 @@ function LivePage({
 
 // Inline chat (no header — header lives in section above)
 function ChatPanelInline({ messages, onSend, user }) {
-  const { useState, useEffect, useRef } = React;
+  const { useState, useEffect, useRef, useCallback } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
+  const [replyTo, setReplyTo] = useState(null); // { id, name, text }
   const [newCount, setNewCount] = useState(0);
   const [atBottom, setAtBottom] = useState(true);
+  const [soundOn, setSoundOn] = useState(() => {
+    try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; }
+  });
   const bodyRef = useRef(null);
   const prevLenRef = useRef(0);
+  const soundOnRef = useRef(soundOn);
+  useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
+
+  const playDing = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.start(); osc.stop(ctx.currentTime + 0.22);
+    } catch {}
+  }, []);
+
+  const toggleSound = () => {
+    setSoundOn(v => {
+      const next = !v;
+      try { localStorage.setItem('chatSoundOff', next ? '0' : '1'); } catch {}
+      return next;
+    });
+  };
 
   // track scroll position
   const onScroll = () => {
@@ -877,13 +918,15 @@ function ChatPanelInline({ messages, onSend, user }) {
     prevLenRef.current = messages.length;
     if (added <= 0) return;
     if (atBottom || wasEmpty) {
-      // Use rAF so the browser has painted the new messages before we measure scrollHeight
-      requestAnimationFrame(() => {
-        if (el) el.scrollTop = el.scrollHeight;
-      });
+      requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight; });
       setNewCount(0);
     } else {
       setNewCount(n => n + added);
+      // Ding for new messages not from self
+      if (!wasEmpty && soundOnRef.current) {
+        const latest = messages[messages.length - 1];
+        if (latest && !latest.system && latest.name !== user.name) playDing();
+      }
     }
   }, [messages]);
 
@@ -895,14 +938,24 @@ function ChatPanelInline({ messages, onSend, user }) {
   const submit = (e) => {
     e.preventDefault();
     if (!text.trim() && !pendingMedia) return;
-    onSend({ message: text.trim(), media: pendingMedia });
+    onSend({ message: text.trim(), media: pendingMedia, replyTo });
     setText('');
     setPendingMedia(null);
+    setReplyTo(null);
   };
 
   return (
     <>
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Sound toggle */}
+        <button
+          className={`chat-sound-btn ${soundOn ? 'on' : 'off'}`}
+          onClick={toggleSound}
+          title={soundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}
+        >
+          <i className={`fas fa-${soundOn ? 'bell' : 'bell-slash'}`}></i>
+        </button>
+
         <div className="chat-body" ref={bodyRef} onScroll={onScroll}>
           {messages.map((m, i) => (
             m.system ? (
@@ -925,7 +978,20 @@ function ChatPanelInline({ messages, onSend, user }) {
                       style={m.name_color ? { color: m.name_color } : undefined}
                     >{m.name}</span>
                     <span className="time">{m.time}</span>
+                    <button
+                      className="msg-reply-btn"
+                      onClick={() => setReplyTo({ id: m.id, name: m.name, text: m.text || '' })}
+                      title="ตอบกลับ"
+                    >
+                      <i className="fas fa-reply"></i>
+                    </button>
                   </div>
+                  {m.reply_to_id > 0 && m.reply_to_name && (
+                    <div className="msg-reply-quote">
+                      <span className="reply-quote-name">@{m.reply_to_name}</span>
+                      <span className="reply-quote-text">{m.reply_to_text}</span>
+                    </div>
+                  )}
                   <div
                     className="text"
                     style={m.chat_color ? { background: m.chat_color + '22', borderLeft: `2px solid ${m.chat_color}`, paddingLeft: 6, borderRadius: 4 } : undefined}
@@ -944,11 +1010,22 @@ function ChatPanelInline({ messages, onSend, user }) {
         )}
       </div>
 
+      {replyTo && (
+        <div className="reply-preview-strip">
+          <i className="fas fa-reply" style={{ color: 'var(--orange)', fontSize: 11 }}></i>
+          <span className="reply-strip-name">@{replyTo.name}</span>
+          <span className="reply-strip-text">{(replyTo.text || '').slice(0, 60)}{replyTo.text?.length > 60 ? '…' : ''}</span>
+          <button className="reply-strip-close" onClick={() => setReplyTo(null)}>
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+      )}
+
       <ChatComposer
         value={text}
         onChange={setText}
         onSubmit={submit}
-        placeholder="Message the room..."
+        placeholder={replyTo ? `ตอบ @${replyTo.name}...` : 'Message the room...'}
         maxLength={300}
         pendingMedia={pendingMedia}
         onPickMedia={setPendingMedia}

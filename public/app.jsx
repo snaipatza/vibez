@@ -54,6 +54,10 @@ function App() {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('vibez-theme') || 'light'; } catch { return 'light'; }
   });
+  // Apply data-theme on <html> so ALL CSS variables + body inherit dark mode
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
   const toggleTheme = () => setTheme(v => {
     const next = v === 'light' ? 'dark' : 'light';
     try { localStorage.setItem('vibez-theme', next); } catch {}

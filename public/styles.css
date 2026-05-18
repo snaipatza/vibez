@@ -43,29 +43,69 @@
 }
 
 /* ── DARK MODE ───────────────────────────────────────────────────── */
+/* Applied on <html data-theme="dark"> so body + all elements inherit */
 [data-theme="dark"] {
-  --bg:          #1A1023;
-  --bg-card:     #221330;
-  --bg-soft:     #2C1A3C;
-  --bg-deep:     #0E0814;
+  --bg:          #1C1B22;   /* dark charcoal */
+  --bg-card:     #26242E;   /* card surface */
+  --bg-soft:     #2E2C38;   /* hover / soft surface */
+  --bg-deep:     #13121A;   /* deepest panels */
 
-  --ink:         #F0E2EC;
-  --ink-2:       #C4A4BA;
-  --ink-3:       #8A6878;
-  --ink-mute:    #4A2E3C;
+  --ink:         #EDE8F5;   /* primary text — bright */
+  --ink-2:       #C0B8D5;   /* secondary text */
+  --ink-3:       #8A82A0;   /* tertiary / placeholder */
+  --ink-mute:    #4C4660;   /* disabled / very dim */
 
-  --line:        #3E1F4E;
-  --line-soft:   #301540;
-  --line-faint:  #230F30;
+  --line:        #3C3850;   /* dividers & borders */
+  --line-soft:   #302C44;   /* subtle borders */
+  --line-faint:  #252138;   /* faintest rule */
 
-  --orange:      #E87BA1;
-  --orange-deep: #F0A0C0;
-  --orange-soft: #4A1830;
-  --orange-tint: #2E0E1F;
+  --orange:      #E87BA1;   /* pink accent — unchanged */
+  --orange-deep: #F5A0C4;   /* brighter for dark bg */
+  --orange-soft: #3D1E32;   /* muted pink bg */
+  --orange-tint: #271228;   /* very dark pink tint */
 
-  --green:       #4DAA80;
-  --red:         #EF4070;
+  --green:       #5DC98A;
+  --red:         #F05278;
 }
+
+/* Dark mode: extra targeted overrides for elements that don't use vars */
+[data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea {
+  background: var(--bg-soft);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .msg { background: transparent; }
+[data-theme="dark"] .msg-role-vip   { background: rgba(200,160,220,.07); }
+[data-theme="dark"] .msg-role-admin { background: rgba(220,160,160,.07); }
+[data-theme="dark"] .msg-role-dj    { background: rgba(232,123,161,.07); }
+
+[data-theme="dark"] .queue-row { background: var(--bg-soft); border-color: var(--line-soft); }
+[data-theme="dark"] .queue-row:hover { background: var(--bg-card); }
+
+[data-theme="dark"] .rail-section { background: var(--bg-card); border-color: var(--line); }
+[data-theme="dark"] .ad-card { background: var(--bg-soft); border-color: var(--line); }
+
+[data-theme="dark"] .chat-card { background: var(--bg-card); border-color: var(--line); }
+[data-theme="dark"] .chat-input { background: var(--bg-card); border-color: var(--line); }
+[data-theme="dark"] .field { background: var(--bg-soft); border-color: var(--line); }
+[data-theme="dark"] .field input { background: transparent; }
+
+[data-theme="dark"] .now-mini { background: var(--bg-soft); border-color: var(--line); }
+[data-theme="dark"] .topbar { background: var(--bg-card); border-color: var(--line); }
+
+[data-theme="dark"] .sub-card,
+[data-theme="dark"] .profile-card { background: var(--bg-card); border-color: var(--line); }
+
+[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,.6); }
+[data-theme="dark"] .ad-modal { background: var(--bg-card); }
+
+[data-theme="dark"] .gif-url-picker { background: var(--bg-soft); }
+[data-theme="dark"] .gif-url-picker input { background: var(--bg-card); color: var(--ink); }
+[data-theme="dark"] .reply-preview-strip { background: var(--bg-soft); }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 

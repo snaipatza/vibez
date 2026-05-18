@@ -4697,6 +4697,137 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, rgba(232,123,161,0.1) 0%, var(--bg-card) 100%);
 }
 
+/* ── CHAT FRAME PICKER ───────────────────────────────────────────── */
+.active-frame-btn { color: var(--orange); border-color: var(--orange); }
+.frame-picker-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  z-index: 999;
+  width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.frame-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.frame-picker-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 4px;
+  border: 2px solid var(--line-soft);
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--bg-soft);
+  transition: border-color 0.15s, background 0.15s;
+}
+.frame-picker-item:hover { border-color: var(--orange); background: var(--orange-soft); }
+.frame-picker-item.selected { border-color: var(--orange); background: var(--orange-soft); }
+.frame-preview-box {
+  width: 40px;
+  height: 28px;
+  border-radius: 6px;
+  border: 2.5px solid transparent;
+  display: block;
+}
+.frame-picker-label { font-size: 10px; color: var(--ink-2); font-family: var(--font-mono); }
+
+/* Preview box colors per frame type */
+.frame-preview-none .frame-preview-box { border-color: var(--line); }
+.frame-preview-glow-orange .frame-preview-box { border-color: #ff9f1c; box-shadow: 0 0 6px #ff9f1c; }
+.frame-preview-glow-pink .frame-preview-box { border-color: #ff3cac; box-shadow: 0 0 6px #ff3cac; }
+.frame-preview-rainbow .frame-preview-box { border-image: linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f) 1; }
+.frame-preview-neon-blue .frame-preview-box { border-color: #00d4ff; box-shadow: 0 0 6px #00d4ff; }
+.frame-preview-gold .frame-preview-box { border-color: #ffd700; box-shadow: 0 0 6px #ffd700; }
+.frame-preview-purple .frame-preview-box { border-color: #c77dff; box-shadow: 0 0 6px #c77dff; }
+.frame-preview-green .frame-preview-box { border-color: #6bcb77; box-shadow: 0 0 6px #6bcb77; }
+.frame-preview-fire .frame-preview-box { border-color: #ff6b00; box-shadow: 0 0 6px #ff3c00; }
+.frame-preview-ice .frame-preview-box { border-color: #90e0ef; box-shadow: 0 0 6px #00b4d8; }
+.frame-preview-galaxy .frame-preview-box { border-image: linear-gradient(90deg,#7b2d8b,#00d4ff) 1; }
+.frame-preview-red-alert .frame-preview-box { border-color: #ff0044; box-shadow: 0 0 6px #ff0044; }
+
+/* ── CHAT MESSAGE FRAME ANIMATIONS ──────────────────────────────── */
+@keyframes frameGlowPulse {
+  0%,100% { box-shadow: 0 0 6px 2px var(--frame-color,#ff9f1c44); }
+  50% { box-shadow: 0 0 18px 5px var(--frame-color,#ff9f1caa); }
+}
+@keyframes frameRainbowSpin {
+  0%   { border-color: #ff0000; }
+  16%  { border-color: #ff9f1c; }
+  33%  { border-color: #ffd700; }
+  50%  { border-color: #6bcb77; }
+  66%  { border-color: #00d4ff; }
+  83%  { border-color: #c77dff; }
+  100% { border-color: #ff0000; }
+}
+@keyframes frameAlertBlink {
+  0%,100% { border-color: #ff0044; box-shadow: 0 0 8px #ff004466; }
+  50% { border-color: #ff6b6b; box-shadow: 0 0 20px #ff0044cc; }
+}
+
+.msg[data-frame] .body {
+  border-radius: 14px;
+  border: 2px solid transparent;
+}
+.msg[data-frame="glow-orange"] .body {
+  border-color: #ff9f1c;
+  --frame-color: #ff9f1c66;
+  animation: frameGlowPulse 2s ease-in-out infinite;
+}
+.msg[data-frame="glow-pink"] .body {
+  border-color: #ff3cac;
+  --frame-color: #ff3cac66;
+  animation: frameGlowPulse 2s ease-in-out infinite;
+}
+.msg[data-frame="neon-blue"] .body {
+  border-color: #00d4ff;
+  --frame-color: #00d4ff66;
+  animation: frameGlowPulse 2.5s ease-in-out infinite;
+}
+.msg[data-frame="gold"] .body {
+  border-color: #ffd700;
+  --frame-color: #ffd70066;
+  animation: frameGlowPulse 3s ease-in-out infinite;
+}
+.msg[data-frame="purple"] .body {
+  border-color: #c77dff;
+  --frame-color: #c77dff66;
+  animation: frameGlowPulse 2.5s ease-in-out infinite;
+}
+.msg[data-frame="green"] .body {
+  border-color: #6bcb77;
+  --frame-color: #6bcb7766;
+  animation: frameGlowPulse 2s ease-in-out infinite;
+}
+.msg[data-frame="ice"] .body {
+  border-color: #90e0ef;
+  --frame-color: #90e0ef66;
+  animation: frameGlowPulse 3s ease-in-out infinite;
+}
+.msg[data-frame="fire"] .body {
+  border-color: #ff6b00;
+  --frame-color: #ff6b0066;
+  animation: frameGlowPulse 1.5s ease-in-out infinite;
+}
+.msg[data-frame="rainbow"] .body {
+  animation: frameRainbowSpin 2s linear infinite;
+}
+.msg[data-frame="galaxy"] .body {
+  border-color: #7b2d8b;
+  --frame-color: #7b2d8b66;
+  animation: frameGlowPulse 3s ease-in-out infinite;
+}
+.msg[data-frame="red-alert"] .body {
+  animation: frameAlertBlink 0.8s ease-in-out infinite;
+}
+
 /* ── MIC STAGE COMPACT ───────────────────────────────────────────── */
 .mic-circle-btn {
   position: absolute;

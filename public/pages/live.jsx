@@ -46,6 +46,7 @@ function msgFromApi(m) {
     text: m.message,
     name_color: m.name_color || '',
     chat_color: m.chat_color || '',
+    chat_frame: m.chat_frame || '',
     media_url: m.media_url || '',
     media_type: m.media_type || '',
     time: fmtTime(m.created_at),
@@ -626,6 +627,7 @@ function LivePage({
               </div>
               <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <ColorPickerPanel user={user} toast={toast} />
+                <ChatFramePicker user={user} toast={toast} />
                 <button className={`chat-header-btn${chatSoundOn ? ' active' : ''}`} onClick={toggleChatSound} title={chatSoundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}>
                   <i className={`fas fa-${chatSoundOn ? 'bell' : 'bell-slash'}`} />
                 </button>
@@ -989,7 +991,7 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                 <div className="body"><div className="text">{m.text}</div></div>
               </div>
             ) : (
-              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`}>
+              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={m.chat_frame || undefined}>
                 <div className={`av${m.role === 'admin' ? ' av-frame-admin' : m.role === 'dj' ? ' av-frame-dj' : m.role === 'vip+' ? ' av-frame-vipplus' : m.role === 'vip' ? ' av-frame-vip' : m.role === 'co-admin' ? ' av-frame-coadmin' : ''}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />
@@ -1135,6 +1137,73 @@ function ColorPickerPanel({ user, toast }) {
           <button className="btn-primary orange" style={{ marginTop: 8, width: '100%' }} onClick={save} disabled={saving}>
             {saving ? 'กำลังบันทึก...' : 'บันทึกสี'}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CHAT_FRAMES = [
+  { id: '',            label: 'ปกติ',        preview: 'none' },
+  { id: 'glow-orange', label: 'ส้มลุก',       preview: '#ff9f1c' },
+  { id: 'glow-pink',   label: 'พิงก์',       preview: '#ff3cac' },
+  { id: 'rainbow',     label: 'เรนโบว์',     preview: 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f)' },
+  { id: 'neon-blue',   label: 'นีออนฟ้า',    preview: '#00d4ff' },
+  { id: 'gold',        label: 'ทอง',          preview: '#ffd700' },
+  { id: 'purple',      label: 'ม่วง',         preview: '#c77dff' },
+  { id: 'green',       label: 'เขียว',        preview: '#6bcb77' },
+  { id: 'fire',        label: 'ไฟ',           preview: 'linear-gradient(90deg,#ff9f1c,#ff3c00)' },
+  { id: 'ice',         label: 'น้ำแข็ง',      preview: '#90e0ef' },
+  { id: 'galaxy',      label: 'กาแล็กซี่',   preview: 'linear-gradient(90deg,#7b2d8b,#00d4ff)' },
+  { id: 'red-alert',   label: 'เรดอเลิร์ท',  preview: '#ff0044' },
+];
+
+function ChatFramePicker({ user, toast }) {
+  const { useState } = React;
+  const level = liveRoleLevel(user.role);
+  if (level < 1) return null;
+  const [frame, setFrame] = useState(user.chat_frame || '');
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const save = async (fid) => {
+    setFrame(fid);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/me/colors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name_color: user.name_color || '', chat_color: user.chat_color || '', chat_frame: fid }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'บันทึกไม่สำเร็จ'); return; }
+      user.chat_frame = fid;
+      toast('บันทึกกรอบสำเร็จ ✓', 'success');
+    } catch { toast('บันทึกไม่สำเร็จ'); }
+    finally { setSaving(false); setOpen(false); }
+  };
+
+  return (
+    <div className="color-picker-wrap" style={{ position: 'relative' }}>
+      <button className={`btn-mini${frame ? ' active-frame-btn' : ''}`} onClick={() => setOpen(v => !v)} title="เลือกกรอบแชท">
+        🖼 กรอบแชท{frame ? ' ●' : ''}
+      </button>
+      {open && (
+        <div className="frame-picker-panel">
+          <div className="frame-picker-grid">
+            {CHAT_FRAMES.map(f => (
+              <button
+                key={f.id}
+                className={`frame-picker-item${frame === f.id ? ' selected' : ''} frame-preview-${f.id || 'none'}`}
+                onClick={() => save(f.id)}
+                title={f.label}
+                disabled={saving}
+              >
+                <span className="frame-preview-box" />
+                <span className="frame-picker-label">{f.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

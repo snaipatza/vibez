@@ -203,7 +203,7 @@ app.post('/api/register', async (req, res) => {
     req.session.userId = result.lastInsertRowid;
     req.session.username = username;
     req.session.role = 'guest';
-    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'guest', avatar_seed: username, avatar_url: '', name_color: '', chat_color: '' });
+    res.json({ success: true, userId: result.lastInsertRowid, username, role: 'guest', avatar_seed: username, avatar_url: '', name_color: '', chat_color: '', chat_frame: '' });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -224,7 +224,8 @@ app.post('/api/login', async (req, res) => {
         avatar_seed: user.avatar_seed || user.username,
         avatar_url: user.avatar_url || '',
         name_color: user.name_color || '',
-        chat_color: user.chat_color || ''
+        chat_color: user.chat_color || '',
+        chat_frame: user.chat_frame || ''
     });
 });
 
@@ -306,6 +307,8 @@ app.patch('/api/me/colors', requireAuth, (req, res) => {
 
     const nameColor = String(req.body.name_color || '').trim();
     const chatColor = String(req.body.chat_color || '').trim();
+    const chatFrame = String(req.body.chat_frame ?? req.body.chat_frame === undefined ? '__SKIP__' : req.body.chat_frame || '').trim();
+    const VALID_FRAMES = ['', 'glow-orange', 'glow-pink', 'rainbow', 'neon-blue', 'gold', 'purple', 'green', 'fire', 'ice', 'galaxy', 'red-alert'];
 
     if (nameColor && level < 2 && !MEMBER_COLORS.includes(nameColor))
         return res.status(403).json({ error: 'Member เปลี่ยนได้เฉพาะสีพื้นฐาน' });
@@ -318,9 +321,16 @@ app.patch('/api/me/colors', requireAuth, (req, res) => {
     if (chatColor && !allowed.includes(chatColor) && level < 3)
         return res.status(400).json({ error: 'สีไม่ถูกต้อง' });
 
-    db.prepare('UPDATE users SET name_color=?, chat_color=? WHERE id=?')
-        .run(nameColor, chatColor, req.session.userId);
-    res.json({ success: true, name_color: nameColor, chat_color: chatColor });
+    const frameToSave = req.body.chat_frame !== undefined ? (VALID_FRAMES.includes(chatFrame) ? chatFrame : '') : undefined;
+    if (frameToSave !== undefined) {
+        db.prepare('UPDATE users SET name_color=?, chat_color=?, chat_frame=? WHERE id=?')
+            .run(nameColor, chatColor, frameToSave, req.session.userId);
+    } else {
+        db.prepare('UPDATE users SET name_color=?, chat_color=? WHERE id=?')
+            .run(nameColor, chatColor, req.session.userId);
+    }
+    const saved = db.prepare('SELECT name_color, chat_color, chat_frame FROM users WHERE id=?').get(req.session.userId);
+    res.json({ success: true, name_color: saved.name_color, chat_color: saved.chat_color, chat_frame: saved.chat_frame });
 });
 
 // นับจำนวนคนออนไลน์จริง (active ใน 2 นาทีที่ผ่านมา)
@@ -741,7 +751,7 @@ app.get('/api/messages', (req, res) => {
         ORDER BY messages.created_at ASC
         LIMIT 60
     `).all(after, roomId, cutoff);
-    res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '' })));
+    res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '', chat_frame: m.chat_frame || '' })));
 });
 
 app.post('/api/messages', requireAuth, (req, res) => {
@@ -752,7 +762,7 @@ app.post('/api/messages', requireAuth, (req, res) => {
     const roomId = String(req.body.room_id || 'main-stage').slice(0, 80);
     const roomExists = db.prepare('SELECT id FROM rooms WHERE id=?').get(roomId);
     if (!roomExists) return res.status(400).json({ error: 'ห้องไม่มีอยู่' });
-    const user = db.prepare('SELECT role, name_color, chat_color FROM users WHERE id=?').get(req.session.userId);
+    const user = db.prepare('SELECT role, name_color, chat_color, chat_frame FROM users WHERE id=?').get(req.session.userId);
     if (req.body.media_data && roleLevel(user.role) < 2)
         return res.status(403).json({ error: 'เฉพาะ VIP ขึ้นไปเท่านั้นที่อัปโหลดรูปได้' });
     let media = { mediaUrl: '', mediaType: '' };
@@ -768,8 +778,8 @@ app.post('/api/messages', requireAuth, (req, res) => {
     const replyToId  = parseInt(req.body.reply_to_id) || 0;
     const replyToName = String(req.body.reply_to_name || '').slice(0, 32);
     const replyToText = String(req.body.reply_to_text || '').slice(0, 120);
-    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color,room_id,reply_to_id,reply_to_name,reply_to_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
-        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '', roomId, replyToId, replyToName, replyToText);
+    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color,chat_frame,room_id,reply_to_id,reply_to_name,reply_to_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '', user.chat_frame || '', roomId, replyToId, replyToName, replyToText);
     res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 

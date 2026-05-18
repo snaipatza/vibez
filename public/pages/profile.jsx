@@ -1,3 +1,114 @@
+// ── Mic Test Card ─────────────────────────────────────────────────────────
+function MicTestCard() {
+  const { useState, useEffect, useRef } = React;
+  const [status, setStatus] = useState('idle'); // idle | testing | error
+  const [volume, setVolume] = useState(0);
+  const [error, setError] = useState('');
+  const [deviceLabel, setDeviceLabel] = useState('');
+
+  const streamRef = useRef(null);
+  const contextRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const stopTest = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+    if (contextRef.current) { try { contextRef.current.close(); } catch {} }
+    streamRef.current = null;
+    contextRef.current = null;
+    setStatus('idle');
+    setVolume(0);
+    setDeviceLabel('');
+  };
+
+  const startTest = async () => {
+    setError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      streamRef.current = stream;
+
+      const track = stream.getAudioTracks()[0];
+      setDeviceLabel(track?.label || 'ไมโครโฟน');
+
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      contextRef.current = ctx;
+
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 128;
+
+      // loopback: source → analyser → speakers
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+
+      setStatus('testing');
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        setVolume(Math.min(100, Math.round((avg / 128) * 100)));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      setError('ไม่สามารถเข้าถึงไมค์ได้ — ตรวจสอบการอนุญาตในเบราว์เซอร์');
+      setStatus('idle');
+    }
+  };
+
+  useEffect(() => () => stopTest(), []);
+
+  return (
+    <div className="mic-test-card">
+      <div className="profile-card-head">— ทดสอบไมค์</div>
+      <div className="mic-test-desc">
+        กดปุ่มแล้วพูด — คุณจะได้ยินเสียงตัวเองผ่านหูฟัง<br/>
+        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>ใช้เพื่อตรวจสอบว่าไมค์และเสียงทำงานได้ก่อน go live</span>
+      </div>
+
+      <div className="mic-test-meter-wrap">
+        <i className="fas fa-microphone" style={{ color: status === 'testing' ? 'var(--orange)' : 'var(--ink-3)', fontSize: 14 }}></i>
+        <div className="mic-test-meter">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="mic-test-bar-seg"
+              style={{
+                background: (i / 20) * 100 < volume
+                  ? (i < 14 ? 'var(--orange)' : i < 18 ? '#f9c74f' : '#ef476f')
+                  : 'var(--line)',
+              }}
+            />
+          ))}
+        </div>
+        <span className="mic-test-vol">{volume}%</span>
+      </div>
+
+      {deviceLabel && status === 'testing' && (
+        <div className="mic-test-device">{deviceLabel}</div>
+      )}
+
+      {status === 'idle' ? (
+        <button className="mic-test-btn" onClick={startTest}>
+          <i className="fas fa-microphone"></i>
+          <span>เริ่มทดสอบไมค์</span>
+        </button>
+      ) : (
+        <button className="mic-test-btn active" onClick={stopTest}>
+          <span className="mic-pulse"></span>
+          <i className="fas fa-microphone"></i>
+          <span>กำลังทดสอบ — กดเพื่อหยุด</span>
+        </button>
+      )}
+
+      {error && <div className="mic-test-error">{error}</div>}
+    </div>
+  );
+}
+
 // Profile Page — 2-column layout
 function ProfilePage({ user, onUpdate, toast }) {
   const { useState, useRef } = React;
@@ -185,6 +296,11 @@ function ProfilePage({ user, onUpdate, toast }) {
               </>
             )}
           </div>
+        </div>
+
+        {/* ── Mic Test — full width ── */}
+        <div className="profile-section-full">
+          <MicTestCard />
         </div>
 
       </div>

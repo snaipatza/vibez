@@ -111,6 +111,17 @@ db.exec(`
     expires INTEGER NOT NULL,
     data TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS rooms (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    skin TEXT DEFAULT 'pink',
+    created_by TEXT DEFAULT '',
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    is_default INTEGER DEFAULT 0
+  );
+
+  INSERT OR IGNORE INTO rooms (id, name, skin, is_default) VALUES ('main-stage', 'main-stage', 'pink', 1);
 `);
 
 // Add new columns to existing databases (safe to run multiple times)
@@ -133,7 +144,8 @@ const alterations = [
     "ALTER TABLE direct_messages ADD COLUMN media_type TEXT DEFAULT ''",
     "ALTER TABLE queue ADD COLUMN type TEXT DEFAULT 'user'",
     "ALTER TABLE queue ADD COLUMN order_idx INTEGER DEFAULT 0",
-    "ALTER TABLE users ADD COLUMN can_admin INTEGER DEFAULT 0"
+    "ALTER TABLE users ADD COLUMN can_admin INTEGER DEFAULT 0",
+    "ALTER TABLE messages ADD COLUMN room_id TEXT DEFAULT 'main-stage'"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

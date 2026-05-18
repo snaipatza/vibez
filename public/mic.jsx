@@ -1,19 +1,14 @@
-// Mic / Voice Panel — DJ streams via MediaRecorder→Socket.IO→HTTP chunked stream
-// Listeners use <audio src="/api/mic-stream"> — browser handles buffering/decoding
-const MIME_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/ogg;codecs=opus',
-  'audio/ogg',
-];
+// Mic / Voice Panel — WebRTC Edition
+// DJ: getUserMedia → RTCPeerConnection (one per listener) → WebRTC track
+// Listener: RTCPeerConnection ← offer/answer signaling → ontrack → Audio
 
-function getSupportedMime() {
-  if (typeof MediaRecorder === 'undefined') return 'audio/webm';
-  for (const t of MIME_TYPES) {
-    if (MediaRecorder.isTypeSupported(t)) return t;
-  }
-  return 'audio/webm';
-}
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+  ],
+};
 
 function useMic(user, socket, onMicLive) {
   const { useState, useEffect, useRef, useCallback } = React;
@@ -23,49 +18,84 @@ function useMic(user, socket, onMicLive) {
   const [micError, setMicError] = useState('');
   const [needsClick, setNeedsClick] = useState(false);
 
-  const localStreamRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioRef = useRef(null);
-  const isLiveRef = useRef(false);
+  const localStreamRef     = useRef(null);
+  const peerConnectionsRef = useRef(new Map()); // DJ side: listenerSocketId → RTCPeerConnection
+  const peerConnectionRef  = useRef(null);       // Listener side: single PC to DJ
+  const audioRef           = useRef(null);        // Listener audio element
+  const isLiveRef          = useRef(false);
 
   const isDJ = user.role === 'dj' || user.role === 'admin';
 
+  // ── Listener: tear down connection ───────────────────────────────────
   const stopListening = useCallback(() => {
+    if (peerConnectionRef.current) {
+      try { peerConnectionRef.current.close(); } catch {}
+      peerConnectionRef.current = null;
+    }
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch {}
-      try { audioRef.current.src = ''; } catch {}
+      audioRef.current.srcObject = null;
       audioRef.current = null;
     }
     setNeedsClick(false);
   }, []);
 
-  const startListening = useCallback(() => {
-    stopListening();
-    const audio = new Audio('/api/mic-stream?t=' + Date.now());
-    audioRef.current = audio;
-    audio.onerror = () => {
-      if (!isLiveRef.current) return;
-      setTimeout(() => {
-        if (!isLiveRef.current || audioRef.current !== audio) return;
-        const retry = new Audio('/api/mic-stream?t=' + Date.now());
-        audioRef.current = retry;
-        retry.onerror = () => setMicError('ไม่สามารถเชื่อมต่อเสียงได้');
-        retry.play().catch(() => setNeedsClick(true));
-      }, 1200);
+  // ── DJ: close all peer connections ───────────────────────────────────
+  const closeDJPeers = useCallback(() => {
+    peerConnectionsRef.current.forEach(pc => { try { pc.close(); } catch {} });
+    peerConnectionsRef.current.clear();
+  }, []);
+
+  // ── DJ: create RTCPeerConnection for one listener ─────────────────────
+  const createDJPeer = useCallback((listenerSocketId) => {
+    const stream = localStreamRef.current;
+    if (!stream || !socket) return;
+
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    peerConnectionsRef.current.set(listenerSocketId, pc);
+
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    pc.onicecandidate = ({ candidate }) => {
+      if (candidate) socket.emit('rtc:ice', { targetSocketId: listenerSocketId, candidate });
     };
-    audio.play().catch(() => setNeedsClick(true));
-  }, [stopListening]);
 
-  const clickToListen = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.play()
-        .then(() => setNeedsClick(false))
-        .catch(() => setMicError('ไม่สามารถเล่นเสียงได้'));
-    } else {
-      startListening();
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        peerConnectionsRef.current.delete(listenerSocketId);
+      }
+    };
+
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => socket.emit('rtc:offer', { listenerSocketId, offer: pc.localDescription }))
+      .catch(() => {});
+  }, [socket]);
+
+  // ── DJ controls ──────────────────────────────────────────────────────
+  const startDJMic = async () => {
+    try {
+      setMicError('');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+      setDjMicOn(true);
+      socket.emit('mic:start');
+    } catch {
+      setMicError('ไม่สามารถเปิดไมค์ได้ — ตรวจสอบการอนุญาตไมค์ในเบราว์เซอร์');
     }
-  }, [startListening]);
+  };
 
+  const stopDJMic = () => {
+    closeDJPeers();
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    setDjMicOn(false);
+    socket.emit('mic:stop');
+  };
+
+  // ── Socket events ────────────────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
@@ -78,10 +108,71 @@ function useMic(user, socket, onMicLive) {
         setDjMicOn(false);
         setHasRaised(false);
         if (!isDJ) stopListening();
+        if (isDJ) closeDJPeers();
       } else if (state.isLive && !isDJ && !wasLive) {
-        startListening();
+        // DJ just went live → request a connection
+        socket.emit('rtc:request');
       }
       onMicLive?.(state.isLive);
+    });
+
+    // ── DJ: a listener wants audio ─────────────────────────────────────
+    socket.on('rtc:new-listener', ({ listenerSocketId }) => {
+      if (!isDJ) return;
+      createDJPeer(listenerSocketId);
+    });
+
+    // ── DJ: listener sent answer ───────────────────────────────────────
+    socket.on('rtc:answer', ({ listenerSocketId, answer }) => {
+      if (!isDJ) return;
+      const pc = peerConnectionsRef.current.get(listenerSocketId);
+      if (pc) pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(() => {});
+    });
+
+    // ── Listener: DJ sent offer ────────────────────────────────────────
+    socket.on('rtc:offer', ({ djSocketId, offer }) => {
+      if (isDJ) return;
+      stopListening();
+
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      peerConnectionRef.current = pc;
+
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) socket.emit('rtc:ice', { targetSocketId: djSocketId, candidate });
+      };
+
+      pc.ontrack = (e) => {
+        const audio = new Audio();
+        audio.srcObject = e.streams[0];
+        audioRef.current = audio;
+        audio.play().catch(() => setNeedsClick(true));
+      };
+
+      pc.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => pc.createAnswer())
+        .then(answer => pc.setLocalDescription(answer))
+        .then(() => socket.emit('rtc:answer', { djSocketId, answer: pc.localDescription }))
+        .catch(() => {});
+    });
+
+    // ── Both sides: relay ICE candidates ──────────────────────────────
+    socket.on('rtc:ice', ({ fromSocketId, candidate }) => {
+      try {
+        if (isDJ) {
+          const pc = peerConnectionsRef.current.get(fromSocketId);
+          if (pc) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        } else {
+          const pc = peerConnectionRef.current;
+          if (pc) pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        }
+      } catch {}
+    });
+
+    // ── DJ: listener disconnected → clean up its PC ───────────────────
+    socket.on('rtc:listener-left', ({ listenerSocketId }) => {
+      if (!isDJ) return;
+      const pc = peerConnectionsRef.current.get(listenerSocketId);
+      if (pc) { try { pc.close(); } catch {} peerConnectionsRef.current.delete(listenerSocketId); }
     });
 
     socket.on('mic:approved', () => setHasRaised(false));
@@ -90,63 +181,34 @@ function useMic(user, socket, onMicLive) {
 
     return () => {
       socket.off('mic:status');
+      socket.off('rtc:new-listener');
+      socket.off('rtc:answer');
+      socket.off('rtc:offer');
+      socket.off('rtc:ice');
+      socket.off('rtc:listener-left');
       socket.off('mic:approved');
       socket.off('mic:rejected');
       socket.off('mic:removed');
       if (!isDJ) stopListening();
     };
-  }, [socket, isDJ, startListening, stopListening]);
+  }, [socket, isDJ, stopListening, closeDJPeers, createDJPeer]);
 
-  const startDJMic = async () => {
-    try {
-      setMicError('');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = stream;
-      const mime = getSupportedMime();
-      let isFirst = true;
-
-      const recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 });
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = async (e) => {
-        if (e.data.size === 0) return;
-        try {
-          const buf = await e.data.arrayBuffer();
-          if (isFirst) {
-            socket.emit('mic:audio_header', { header: buf, mime });
-            isFirst = false;
-          } else {
-            socket.emit('mic:audio_chunk', buf);
-          }
-        } catch {}
-      };
-
-      recorder.start(100); // 100ms chunks for low latency
-      setDjMicOn(true);
-      socket.emit('mic:start');
-    } catch {
-      setMicError('ไม่สามารถเปิดไมค์ได้ — ตรวจสอบการอนุญาตไมค์ในเบราว์เซอร์');
+  // ── Listener helpers ─────────────────────────────────────────────────
+  const clickToListen = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => setNeedsClick(false))
+        .catch(() => setMicError('ไม่สามารถเล่นเสียงได้'));
+    } else {
+      socket.emit('rtc:request');
     }
-  };
+  }, [socket]);
 
-  const stopDJMic = () => {
-    if (mediaRecorderRef.current) {
-      try { mediaRecorderRef.current.stop(); } catch {}
-      mediaRecorderRef.current = null;
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
-    }
-    setDjMicOn(false);
-    socket.emit('mic:stop');
-  };
-
-  const raiseHand = () => { setHasRaised(true); socket.emit('hand:raise'); };
-  const lowerHand = () => { setHasRaised(false); socket.emit('hand:lower'); };
-  const approveRequest = (socketId) => socket.emit('hand:approve', { socketId });
-  const rejectRequest = (socketId) => socket.emit('hand:reject', { socketId });
-  const removeSpeaker = (socketId) => socket.emit('hand:remove', { socketId });
+  const raiseHand      = () => { setHasRaised(true);  socket.emit('hand:raise'); };
+  const lowerHand      = () => { setHasRaised(false); socket.emit('hand:lower'); };
+  const approveRequest = (sid) => socket.emit('hand:approve', { socketId: sid });
+  const rejectRequest  = (sid) => socket.emit('hand:reject',  { socketId: sid });
+  const removeSpeaker  = (sid) => socket.emit('hand:remove',  { socketId: sid });
 
   return {
     micState, djMicOn, hasRaised, micError, needsClick, isDJ,

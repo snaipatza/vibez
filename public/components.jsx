@@ -165,11 +165,46 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+  const { useState: useSt } = React;
+  const [showCreateRoom, setShowCreateRoom] = useSt(false);
+  const [newRoomName, setNewRoomName] = useSt('');
+  const [newRoomSkin, setNewRoomSkin] = useSt('pink');
+  const [createError, setCreateError] = useSt('');
+  const [creating, setCreating] = useSt(false);
+  const canManageRooms = user && (user.role === 'dj' || user.role === 'admin');
+
+  const submitCreateRoom = async () => {
+    if (!newRoomName.trim()) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      await onCreateRoom(newRoomName.trim(), newRoomSkin);
+      setNewRoomName('');
+      setShowCreateRoom(false);
+    } catch (e) {
+      setCreateError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const np = nowPlaying || { dj: 'IIMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
-  const visibleOnlineUsers = Array.isArray(onlineUsers)
-    ? onlineUsers.filter((person) => person?.username && person.username !== user.name).slice(0, 8)
+  const allOnlineUsers = Array.isArray(onlineUsers)
+    ? onlineUsers.filter((person) => person?.username)
     : [];
+  const totalOnline = allOnlineUsers.length;
+
+  // Group by role, ordered highest → lowest
+  const ROLE_ORDER = ['admin', 'dj', 'vip', 'member', 'user', 'guest'];
+  const ROLE_LABEL = { admin: 'Admin', dj: 'DJ', vip: 'VIP', member: 'Member', user: 'Member', guest: 'Guest' };
+  const grouped = ROLE_ORDER.reduce((acc, r) => {
+    const members = allOnlineUsers.filter(p => (p.role === r) || (r === 'member' && p.role === 'user'));
+    // avoid duplicating 'user' under 'member'
+    if (r === 'user') return acc;
+    if (members.length > 0) acc.push({ role: r, label: ROLE_LABEL[r], members });
+    return acc;
+  }, []);
 
   return (
     <aside className="sidebar">
@@ -255,16 +290,51 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
       <div>
         <div className="section-label">
           <span>Rooms</span>
-          <span><i className="fas fa-plus" style={{ fontSize: 9, color: 'var(--ink-3)' }}></i></span>
+          {canManageRooms && (
+            <span
+              className="room-add-btn"
+              title="สร้างห้องใหม่"
+              onClick={() => { setShowCreateRoom(v => !v); setCreateError(''); }}
+            >
+              <i className="fas fa-plus" style={{ fontSize: 9 }}></i>
+            </span>
+          )}
         </div>
+
+        {showCreateRoom && canManageRooms && (
+          <div className="room-create-form">
+            <input
+              className="room-create-input"
+              placeholder="ชื่อห้อง (a-z, 0-9, -)"
+              value={newRoomName}
+              onChange={e => setNewRoomName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitCreateRoom()}
+              maxLength={30}
+              autoFocus
+            />
+            <div className="room-skin-picker">
+              {[['pink','#E87BA1'],['peach','#F19772'],['indigo','#9387D8'],['ocher','#D4A442']].map(([s, c]) => (
+                <span
+                  key={s}
+                  className={`room-skin-dot ${newRoomSkin === s ? 'selected' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => setNewRoomSkin(s)}
+                />
+              ))}
+            </div>
+            {createError && <div className="room-create-error">{createError}</div>}
+            <div className="room-create-actions">
+              <button className="room-create-submit" onClick={submitCreateRoom} disabled={creating}>
+                {creating ? '...' : 'สร้างห้อง'}
+              </button>
+              <button className="room-create-cancel" onClick={() => setShowCreateRoom(false)}>ยกเลิก</button>
+            </div>
+          </div>
+        )}
+
         <div className="rooms">
           {rooms.map(r => {
-            const skinColor = {
-              pink: '#E87BA1',
-              peach: '#F19772',
-              indigo: '#9387D8',
-              ocher: '#D4A442',
-            }[r.skin] || '#E87BA1';
+            const skinColor = { pink: '#E87BA1', peach: '#F19772', indigo: '#9387D8', ocher: '#D4A442' }[r.skin] || '#E87BA1';
             return (
               <div
                 key={r.id}
@@ -272,9 +342,18 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
                 onClick={() => onRoomClick && onRoomClick(r.id)}
               >
                 <span className="hash">#</span>
-                <span>{r.name}</span>
-                <span className="listeners">{r.listeners}</span>
+                <span className="room-name">{r.name}</span>
+                {r.listeners > 0 && <span className="listeners">{r.listeners}</span>}
                 <span className="skin-dot" style={{ background: skinColor }}></span>
+                {canManageRooms && !r.is_default && (
+                  <span
+                    className="room-delete-btn"
+                    title="ลบห้อง"
+                    onClick={e => { e.stopPropagation(); onDeleteRoom && onDeleteRoom(r.id); }}
+                  >
+                    <i className="fas fa-times"></i>
+                  </span>
+                )}
               </div>
             );
           })}
@@ -284,33 +363,34 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
       <div>
         <div className="section-label">
           <span>Online</span>
-          <span>{visibleOnlineUsers.length}</span>
+          <span>{totalOnline}</span>
         </div>
         <div className="online-list">
-          {visibleOnlineUsers.length === 0 ? (
+          {grouped.length === 0 ? (
             <div className="online-empty">ไม่มีคนออนไลน์เพิ่มตอนนี้</div>
-          ) : visibleOnlineUsers.map((person) => (
-            <div
-              key={person.username}
-              className="online-user"
-              onClick={() => {
-                if (onOpenDM) onOpenDM(person.username);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                if (onOpenDM) onOpenDM(person.username);
-              }}
-              title={`คลิกเพื่อแชทกับ @${person.username}`}
-            >
-              <div className="avatar">
-                <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
-                <div className="status"></div>
+          ) : grouped.map(({ role, label, members }) => (
+            <div key={role} className="online-group">
+              <div className="online-group-label">
+                {roleMeta(role).emoji} {label} — {members.length}
               </div>
-              <div className="info">
-                <div className="name">@{person.username}</div>
-                <div className="role">{roleMeta(person.role).emoji} {roleMeta(person.role).label}</div>
-              </div>
-              <i className="fas fa-comment-dots action"></i>
+              {members.map((person) => (
+                <div
+                  key={person.username}
+                  className="online-user"
+                  onClick={() => { if (onOpenDM) onOpenDM(person.username); }}
+                  onContextMenu={(e) => { e.preventDefault(); if (onOpenDM) onOpenDM(person.username); }}
+                  title={`คลิกเพื่อแชทกับ @${person.username}`}
+                >
+                  <div className="avatar">
+                    <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
+                    <div className="status"></div>
+                  </div>
+                  <div className="info">
+                    <div className="name">@{person.username}</div>
+                  </div>
+                  <i className="fas fa-comment-dots action"></i>
+                </div>
+              ))}
             </div>
           ))}
         </div>

@@ -332,9 +332,11 @@ app.post('/api/ping', requireAuth, (req, res) => {
 
 app.get('/api/online', (req, res) => {
     const cutoff = Date.now() - 2 * 60 * 1000;
+    const recentCutoff = Date.now() - 10 * 60 * 1000;
     const count = db.prepare('SELECT COUNT(*) as c FROM users WHERE last_seen > ?').get(cutoff).c;
-    const users = db.prepare('SELECT username, role, avatar_seed, avatar_url FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 50').all(cutoff);
-    res.json({ online: count, users });
+    const users = db.prepare('SELECT username, display_name, role, avatar_seed, avatar_url, name_color FROM users WHERE last_seen > ? ORDER BY last_seen DESC LIMIT 50').all(cutoff);
+    const recently_offline = db.prepare('SELECT username, display_name, role, avatar_seed, avatar_url FROM users WHERE last_seen > ? AND last_seen <= ? ORDER BY last_seen DESC LIMIT 20').all(recentCutoff, cutoff);
+    res.json({ online: count, users, recently_offline });
 });
 
 // ── ADS ───────────────────────────────────────────────────────────────
@@ -739,7 +741,8 @@ app.get('/api/messages', (req, res) => {
 
 app.post('/api/messages', requireAuth, (req, res) => {
     const message = String(req.body.message || '').trim();
-    if (!message && !req.body.media_data) return res.status(400).json({ error: 'Empty message' });
+    const gifUrl = String(req.body.gif_url || '').trim();
+    if (!message && !req.body.media_data && !gifUrl) return res.status(400).json({ error: 'Empty message' });
     if (message.length > 300) return res.status(400).json({ error: 'Message too long' });
     const roomId = String(req.body.room_id || 'main-stage').slice(0, 80);
     const roomExists = db.prepare('SELECT id FROM rooms WHERE id=?').get(roomId);
@@ -748,13 +751,20 @@ app.post('/api/messages', requireAuth, (req, res) => {
     if (req.body.media_data && roleLevel(user.role) < 2)
         return res.status(403).json({ error: 'เฉพาะ VIP ขึ้นไปเท่านั้นที่อัปโหลดรูปได้' });
     let media = { mediaUrl: '', mediaType: '' };
-    try {
-        media = saveChatMedia(req.session.username, req.body.media_data);
-    } catch (err) {
-        return res.status(400).json({ error: err.message });
+    if (gifUrl && /^https?:\/\/.{3,}/i.test(gifUrl)) {
+        media = { mediaUrl: gifUrl, mediaType: 'gif' };
+    } else {
+        try {
+            media = saveChatMedia(req.session.username, req.body.media_data);
+        } catch (err) {
+            return res.status(400).json({ error: err.message });
+        }
     }
-    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color,room_id) VALUES (?,?,?,?,?,?,?,?,?)')
-        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '', roomId);
+    const replyToId  = parseInt(req.body.reply_to_id) || 0;
+    const replyToName = String(req.body.reply_to_name || '').slice(0, 32);
+    const replyToText = String(req.body.reply_to_text || '').slice(0, 120);
+    const result = db.prepare('INSERT INTO messages (user_id,username,role,message,media_url,media_type,name_color,chat_color,room_id,reply_to_id,reply_to_name,reply_to_text) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, user.role, message, media.mediaUrl, media.mediaType, user.name_color || '', user.chat_color || '', roomId, replyToId, replyToName, replyToText);
     res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 

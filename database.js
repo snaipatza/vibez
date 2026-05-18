@@ -145,7 +145,10 @@ const alterations = [
     "ALTER TABLE queue ADD COLUMN type TEXT DEFAULT 'user'",
     "ALTER TABLE queue ADD COLUMN order_idx INTEGER DEFAULT 0",
     "ALTER TABLE users ADD COLUMN can_admin INTEGER DEFAULT 0",
-    "ALTER TABLE messages ADD COLUMN room_id TEXT DEFAULT 'main-stage'"
+    "ALTER TABLE messages ADD COLUMN room_id TEXT DEFAULT 'main-stage'",
+    "ALTER TABLE messages ADD COLUMN reply_to_id INTEGER DEFAULT 0",
+    "ALTER TABLE messages ADD COLUMN reply_to_name TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN reply_to_text TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

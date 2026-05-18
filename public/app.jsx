@@ -36,6 +36,7 @@ function App() {
   const [toasts, setToasts] = useState([]);
   const [listeners, setListeners] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [offlineUsers, setOfflineUsers] = useState([]);
   const [queueCount, setQueueCount] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [dmTarget, setDmTarget] = useState(null);
@@ -102,6 +103,7 @@ function App() {
         setPlayerPlaying(!!npRes?.is_playing);
         if (onlineRes?.online != null) setListeners(onlineRes.online);
         if (Array.isArray(onlineRes?.users)) setOnlineUsers(onlineRes.users);
+        if (Array.isArray(onlineRes?.recently_offline)) setOfflineUsers(onlineRes.recently_offline);
       } catch {}
     };
 
@@ -382,6 +384,7 @@ function App() {
         onDeleteRoom={handleDeleteRoom}
         nowPlaying={sidebarNowPlaying}
         onlineUsers={onlineUsers}
+        offlineUsers={offlineUsers}
         onOpenDM={openDirectMessage}
         onLogout={handleLogout}
         onOpenProfile={() => setPage('profile')}

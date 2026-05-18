@@ -90,8 +90,34 @@ function ChatMessageMedia({ mediaUrl, mediaType }) {
 }
 
 function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendingMedia, onPickMedia, onClearMedia, userRole }) {
-  const fileRef = useRef(null);
+  const { useState: useSt2, useRef: useRef2 } = React;
+  const fileRef = useRef2(null);
+  const inputRef = useRef2(null);
+  const [showGif, setShowGif] = useSt2(false);
+  const [gifUrl, setGifUrl] = useSt2('');
   const canUpload = roleLevel(userRole) >= 2;
+
+  const handlePaste = async (e) => {
+    if (!canUpload) return;
+    const items = Array.from(e.clipboardData?.items || []);
+    const imgItem = items.find(it => it.type.startsWith('image/'));
+    if (imgItem) {
+      e.preventDefault();
+      try {
+        const file = imgItem.getAsFile();
+        const dataUrl = await readFileAsDataUrl(file);
+        onPickMedia({ dataUrl, name: 'clipboard.png', kind: file.type === 'image/gif' ? 'gif' : 'image' });
+      } catch {}
+    }
+  };
+
+  const submitGif = () => {
+    const url = gifUrl.trim();
+    if (!url) return;
+    onPickMedia({ dataUrl: url, name: 'GIF', kind: 'gif', isExternal: true });
+    setGifUrl('');
+    setShowGif(false);
+  };
 
   return (
     <form className="chat-input" onSubmit={onSubmit}>
@@ -119,11 +145,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
                 if (!file) return;
                 try {
                   const dataUrl = await readFileAsDataUrl(file);
-                  onPickMedia({
-                    dataUrl,
-                    name: file.name,
-                    kind: file.type === 'image/gif' ? 'gif' : 'image',
-                  });
+                  onPickMedia({ dataUrl, name: file.name, kind: file.type === 'image/gif' ? 'gif' : 'image' });
                 } catch (err) {
                   alert(err.message || 'Unable to read file');
                 }
@@ -131,7 +153,29 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
             />
           </>
         )}
+        <button type="button" className="attach-btn gif-btn" onClick={() => setShowGif(v => !v)} title="แทรก GIF จาก URL">
+          GIF
+        </button>
       </div>
+
+      {showGif && (
+        <div className="gif-url-picker">
+          <input
+            value={gifUrl}
+            onChange={e => setGifUrl(e.target.value)}
+            placeholder="วาง URL ของ GIF (tenor.com, giphy.com, ...)"
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); submitGif(); }
+              if (e.key === 'Escape') setShowGif(false);
+            }}
+          />
+          <button type="button" onClick={submitGif}>แทรก</button>
+          <button type="button" className="gif-cancel" onClick={() => setShowGif(false)}>
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+      )}
 
       {pendingMedia && (
         <div className="chat-media-pending">
@@ -141,6 +185,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
           </div>
           <div className="meta">
             <div className="name">{pendingMedia.name}</div>
+            {pendingMedia.isExternal && <div className="name" style={{ fontSize: 10, opacity: 0.6 }}>External URL</div>}
           </div>
           <button type="button" className="clear-btn" onClick={onClearMedia}>
             <i className="fas fa-times"></i>
@@ -151,8 +196,10 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
       <div className="field">
         <i className="fas fa-face-smile" style={{ color: 'var(--ink-3)' }}></i>
         <input
+          ref={inputRef}
           value={value}
           onChange={(e) => { onChange(e.target.value); SoundEngine.playKeyClick(); }}
+          onPaste={handlePaste}
           placeholder={placeholder}
           maxLength={maxLength}
         />
@@ -165,7 +212,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile }) {
   const { useState: useSt } = React;
   const [showCreateRoom, setShowCreateRoom] = useSt(false);
   const [newRoomName, setNewRoomName] = useSt('');
@@ -386,13 +433,37 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
                     <div className="status"></div>
                   </div>
                   <div className="info">
-                    <div className="name">@{person.username}</div>
+                    <div className="name" style={person.name_color ? { color: person.name_color } : undefined}>
+                      {roleMeta(person.role).emoji} {person.display_name || person.username}
+                    </div>
                   </div>
                   <i className="fas fa-comment-dots action"></i>
                 </div>
               ))}
             </div>
           ))}
+
+          {/* Recently offline */}
+          {Array.isArray(offlineUsers) && offlineUsers.length > 0 && (
+            <div className="online-group offline-group">
+              <div className="online-group-label offline-label">
+                💤 Offline — {offlineUsers.length}
+              </div>
+              {offlineUsers.map((person) => (
+                <div key={person.username} className="online-user offline-user">
+                  <div className="avatar">
+                    <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
+                    <div className="status offline"></div>
+                  </div>
+                  <div className="info">
+                    <div className="name offline-name">
+                      {roleMeta(person.role).emoji} {person.display_name || person.username}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

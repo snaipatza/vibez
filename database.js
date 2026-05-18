@@ -169,4 +169,13 @@ if (!admin2Exists) {
     console.log('✅ Admin account: ADMIN2 / admin5678');
 }
 
+// Create second DJ account
+const dj2Exists = db.prepare("SELECT id FROM users WHERE username = 'DJ2'").get();
+if (!dj2Exists) {
+    const hash = bcrypt.hashSync('dj5678', 10);
+    db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed) VALUES ('DJ2', ?, 'dj', 'dj2-vibez')")
+      .run(hash);
+    console.log('✅ DJ account: DJ2 / dj5678');
+}
+
 module.exports = db;

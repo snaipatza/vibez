@@ -874,6 +874,7 @@ function ChatPanelInline({ messages, onSend, user }) {
     try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; }
   });
   const bodyRef = useRef(null);
+  const bottomRef = useRef(null); // anchor element at end of list
   const prevLenRef = useRef(0);  // scroll tracking
   const soundLenRef = useRef(0); // separate counter for sound
   const soundOnRef = useRef(soundOn);
@@ -901,25 +902,22 @@ function ChatPanelInline({ messages, onSend, user }) {
     });
   };
 
-  // track scroll position
+  // track scroll position — 150px threshold so minor layout shifts don't break auto-scroll
   const onScroll = () => {
     const el = bodyRef.current;
     if (!el) return;
-    const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const isBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
     atBottomRef.current = isBottom;
     setAtBottom(isBottom);
     if (isBottom) setNewCount(0);
   };
 
-  // Scroll helper — always reads live ref so no stale-closure risk
+  // Scroll helper using the anchor element — more reliable than scrollTop = scrollHeight
   const scrollToBottomNow = useCallback(() => {
-    const el = bodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    bottomRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
   }, []);
 
   // useLayoutEffect: runs synchronously after DOM mutation, before browser paint.
-  // We scroll immediately, then again after a short delay so any images that finish
-  // loading after the first paint also push the scroll to the true bottom.
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -929,11 +927,12 @@ function ChatPanelInline({ messages, onSend, user }) {
     if (added <= 0) return;
     if (atBottomRef.current || wasEmpty) {
       atBottomRef.current = true;
-      el.scrollTop = el.scrollHeight;
+      scrollToBottomNow();
       setNewCount(0);
-      // Re-scroll after images / GIFs may have loaded and changed scrollHeight
-      const t = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 200);
-      return () => clearTimeout(t);
+      // Re-scroll after images / GIFs may have loaded and changed layout
+      const t1 = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 150);
+      const t2 = setTimeout(() => { if (atBottomRef.current) scrollToBottomNow(); }, 500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     } else {
       setNewCount(n => n + added);
     }
@@ -949,7 +948,8 @@ function ChatPanelInline({ messages, onSend, user }) {
   }, [messages]);
 
   const scrollToBottom = () => {
-    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    atBottomRef.current = true;
+    scrollToBottomNow();
     setNewCount(0);
   };
 
@@ -960,6 +960,9 @@ function ChatPanelInline({ messages, onSend, user }) {
     setText('');
     setPendingMedia(null);
     setReplyTo(null);
+    // always scroll to bottom when user sends a message
+    atBottomRef.current = true;
+    setTimeout(scrollToBottomNow, 50);
   };
 
   return (
@@ -1019,6 +1022,7 @@ function ChatPanelInline({ messages, onSend, user }) {
               </div>
             )
           ))}
+          <div ref={bottomRef} style={{ height: 1, flexShrink: 0 }} />
         </div>
 
         {newCount > 0 && !atBottom && (

@@ -390,7 +390,7 @@ function MicStageCompact({ user, socket, onMicLive }) {
   return (
     <>
       {/* Expanding voice rings around DJ portrait when on air */}
-      {djMicOn && (
+      {micState.isLive && (
         <div className="dj-speak-rings">
           <span /><span /><span />
         </div>
@@ -415,15 +415,24 @@ function MicStageCompact({ user, socket, onMicLive }) {
         </button>
       )}
 
-      {/* Speaker avatars — horizontal row at bottom, with voice animation */}
-      {micState.speakers.length > 0 && (
+      {/* Speaker avatars — DJ + approved speakers, shown when live */}
+      {micState.isLive && (
         <div className="mic-stage-speakers">
+          {/* DJ (active streamer) always first */}
+          {micState.djUsername && (
+            <div key="dj-self" className="mic-stage-spk mic-stage-spk-dj" title={micState.djUsername}>
+              <span className="spk-voice-ring" />
+              <span className="spk-voice-ring" style={{ animationDelay: '0.5s' }} />
+              <img src={AVATAR(micState.djUsername)} alt="" />
+              <span className="spk-label">{(micState.djUsername || '').slice(0, 8)}</span>
+            </div>
+          )}
           {micState.speakers.map(s => (
             <div key={s.socketId} className="mic-stage-spk" title={s.username}>
               <span className="spk-voice-ring" />
               <span className="spk-voice-ring" style={{ animationDelay: '0.5s' }} />
               <img src={s.avatar_url || AVATAR(s.avatar_seed || s.username)} alt="" />
-              <span className="spk-label">{(s.username || '').split('').slice(0,8).join('')}</span>
+              <span className="spk-label">{(s.username || '').slice(0, 8)}</span>
             </div>
           ))}
         </div>

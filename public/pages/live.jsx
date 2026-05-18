@@ -501,6 +501,7 @@ function LivePage({
                 {nowPlaying?.youtube_id && <div className="corner-label bottom">YOUTUBE LIVE</div>}
 
                 <BeatWaves />
+                <MicStageCompact user={user} socket={socketRef.current} onMicLive={onMicLive} />
                 <div className="dj-portrait">
                   <div className={`ring-outer ${playerPlaying ? '' : 'paused'}`}></div>
                   <div className="ring-mid"></div>
@@ -597,9 +598,6 @@ function LivePage({
                   </div>
                 </div>
 
-                <div style={{ marginTop: 18 }}>
-                  <MicPanel user={user} socket={socketRef.current} onMicLive={onMicLive} />
-                </div>
               </div>
             </div>
 

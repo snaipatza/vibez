@@ -380,5 +380,49 @@ function MicPanel({ user, socket, onMicLive }) {
   );
 }
 
+// ── Compact stage overlay: circular mic button + speaker avatars ──────
+function MicStageCompact({ user, socket, onMicLive }) {
+  const mic = useMic(user, socket, onMicLive);
+  const { micState, djMicOn, needsClick, canBroadcast, isActiveStreamer } = mic;
+
+  if (!socket) return null;
+
+  return (
+    <>
+      {/* Circular mic button for broadcaster */}
+      {canBroadcast && (
+        <button
+          className={`mic-circle-btn${djMicOn ? ' on' : ''}`}
+          onClick={djMicOn ? mic.stopDJMic : mic.startDJMic}
+          title={djMicOn ? 'กดเพื่อปิดไมค์' : 'เปิดไมค์'}
+        >
+          {djMicOn && <><span className="mic-circle-pulse" /><span className="mic-circle-pulse" style={{ animationDelay: '0.7s' }} /></>}
+          <i className="fas fa-microphone" />
+        </button>
+      )}
+
+      {/* Click-to-listen prompt when autoplay is blocked */}
+      {!isActiveStreamer && micState.isLive && needsClick && (
+        <button className="mic-circle-btn listen" onClick={mic.clickToListen} title="กดเพื่อฟัง">
+          <i className="fas fa-volume-up" />
+        </button>
+      )}
+
+      {/* Speaker avatars below DJ */}
+      {micState.speakers.length > 0 && (
+        <div className="mic-stage-speakers">
+          {micState.speakers.map(s => (
+            <div key={s.socketId} className="mic-stage-spk" title={s.username}>
+              <img src={s.avatar_url || AVATAR(s.avatar_seed || s.username)} alt="" />
+              <span className="mic-on-dot" />
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 window.MicPanel = MicPanel;
+window.MicStageCompact = MicStageCompact;
 window.useMic = useMic;

@@ -167,9 +167,21 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 // -------- SIDEBAR -----------------------------------------------------------
 function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, nowPlaying, onlineUsers, onOpenDM, onLogout, onOpenProfile }) {
   const np = nowPlaying || { dj: 'IIMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
-  const visibleOnlineUsers = Array.isArray(onlineUsers)
-    ? onlineUsers.filter((person) => person?.username && person.username !== user.name).slice(0, 8)
+  const allOnlineUsers = Array.isArray(onlineUsers)
+    ? onlineUsers.filter((person) => person?.username)
     : [];
+  const totalOnline = allOnlineUsers.length;
+
+  // Group by role, ordered highest → lowest
+  const ROLE_ORDER = ['admin', 'dj', 'vip', 'member', 'user', 'guest'];
+  const ROLE_LABEL = { admin: 'Admin', dj: 'DJ', vip: 'VIP', member: 'Member', user: 'Member', guest: 'Guest' };
+  const grouped = ROLE_ORDER.reduce((acc, r) => {
+    const members = allOnlineUsers.filter(p => (p.role === r) || (r === 'member' && p.role === 'user'));
+    // avoid duplicating 'user' under 'member'
+    if (r === 'user') return acc;
+    if (members.length > 0) acc.push({ role: r, label: ROLE_LABEL[r], members });
+    return acc;
+  }, []);
 
   return (
     <aside className="sidebar">
@@ -284,33 +296,34 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
       <div>
         <div className="section-label">
           <span>Online</span>
-          <span>{visibleOnlineUsers.length}</span>
+          <span>{totalOnline}</span>
         </div>
         <div className="online-list">
-          {visibleOnlineUsers.length === 0 ? (
+          {grouped.length === 0 ? (
             <div className="online-empty">ไม่มีคนออนไลน์เพิ่มตอนนี้</div>
-          ) : visibleOnlineUsers.map((person) => (
-            <div
-              key={person.username}
-              className="online-user"
-              onClick={() => {
-                if (onOpenDM) onOpenDM(person.username);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                if (onOpenDM) onOpenDM(person.username);
-              }}
-              title={`คลิกเพื่อแชทกับ @${person.username}`}
-            >
-              <div className="avatar">
-                <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
-                <div className="status"></div>
+          ) : grouped.map(({ role, label, members }) => (
+            <div key={role} className="online-group">
+              <div className="online-group-label">
+                {roleMeta(role).emoji} {label} — {members.length}
               </div>
-              <div className="info">
-                <div className="name">@{person.username}</div>
-                <div className="role">{roleMeta(person.role).emoji} {roleMeta(person.role).label}</div>
-              </div>
-              <i className="fas fa-comment-dots action"></i>
+              {members.map((person) => (
+                <div
+                  key={person.username}
+                  className="online-user"
+                  onClick={() => { if (onOpenDM) onOpenDM(person.username); }}
+                  onContextMenu={(e) => { e.preventDefault(); if (onOpenDM) onOpenDM(person.username); }}
+                  title={`คลิกเพื่อแชทกับ @${person.username}`}
+                >
+                  <div className="avatar">
+                    <img src={person.avatar_url || AVATAR(person.avatar_seed || person.username)} alt="" />
+                    <div className="status"></div>
+                  </div>
+                  <div className="info">
+                    <div className="name">@{person.username}</div>
+                  </div>
+                  <i className="fas fa-comment-dots action"></i>
+                </div>
+              ))}
             </div>
           ))}
         </div>

@@ -432,6 +432,21 @@ a { color: inherit; text-decoration: none; }
   border-radius: 12px;
   background: var(--bg-soft);
 }
+.online-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.online-group-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 6px 4px 2px;
+}
 
 /* User pill */
 .user-pill {

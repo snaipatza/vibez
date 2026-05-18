@@ -42,6 +42,31 @@
   --radius-pill: 999px;
 }
 
+/* ── DARK MODE ───────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg:          #1A1023;
+  --bg-card:     #221330;
+  --bg-soft:     #2C1A3C;
+  --bg-deep:     #0E0814;
+
+  --ink:         #F0E2EC;
+  --ink-2:       #C4A4BA;
+  --ink-3:       #8A6878;
+  --ink-mute:    #4A2E3C;
+
+  --line:        #3E1F4E;
+  --line-soft:   #301540;
+  --line-faint:  #230F30;
+
+  --orange:      #E87BA1;
+  --orange-deep: #F0A0C0;
+  --orange-soft: #4A1830;
+  --orange-tint: #2E0E1F;
+
+  --green:       #4DAA80;
+  --red:         #EF4070;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
@@ -4510,3 +4535,19 @@ a { color: inherit; text-decoration: none; }
 
 /* Name color in online list */
 .online-user .name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── THEME TOGGLE BUTTON ─────────────────────────────────────────── */
+.theme-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: var(--radius-xs);
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.theme-toggle-btn:hover { color: var(--orange); background: var(--orange-tint); }

@@ -212,7 +212,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile }) {
+function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
   const { useState: useSt } = React;
   const [showCreateRoom, setShowCreateRoom] = useSt(false);
   const [newRoomName, setNewRoomName] = useSt('');
@@ -480,6 +480,13 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
           <div className="role">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
         </div>
         <div className="user-pill-actions">
+          <button
+            className="theme-toggle-btn"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? 'เปลี่ยนเป็น Light Mode' : 'เปลี่ยนเป็น Dark Mode'}
+          >
+            <i className={`fas fa-${theme === 'dark' ? 'sun' : 'moon'}`}></i>
+          </button>
           {onOpenProfile && (
             <div className="icon-btn" title="ตั้งค่าโปรไฟล์" onClick={onOpenProfile} style={{ cursor: 'pointer' }}>
               <i className="fas fa-gear"></i>

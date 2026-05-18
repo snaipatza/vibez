@@ -1,5 +1,5 @@
-// Mic / Voice Panel — DJ streams via MediaRecorder→Socket.IO→HTTP chunked stream
-// Listeners use <audio src="/api/mic-stream"> — browser handles buffering/decoding
+// Mic / Voice Panel — DJ streams via MediaRecorder→Socket.IO→MediaSource API (real-time)
+// Fallback: HTTP chunked stream for browsers without MediaSource support
 const MIME_TYPES = [
   'audio/webm;codecs=opus',
   'audio/webm',
@@ -26,35 +26,138 @@ function useMic(user, socket, onMicLive) {
   const localStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioRef = useRef(null);
+  const mediaSourceRef = useRef(null);
+  const sourceBufferRef = useRef(null);
+  const audioQueueRef = useRef([]);
+  const micMimeRef = useRef('audio/webm;codecs=opus');
   const isLiveRef = useRef(false);
+  const isListeningRef = useRef(false);
 
   const isDJ = user.role === 'dj' || user.role === 'admin';
 
+  // ── Cleanup ────────────────────────────────────────────────────────────
   const stopListening = useCallback(() => {
+    isListeningRef.current = false;
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch {}
       try { audioRef.current.src = ''; } catch {}
       audioRef.current = null;
     }
+    if (mediaSourceRef.current) {
+      try {
+        if (mediaSourceRef.current.readyState === 'open') mediaSourceRef.current.endOfStream();
+      } catch {}
+      mediaSourceRef.current = null;
+    }
+    sourceBufferRef.current = null;
+    audioQueueRef.current = [];
     setNeedsClick(false);
   }, []);
 
+  // ── MSE-based real-time listener ────────────────────────────────────────
+  const setupMSEAudio = useCallback((headerData, mime) => {
+    if (!isListeningRef.current) return;
+
+    // Teardown any previous audio element (keep isListeningRef true)
+    if (audioRef.current) {
+      try { audioRef.current.pause(); } catch {}
+      try { audioRef.current.src = ''; } catch {}
+      audioRef.current = null;
+    }
+    if (mediaSourceRef.current) {
+      try {
+        if (mediaSourceRef.current.readyState === 'open') mediaSourceRef.current.endOfStream();
+      } catch {}
+      mediaSourceRef.current = null;
+    }
+    sourceBufferRef.current = null;
+    audioQueueRef.current = [];
+
+    if (typeof MediaSource === 'undefined' || !MediaSource.isTypeSupported(mime)) {
+      // Fallback to HTTP stream
+      const audio = new Audio('/api/mic-stream?t=' + Date.now());
+      audioRef.current = audio;
+      audio.onerror = () => {
+        if (!isLiveRef.current || !isListeningRef.current) return;
+        setTimeout(() => {
+          if (!isLiveRef.current || !isListeningRef.current) return;
+          const retry = new Audio('/api/mic-stream?t=' + Date.now());
+          audioRef.current = retry;
+          retry.play().catch(() => setNeedsClick(true));
+        }, 1200);
+      };
+      audio.play().catch(() => setNeedsClick(true));
+      return;
+    }
+
+    const ms = new MediaSource();
+    mediaSourceRef.current = ms;
+    const audio = new Audio();
+    audio.src = URL.createObjectURL(ms);
+    audioRef.current = audio;
+
+    // Queue the header as first chunk
+    audioQueueRef.current = [new Uint8Array(headerData)];
+
+    ms.addEventListener('sourceopen', () => {
+      if (!isListeningRef.current || mediaSourceRef.current !== ms) return;
+      let sb;
+      try {
+        sb = ms.addSourceBuffer(mime);
+      } catch {
+        // MSE codec mismatch — fall back gracefully
+        return;
+      }
+      sourceBufferRef.current = sb;
+
+      const flush = () => {
+        if (!sourceBufferRef.current || sb.updating || audioQueueRef.current.length === 0) return;
+        try {
+          sb.appendBuffer(audioQueueRef.current.shift());
+        } catch {
+          audioQueueRef.current = [];
+        }
+      };
+
+      sb.addEventListener('updateend', () => {
+        // Keep buffer small: remove data older than 4 seconds to stay near live edge
+        if (!sb.updating && sb.buffered.length > 0) {
+          const bufEnd = sb.buffered.end(sb.buffered.length - 1);
+          const bufStart = sb.buffered.start(0);
+          if (bufEnd - bufStart > 5) {
+            try { sb.remove(bufStart, bufEnd - 3); } catch {}
+            return;
+          }
+        }
+        flush();
+      });
+
+      flush();
+    }, { once: true });
+
+    audio.play().catch(() => setNeedsClick(true));
+
+    // Live-edge keeper: every 500ms nudge currentTime to within 300ms of live edge
+    const edgeKeeper = setInterval(() => {
+      const a = audioRef.current;
+      if (!a || !isListeningRef.current) { clearInterval(edgeKeeper); return; }
+      try {
+        if (a.buffered.length > 0) {
+          const live = a.buffered.end(a.buffered.length - 1);
+          if (live - a.currentTime > 0.8) a.currentTime = live - 0.1;
+        }
+      } catch {}
+    }, 500);
+  }, []);
+
+  // ── Start listening ─────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     stopListening();
-    const audio = new Audio('/api/mic-stream?t=' + Date.now());
-    audioRef.current = audio;
-    audio.onerror = () => {
-      if (!isLiveRef.current) return;
-      setTimeout(() => {
-        if (!isLiveRef.current || audioRef.current !== audio) return;
-        const retry = new Audio('/api/mic-stream?t=' + Date.now());
-        audioRef.current = retry;
-        retry.onerror = () => setMicError('ไม่สามารถเชื่อมต่อเสียงได้');
-        retry.play().catch(() => setNeedsClick(true));
-      }, 1200);
-    };
-    audio.play().catch(() => setNeedsClick(true));
-  }, [stopListening]);
+    isListeningRef.current = true;
+    // Request stored header from server (for late joiners)
+    // If DJ just started, header will arrive via mic:audio_header event
+    if (socket) socket.emit('mic:request_header');
+  }, [stopListening, socket]);
 
   const clickToListen = useCallback(() => {
     if (audioRef.current) {
@@ -66,6 +169,7 @@ function useMic(user, socket, onMicLive) {
     }
   }, [startListening]);
 
+  // ── Socket event handlers ───────────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
@@ -84,19 +188,46 @@ function useMic(user, socket, onMicLive) {
       onMicLive?.(state.isLive);
     });
 
+    // Receive audio header — triggers MSE setup
+    socket.on('mic:audio_header', ({ header, mime }) => {
+      if (isDJ) return;
+      micMimeRef.current = mime || 'audio/webm;codecs=opus';
+      if (isListeningRef.current) {
+        setupMSEAudio(header, micMimeRef.current);
+      }
+    });
+
+    // Receive audio chunk — append to MSE buffer
+    socket.on('mic:audio_chunk', (chunk) => {
+      if (isDJ) return;
+      if (!isListeningRef.current || !sourceBufferRef.current) return;
+      const sb = sourceBufferRef.current;
+      const data = new Uint8Array(chunk);
+      if (!sb.updating) {
+        try { sb.appendBuffer(data); } catch { audioQueueRef.current = []; }
+      } else {
+        audioQueueRef.current.push(data);
+        // Prevent unbounded queue growth (drop oldest if > 20 chunks)
+        if (audioQueueRef.current.length > 20) audioQueueRef.current.shift();
+      }
+    });
+
     socket.on('mic:approved', () => setHasRaised(false));
     socket.on('mic:rejected', () => setHasRaised(false));
     socket.on('mic:removed', () => {});
 
     return () => {
       socket.off('mic:status');
+      socket.off('mic:audio_header');
+      socket.off('mic:audio_chunk');
       socket.off('mic:approved');
       socket.off('mic:rejected');
       socket.off('mic:removed');
       if (!isDJ) stopListening();
     };
-  }, [socket, isDJ, startListening, stopListening]);
+  }, [socket, isDJ, startListening, stopListening, setupMSEAudio]);
 
+  // ── DJ controls ─────────────────────────────────────────────────────────
   const startDJMic = async () => {
     try {
       setMicError('');

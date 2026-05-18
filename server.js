@@ -885,12 +885,15 @@ io.on('connection', (socket) => {
     io.emit('mic:status', micState);
   });
 
-  // Relay MediaRecorder chunks to all HTTP stream clients
+  // Relay MediaRecorder chunks to Socket.IO listeners + HTTP stream clients
   socket.on('mic:audio_header', ({ header, mime }) => {
     if (socket.id !== micState.djSocketId) return;
     micAudioMime = mime || 'audio/webm;codecs=opus';
     micAudioHeader = header;
     const buf = Buffer.isBuffer(header) ? header : Buffer.from(new Uint8Array(header));
+    // Relay via Socket.IO (primary — low latency)
+    socket.broadcast.emit('mic:audio_header', { header: buf, mime: micAudioMime });
+    // Relay via HTTP chunked stream (fallback)
     for (const res of micStreamClients) {
       try { res.write(buf); } catch { micStreamClients.delete(res); }
     }
@@ -899,8 +902,19 @@ io.on('connection', (socket) => {
   socket.on('mic:audio_chunk', (chunk) => {
     if (socket.id !== micState.djSocketId) return;
     const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(new Uint8Array(chunk));
+    // Relay via Socket.IO (primary — low latency)
+    socket.broadcast.emit('mic:audio_chunk', buf);
+    // Relay via HTTP chunked stream (fallback)
     for (const res of micStreamClients) {
       try { res.write(buf); } catch { micStreamClients.delete(res); }
+    }
+  });
+
+  // Late-joiner requests stored header
+  socket.on('mic:request_header', () => {
+    if (micAudioHeader && micState.isLive) {
+      const buf = Buffer.isBuffer(micAudioHeader) ? micAudioHeader : Buffer.from(new Uint8Array(micAudioHeader));
+      socket.emit('mic:audio_header', { header: buf, mime: micAudioMime });
     }
   });
 

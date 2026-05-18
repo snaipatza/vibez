@@ -866,7 +866,7 @@ function LivePage({
 
 // Inline chat (no header — header lives in section above)
 function ChatPanelInline({ messages, onSend, user }) {
-  const { useState, useEffect, useRef, useCallback } = React;
+  const { useState, useEffect, useLayoutEffect, useRef, useCallback } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
   const [replyTo, setReplyTo] = useState(null); // { id, name, text }
@@ -876,7 +876,8 @@ function ChatPanelInline({ messages, onSend, user }) {
     try { return localStorage.getItem('chatSoundOff') !== '1'; } catch { return true; }
   });
   const bodyRef = useRef(null);
-  const prevLenRef = useRef(0);
+  const prevLenRef = useRef(0);  // scroll tracking
+  const soundLenRef = useRef(0); // separate counter for sound (avoid sharing state with scroll)
   const soundOnRef = useRef(soundOn);
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
 
@@ -910,7 +911,9 @@ function ChatPanelInline({ messages, onSend, user }) {
     if (isBottom) setNewCount(0);
   };
 
-  useEffect(() => {
+  // useLayoutEffect: runs synchronously after DOM update, before browser paint
+  // This guarantees scrollHeight is correct and the user never sees the unscrolled state
+  useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
     const added = messages.length - prevLenRef.current;
@@ -918,16 +921,20 @@ function ChatPanelInline({ messages, onSend, user }) {
     prevLenRef.current = messages.length;
     if (added <= 0) return;
     if (atBottom || wasEmpty) {
-      requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight; });
+      el.scrollTop = el.scrollHeight;
       setNewCount(0);
     } else {
       setNewCount(n => n + added);
-      // Ding for new messages not from self
-      if (!wasEmpty && soundOnRef.current) {
-        const latest = messages[messages.length - 1];
-        if (latest && !latest.system && latest.name !== user.name) playDing();
-      }
     }
+  }, [messages]);
+
+  // Sound notification (useEffect is fine here — timing doesn't matter)
+  useEffect(() => {
+    const prevLen = soundLenRef.current;
+    soundLenRef.current = messages.length;
+    if (prevLen === 0 || !soundOnRef.current) return; // skip initial load
+    const latest = messages[messages.length - 1];
+    if (latest && !latest.system && latest.name !== user.name) playDing();
   }, [messages]);
 
   const scrollToBottom = () => {

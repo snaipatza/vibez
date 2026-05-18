@@ -47,6 +47,7 @@ function msgFromApi(m) {
     name_color: m.name_color || '',
     chat_color: m.chat_color || '',
     chat_frame: m.chat_frame || '',
+    avatar_frame: m.avatar_frame || '',
     media_url: m.media_url || '',
     media_type: m.media_type || '',
     time: fmtTime(m.created_at),
@@ -628,6 +629,7 @@ function LivePage({
               <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <ColorPickerPanel user={user} toast={toast} />
                 <ChatFramePicker user={user} toast={toast} onFrameChange={frame => setChat(prev => prev.map(m => m.name === user.name ? { ...m, chat_frame: frame } : m))} />
+                <AvatarFramePicker user={user} toast={toast} onFrameChange={frame => setChat(prev => prev.map(m => m.name === user.name ? { ...m, avatar_frame: frame } : m))} />
                 <button className={`chat-header-btn${chatSoundOn ? ' active' : ''}`} onClick={toggleChatSound} title={chatSoundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}>
                   <i className={`fas fa-${chatSoundOn ? 'bell' : 'bell-slash'}`} />
                 </button>
@@ -992,7 +994,7 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
               </div>
             ) : (
               <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={m.chat_frame || undefined}>
-                <div className={`av${m.role === 'admin' ? ' av-frame-admin' : m.role === 'dj' ? ' av-frame-dj' : m.role === 'vip+' ? ' av-frame-vipplus' : m.role === 'vip' ? ' av-frame-vip' : m.role === 'co-admin' ? ' av-frame-coadmin' : ''}`}>
+                <div className={`av ${m.avatar_frame ? 'av-frame-custom av-frame-' + m.avatar_frame : (m.role === 'admin' ? 'av-frame-admin' : m.role === 'dj' ? 'av-frame-dj' : m.role === 'vip+' ? 'av-frame-vipplus' : m.role === 'vip' ? 'av-frame-vip' : m.role === 'co-admin' ? 'av-frame-coadmin' : '')}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />
                     : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />
@@ -1201,6 +1203,90 @@ function ChatFramePicker({ user, toast, onFrameChange }) {
                 disabled={saving}
               >
                 <span className="frame-preview-box" />
+                <span className="frame-picker-label">{f.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const AVATAR_FRAMES = [
+  // ── Cool ──
+  { id: '',          label: 'ปกติ',      cat: 'cool' },
+  { id: 'electric',  label: '⚡ไฟฟ้า',   cat: 'cool' },
+  { id: 'fire-av',   label: '🔥ไฟ',      cat: 'cool' },
+  { id: 'ice-av',    label: '❄️น้ำแข็ง', cat: 'cool' },
+  { id: 'galaxy-av', label: '🌌กาแล็กซี่',cat: 'cool' },
+  { id: 'holo',      label: '🌈โฮโล',    cat: 'cool' },
+  { id: 'neon-pink', label: '💗นีออน',   cat: 'cool' },
+  { id: 'matrix',    label: '💚แมทริกซ์', cat: 'cool' },
+  { id: 'gold-cool', label: '✨ทอง',     cat: 'cool' },
+  // ── Animal ──
+  { id: 'cat',     label: '🐱แมว',    cat: 'animal' },
+  { id: 'panda',   label: '🐼แพนด้า', cat: 'animal' },
+  { id: 'bunny',   label: '🐰กระต่าย',cat: 'animal' },
+  { id: 'frog',    label: '🐸กบ',     cat: 'animal' },
+  { id: 'fox',     label: '🦊จิ้งจอก',cat: 'animal' },
+  { id: 'bear',    label: '🐻หมี',    cat: 'animal' },
+  { id: 'penguin', label: '🐧เพนกวิน',cat: 'animal' },
+  { id: 'unicorn', label: '🦄ยูนิคอร์น',cat: 'animal' },
+];
+
+function AvatarFramePicker({ user, toast, onFrameChange }) {
+  const { useState } = React;
+  const level = liveRoleLevel(user.role);
+  if (level < 1) return null;
+  const [frame, setFrame] = useState(user.avatar_frame || '');
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState('cool');
+
+  const save = async (fid) => {
+    setFrame(fid);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/me/colors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name_color: user.name_color || '', chat_color: user.chat_color || '', avatar_frame: fid }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'บันทึกไม่สำเร็จ'); return; }
+      user.avatar_frame = fid;
+      onFrameChange?.(fid);
+      toast('บันทึกกรอบโปรไฟล์สำเร็จ ✓', 'success');
+    } catch { toast('บันทึกไม่สำเร็จ'); }
+    finally { setSaving(false); setOpen(false); }
+  };
+
+  const filtered = AVATAR_FRAMES.filter(f => f.id === '' || f.cat === tab);
+
+  return (
+    <div className="color-picker-wrap" style={{ position: 'relative' }}>
+      <button className={`btn-mini${frame ? ' active-frame-btn' : ''}`} onClick={() => setOpen(v => !v)} title="เลือกกรอบโปรไฟล์">
+        🎭 กรอบโปร{frame ? ' ●' : ''}
+      </button>
+      {open && (
+        <div className="frame-picker-panel" style={{ width: 300 }}>
+          <div className="av-frame-tabs">
+            <button className={tab === 'cool' ? 'active' : ''} onClick={() => setTab('cool')}>✨ เท่ๆ</button>
+            <button className={tab === 'animal' ? 'active' : ''} onClick={() => setTab('animal')}>🐾 สัตว์น่ารัก</button>
+          </div>
+          <div className="frame-picker-grid" style={{ marginTop: 10 }}>
+            {filtered.map(f => (
+              <button
+                key={f.id}
+                className={`frame-picker-item${frame === f.id ? ' selected' : ''}`}
+                onClick={() => save(f.id)}
+                disabled={saving}
+                title={f.label}
+              >
+                <span className={`av-frame-mini ${f.id ? 'av-frame-' + f.id : ''}`}>
+                  <img src={`https://api.dicebear.com/7.x/thumbs/svg?seed=${user.name}`} alt="" />
+                </span>
                 <span className="frame-picker-label">{f.label}</span>
               </button>
             ))}

@@ -150,7 +150,9 @@ const alterations = [
     "ALTER TABLE messages ADD COLUMN reply_to_name TEXT DEFAULT ''",
     "ALTER TABLE messages ADD COLUMN reply_to_text TEXT DEFAULT ''",
     "ALTER TABLE users ADD COLUMN chat_frame TEXT DEFAULT ''",
-    "ALTER TABLE messages ADD COLUMN chat_frame TEXT DEFAULT ''"
+    "ALTER TABLE messages ADD COLUMN chat_frame TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN avatar_frame TEXT DEFAULT ''",
+    "ALTER TABLE messages ADD COLUMN avatar_frame TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

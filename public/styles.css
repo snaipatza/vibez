@@ -4712,6 +4712,149 @@ a { color: inherit; text-decoration: none; }
   animation-duration: 3s;
 }
 
+/* ── CUSTOM AVATAR FRAMES ────────────────────────────────────────── */
+.av.av-frame-custom {
+  overflow: visible;
+  background: transparent;
+  position: relative;
+}
+.av.av-frame-custom > img {
+  clip-path: circle(50%);
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.av.av-frame-custom::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: 0;
+  animation: spin 3s linear infinite;
+}
+
+/* ── Cool frames ── */
+.av.av-frame-electric::before  { background: conic-gradient(from 0deg,#00d4ff,#fff,#00d4ff,#7b2d8b,#00d4ff); animation-duration:1.2s; }
+.av.av-frame-fire-av::before   { background: conic-gradient(from 0deg,#ff3c00,#ff9f1c,#ffd700,#ff6b00,#ff3c00); animation-duration:1.5s; }
+.av.av-frame-ice-av::before    { background: conic-gradient(from 0deg,#90e0ef,#00b4d8,#caf0f8,#48cae4,#90e0ef); animation-duration:4s; }
+.av.av-frame-galaxy-av::before { background: conic-gradient(from 0deg,#7b2d8b,#00d4ff,#c77dff,#f72585,#7b2d8b); animation-duration:3s; }
+.av.av-frame-holo::before      { background: conic-gradient(from 0deg,#ff3cac,#00d4ff,#ffd700,#6bcb77,#c77dff,#ff3cac); animation-duration:2s; }
+.av.av-frame-neon-pink::before { background: conic-gradient(from 0deg,#ff3cac,#ff9f1c,#ff3cac); animation-duration:1.8s; }
+.av.av-frame-matrix::before    { background: conic-gradient(from 0deg,#00ff41,#003b00,#00ff41); animation-duration:2s; }
+.av.av-frame-gold-cool::before { background: conic-gradient(from 0deg,#ffd700,#b8860b,#ffe066,#ffd700); animation-duration:2.5s; }
+
+/* ── Animal frames — ring + bouncing emoji via ::after ── */
+@keyframes avBounce { 0%,100% { transform:translateX(-50%) translateY(0) scale(1); } 50% { transform:translateX(-50%) translateY(-4px) scale(1.15); } }
+@keyframes avWiggle { 0%,100% { transform:translateX(-50%) rotate(-10deg); } 50% { transform:translateX(-50%) rotate(10deg); } }
+
+.av.av-frame-cat::before    { background: conic-gradient(from 0deg,#ff9f1c,#ffcb47,#ff9f1c); animation-duration:3s; }
+.av.av-frame-panda::before  { background: conic-gradient(from 0deg,#333,#fff,#333,#fff,#333); animation-duration:4s; }
+.av.av-frame-bunny::before  { background: conic-gradient(from 0deg,#ffb3c6,#fff,#ff6b9d,#ffb3c6); animation-duration:3.5s; }
+.av.av-frame-frog::before   { background: conic-gradient(from 0deg,#6bcb77,#1a7a2e,#6bcb77); animation-duration:3s; }
+.av.av-frame-fox::before    { background: conic-gradient(from 0deg,#ff6b35,#ff9f1c,#e84e00,#ff6b35); animation-duration:2.5s; }
+.av.av-frame-bear::before   { background: conic-gradient(from 0deg,#8b4513,#d2691e,#8b4513); animation-duration:4s; }
+.av.av-frame-penguin::before { background: conic-gradient(from 0deg,#1a1a2e,#4d96ff,#1a1a2e); animation-duration:3s; }
+.av.av-frame-unicorn::before { background: conic-gradient(from 0deg,#ff3cac,#ffd700,#00d4ff,#c77dff,#ff3cac); animation-duration:2s; }
+
+.av.av-frame-cat::after,
+.av.av-frame-panda::after,
+.av.av-frame-bunny::after,
+.av.av-frame-frog::after,
+.av.av-frame-fox::after,
+.av.av-frame-bear::after,
+.av.av-frame-penguin::after,
+.av.av-frame-unicorn::after {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  font-size: 15px;
+  z-index: 3;
+  line-height: 1;
+  pointer-events: none;
+  animation: avBounce 1.2s ease-in-out infinite;
+}
+.av.av-frame-cat::after     { content: '🐱'; }
+.av.av-frame-panda::after   { content: '🐼'; }
+.av.av-frame-bunny::after   { content: '🐰'; animation-name: avWiggle; animation-duration: 0.8s; }
+.av.av-frame-frog::after    { content: '🐸'; }
+.av.av-frame-fox::after     { content: '🦊'; }
+.av.av-frame-bear::after    { content: '🐻'; }
+.av.av-frame-penguin::after { content: '🐧'; animation-name: avWiggle; }
+.av.av-frame-unicorn::after { content: '🦄'; animation-duration: 0.7s; }
+
+/* ── Avatar frame mini preview in picker ── */
+.av-frame-mini {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: visible;
+  position: relative;
+  display: block;
+}
+.av-frame-mini img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  clip-path: circle(50%);
+  object-fit: cover;
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+.av-frame-mini::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: 0;
+  animation: spin 3s linear infinite;
+  background: var(--line-soft);
+}
+.av-frame-mini.av-frame-electric::before  { background: conic-gradient(from 0deg,#00d4ff,#fff,#7b2d8b,#00d4ff); animation-duration:1.2s; }
+.av-frame-mini.av-frame-fire-av::before   { background: conic-gradient(from 0deg,#ff3c00,#ff9f1c,#ffd700,#ff3c00); animation-duration:1.5s; }
+.av-frame-mini.av-frame-ice-av::before    { background: conic-gradient(from 0deg,#90e0ef,#00b4d8,#caf0f8,#90e0ef); animation-duration:4s; }
+.av-frame-mini.av-frame-galaxy-av::before { background: conic-gradient(from 0deg,#7b2d8b,#00d4ff,#f72585,#7b2d8b); animation-duration:3s; }
+.av-frame-mini.av-frame-holo::before      { background: conic-gradient(from 0deg,#ff3cac,#00d4ff,#ffd700,#6bcb77,#ff3cac); animation-duration:2s; }
+.av-frame-mini.av-frame-neon-pink::before { background: conic-gradient(from 0deg,#ff3cac,#ff9f1c,#ff3cac); animation-duration:1.8s; }
+.av-frame-mini.av-frame-matrix::before    { background: conic-gradient(from 0deg,#00ff41,#003b00,#00ff41); animation-duration:2s; }
+.av-frame-mini.av-frame-gold-cool::before { background: conic-gradient(from 0deg,#ffd700,#b8860b,#ffe066,#ffd700); animation-duration:2.5s; }
+.av-frame-mini.av-frame-cat::before    { background: conic-gradient(from 0deg,#ff9f1c,#ffcb47,#ff9f1c); animation-duration:3s; }
+.av-frame-mini.av-frame-panda::before  { background: conic-gradient(from 0deg,#333,#fff,#333,#fff); animation-duration:4s; }
+.av-frame-mini.av-frame-bunny::before  { background: conic-gradient(from 0deg,#ffb3c6,#ff6b9d,#ffb3c6); animation-duration:3.5s; }
+.av-frame-mini.av-frame-frog::before   { background: conic-gradient(from 0deg,#6bcb77,#1a7a2e,#6bcb77); animation-duration:3s; }
+.av-frame-mini.av-frame-fox::before    { background: conic-gradient(from 0deg,#ff6b35,#ff9f1c,#ff6b35); animation-duration:2.5s; }
+.av-frame-mini.av-frame-bear::before   { background: conic-gradient(from 0deg,#8b4513,#d2691e,#8b4513); animation-duration:4s; }
+.av-frame-mini.av-frame-penguin::before { background: conic-gradient(from 0deg,#1a1a2e,#4d96ff,#1a1a2e); animation-duration:3s; }
+.av-frame-mini.av-frame-unicorn::before { background: conic-gradient(from 0deg,#ff3cac,#ffd700,#00d4ff,#c77dff,#ff3cac); animation-duration:2s; }
+.av-frame-mini::after { display: none; }
+
+/* ── Picker tabs ── */
+.av-frame-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 8px;
+}
+.av-frame-tabs button {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-soft);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.av-frame-tabs button.active {
+  background: var(--orange-soft);
+  border-color: var(--orange);
+  color: var(--orange-deep);
+}
+
 /* ── CHAT SECTION HEAD ───────────────────────────────────────────── */
 .chat-section-head {
   background: linear-gradient(135deg, var(--orange-soft) 0%, var(--bg-card) 100%);

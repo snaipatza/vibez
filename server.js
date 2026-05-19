@@ -370,15 +370,18 @@ app.post('/api/auth/request-reset', async (req, res) => {
     if (!username || !email) return res.status(400).json({ error: 'กรุณากรอก username และ email' });
 
     const user = db.prepare('SELECT id, username, email FROM users WHERE LOWER(username)=LOWER(?)').get(username);
-    if (!user || (user.email || '').toLowerCase() !== email) {
-        // Vague error to prevent enumeration
-        return res.status(404).json({ error: 'ไม่พบ username หรือ email ไม่ตรงกัน' });
+    if (!user) return res.status(404).json({ error: 'ไม่พบ username นี้ในระบบ' });
+    if (!(user.email || '').trim()) {
+        return res.status(400).json({ error: 'บัญชีนี้ยังไม่ได้ตั้งค่า Email — กรุณาติดต่อ Admin เพื่อรีเซ็ตรหัสผ่าน' });
+    }
+    if ((user.email || '').toLowerCase() !== email) {
+        return res.status(404).json({ error: 'Email ไม่ตรงกับที่ลงทะเบียนไว้' });
     }
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = Date.now() + 10 * 60 * 1000;
     db.prepare('UPDATE password_otps SET used_at=? WHERE user_id=? AND used_at=0').run(Date.now(), user.id);
-    db.prepare('INSERT INTO password_otps (user_id, email, code, expires_at) VALUES (?, ?, ?, ?)').run(user.id, email, code, expiresAt);
+    db.prepare('INSERT INTO password_otps (user_id, phone, email, code, expires_at) VALUES (?, ?, ?, ?, ?)').run(user.id, '', email, code, expiresAt);
 
     const emailSent = await sendOtpEmail(email, code, user.username);
     const maskedEmail = email.replace(/(.{2}).+(@.+)/, '$1***$2');
@@ -524,9 +527,11 @@ app.patch('/api/me', requireAuth, (req, res) => {
     const avatarSeed = String(req.body.avatar_seed || '').trim();
     const displayName = String(req.body.display_name ?? '').trim().slice(0, 30);
     const phone = req.body.phone === undefined ? undefined : normalizePhone(req.body.phone);
+    const email = req.body.email === undefined ? undefined : String(req.body.email).trim().toLowerCase();
     if (!avatarSeed) return res.status(400).json({ error: 'Profile seed is required' });
     if (avatarSeed.length > 60) return res.status(400).json({ error: 'Profile seed is too long' });
     if (req.body.phone !== undefined && !phone) return res.status(400).json({ error: 'Invalid phone number' });
+    if (email !== undefined && email && !email.includes('@')) return res.status(400).json({ error: 'Email ไม่ถูกต้อง' });
 
     let avatarUrl = '';
     try {
@@ -543,9 +548,10 @@ app.patch('/api/me', requireAuth, (req, res) => {
             avatar_url=?,
             display_name=?,
             phone=CASE WHEN ? IS NULL THEN phone ELSE ? END,
-            phone_verified=CASE WHEN ? IS NULL THEN phone_verified WHEN ? != COALESCE(phone, '') THEN 1 ELSE phone_verified END
+            phone_verified=CASE WHEN ? IS NULL THEN phone_verified WHEN ? != COALESCE(phone, '') THEN 1 ELSE phone_verified END,
+            email=CASE WHEN ? IS NULL THEN email ELSE ? END
         WHERE id=?
-    `).run(avatarSeed, finalAvatarUrl, displayName, phone ?? null, phone ?? '', phone ?? null, phone ?? '', req.session.userId);
+    `).run(avatarSeed, finalAvatarUrl, displayName, phone ?? null, phone ?? '', phone ?? null, phone ?? '', email ?? null, email ?? '', req.session.userId);
 
     const updated = db.prepare('SELECT * FROM users WHERE id=?').get(req.session.userId);
     res.json({ success: true, ...buildUserResponse(updated) });

@@ -66,6 +66,7 @@ function ProfilePage({ user, onUpdate, toast }) {
   const { useState, useEffect, useRef } = React;
   const [displayName, setDisplayName] = useState(user.display_name || '');
   const [phone, setPhone] = useState(user.phone || '');
+  const [email, setEmail] = useState(user.email || '');
   const [avatarPreview, setAvatarPreview] = useState(user.avatar_url || '');
   const [avatarData, setAvatarData] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -113,6 +114,7 @@ function ProfilePage({ user, onUpdate, toast }) {
           avatar_seed: user.avatar_seed || user.name,
           display_name: displayName,
           phone,
+          email,
           avatar_image: avatarData || undefined,
         }),
       });
@@ -222,9 +224,9 @@ function ProfilePage({ user, onUpdate, toast }) {
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={user.name} maxLength={30} />
             </div>
             <div className="profile-field">
-              <label>Phone for OTP reset</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08x-xxx-xxxx" />
-              <div className="hint">เบอร์นี้จะใช้สำหรับ flow OTP ตอนลืมรหัสผ่าน</div>
+              <label>Email สำหรับรีเซ็ตรหัสผ่าน</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
+              <div className="hint">ใช้ยืนยันตัวตนเมื่อลืมรหัสผ่าน ไม่มีการส่ง spam</div>
             </div>
             <button className="btn-primary orange" style={{ width: '100%' }} onClick={save} disabled={saving}>
               {saving ? 'Saving...' : 'บันทึกโปรไฟล์'}

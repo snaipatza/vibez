@@ -84,6 +84,8 @@ function App() {
                 avatar_url: data.avatar_url,
                 name_color: data.name_color || '',
                 chat_color: data.chat_color || '',
+                chat_frame: data.chat_frame || '',
+                avatar_frame: data.avatar_frame || '',
                 display_name: data.display_name || '',
                 vip_expires_at: data.vip_expires_at || 0,
                 can_admin: data.can_admin || false,

@@ -590,7 +590,7 @@ function PromoBanner({ onSignup, user }) {
     '🎨 เปลี่ยนสีชื่อและสีแชทได้',
     '📩 ใช้งาน Messenger ส่วนตัวได้',
     '🖼️ อัปโหลดรูปภาพในแชทได้',
-    '✨ VIP เพียง ฿19/เดือน หรือ ฿45/3 เดือน',
+    '✨ VIP เพียง ฿19/เดือน หรือ ฿49/3 เดือน',
   ];
   return (
     <div className="promo-banner">

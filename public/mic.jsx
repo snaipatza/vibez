@@ -280,20 +280,39 @@ function MicPanel({ user, socket, onMicLive }) {
         </button>
       )}
 
+      {/* DJ: toggle request gate */}
+      {canBroadcast && micState.isLive && (
+        <button
+          className={`mic-hand-btn${micState.requestsOpen ? ' raised' : ''}`}
+          style={{ marginBottom: 6 }}
+          onClick={() => socket.emit('mic:toggle_requests')}
+        >
+          <i className={`fas fa-${micState.requestsOpen ? 'door-open' : 'door-closed'}`}></i>
+          <span>{micState.requestsOpen ? 'ปิดรับขอพูด' : 'เปิดรับขอพูด'}</span>
+        </button>
+      )}
+
       {/* Listener controls — everyone except the active streamer */}
       {!isActiveStreamer && (
         <div className="mic-user-controls">
           {micState.isLive ? (
-            hasRaised ? (
-              <button className="mic-hand-btn raised" onClick={mic.lowerHand}>
-                <i className="fas fa-hand-paper"></i>
-                <span>กำลังขอพูด... (กดยกเลิก)</span>
-              </button>
+            micState.requestsOpen ? (
+              hasRaised ? (
+                <button className="mic-hand-btn raised" onClick={mic.lowerHand}>
+                  <i className="fas fa-hand-paper"></i>
+                  <span>กำลังขอพูด... (กดยกเลิก)</span>
+                </button>
+              ) : (
+                <button className="mic-hand-btn" onClick={mic.raiseHand}>
+                  <i className="fas fa-hand-paper"></i>
+                  <span>ขอพูด</span>
+                </button>
+              )
             ) : (
-              <button className="mic-hand-btn" onClick={mic.raiseHand}>
-                <i className="fas fa-hand-paper"></i>
-                <span>ขอพูด</span>
-              </button>
+              <div className="mic-offline-hint">
+                <i className="fas fa-lock"></i>
+                <span>DJ ยังไม่เปิดรับขอพูด</span>
+              </div>
             )
           ) : (
             <div className="mic-offline-hint">

@@ -111,6 +111,29 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
+  const [resetTarget, setResetTarget] = useState(null); // { id, username }
+  const [resetNewPw, setResetNewPw] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+
+  const adminResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetTarget || resetNewPw.length < 6) return;
+    setResetBusy(true);
+    try {
+      const res = await fetch(`/api/admin/users/${resetTarget.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_password: resetNewPw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+      toast(`รีเซ็ต password ของ @${resetTarget.username} แล้ว ✓`, 'success');
+      setResetTarget(null);
+      setResetNewPw('');
+    } catch { toast('เกิดข้อผิดพลาด'); }
+    finally { setResetBusy(false); }
+  };
+
   const removeQueue = async (id) => {
     try {
       const res = await fetch(`/api/queue/${id}`, { method: 'DELETE' });
@@ -354,6 +377,9 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                                   {u.can_admin ? ' Co-Admin' : ' ให้สิทธิ์'}
                                 </button>
                               )}
+                              <button className="btn-mini" onClick={() => { setResetTarget({ id: u.id, username: u.username }); setResetNewPw(''); }} title="รีเซ็ต password">
+                                <i className="fas fa-key"></i>
+                              </button>
                               {u.id !== user.id && (
                                 <button className="btn-mini danger" onClick={() => removeUser(u.id)}>Ban</button>
                               )}
@@ -639,6 +665,38 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
           )}
         </div>
       </div>
+
+      {resetTarget && (
+        <div className="auth-modal-backdrop" onClick={() => setResetTarget(null)}>
+          <div className="auth-modal-card" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="auth-modal-head">
+              <div>
+                <div className="pre">Admin Tool</div>
+                <h3>รีเซ็ต Password</h3>
+              </div>
+              <button className="icon-square" onClick={() => setResetTarget(null)}><i className="fas fa-times"></i></button>
+            </div>
+            <div style={{ marginBottom: 16, color: 'var(--ink-3)', fontSize: 13 }}>
+              ตั้ง password ใหม่ให้ <b style={{ color: 'var(--ink)' }}>@{resetTarget.username}</b>
+            </div>
+            <form onSubmit={adminResetPassword}>
+              <div className="field">
+                <label>Password ใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+                <input
+                  type="text"
+                  value={resetNewPw}
+                  onChange={e => setResetNewPw(e.target.value)}
+                  placeholder="เช่น vibez1234"
+                  autoComplete="off"
+                />
+              </div>
+              <button className="submit-btn modern-submit-btn" type="submit" disabled={resetBusy || resetNewPw.length < 6}>
+                {resetBusy ? 'กำลังรีเซ็ต...' : '🔑 รีเซ็ต Password'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

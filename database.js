@@ -208,7 +208,9 @@ const alterations = [
     "ALTER TABLE now_playing ADD COLUMN collab_dj_avatar_seed TEXT DEFAULT ''",
     "ALTER TABLE now_playing ADD COLUMN collab_dj_avatar_url TEXT DEFAULT ''",
     "ALTER TABLE ads ADD COLUMN fb_url TEXT DEFAULT ''",
-    "ALTER TABLE ads ADD COLUMN image_data TEXT DEFAULT ''"
+    "ALTER TABLE ads ADD COLUMN image_data TEXT DEFAULT ''",
+    "ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''",
+    "ALTER TABLE password_otps ADD COLUMN email TEXT DEFAULT ''"
 ];
 for (const sql of alterations) {
     try { db.exec(sql); } catch(e) { /* column already exists */ }

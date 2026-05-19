@@ -5,7 +5,39 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { Server } = require('socket.io');
+const nodemailer = require('nodemailer');
 const db = require('./database');
+
+function createMailTransport() {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
+    return nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
+    });
+}
+
+async function sendOtpEmail(toEmail, code, username) {
+    const transport = createMailTransport();
+    if (!transport) return false;
+    await transport.sendMail({
+        from: `"IIMV Society Radio" <${process.env.GMAIL_USER}>`,
+        to: toEmail,
+        subject: `[IIMV Radio] รหัส OTP ของคุณ: ${code}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#0a0b10;color:#fff;border-radius:16px">
+            <div style="font-size:28px;font-weight:800;letter-spacing:-0.03em;margin-bottom:4px">🎧 IIMV Society Radio</div>
+            <div style="color:#ff9f1c;font-size:12px;letter-spacing:0.15em;margin-bottom:28px">PASSWORD RESET</div>
+            <p style="color:#ccc;margin-bottom:24px">สวัสดี <b style="color:#fff">@${username}</b>, นี่คือรหัส OTP สำหรับรีเซ็ตรหัสผ่าน</p>
+            <div style="background:#1a1b25;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
+              <div style="font-size:40px;font-weight:800;letter-spacing:0.2em;color:#ff9f1c">${code}</div>
+              <div style="color:#888;font-size:12px;margin-top:8px">ใช้ได้ภายใน 10 นาที</div>
+            </div>
+            <p style="color:#666;font-size:12px">ถ้าไม่ได้ขอรีเซ็ต ไม่ต้องทำอะไร</p>
+          </div>
+        `,
+    });
+    return true;
+}
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -199,6 +231,7 @@ function buildUserResponse(userRow, sessionData = {}) {
         display_name: userRow.display_name || '',
         vip_expires_at: userRow.vip_expires_at || 0,
         can_admin: !!userRow.can_admin,
+        email: userRow.email || '',
         phone: userRow.phone || '',
         phone_masked: maskPhone(userRow.phone || ''),
         phone_verified: !!userRow.phone_verified,
@@ -333,51 +366,48 @@ async function resolveQueueRequest(payload) {
 
 app.post('/api/auth/request-reset', async (req, res) => {
     const username = String(req.body.username || '').trim();
-    const phone = normalizePhone(req.body.phone);
-    if (!username || !phone) return res.status(400).json({ error: 'Username and phone are required' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!username || !email) return res.status(400).json({ error: 'กรุณากรอก username และ email' });
 
-    const user = db.prepare('SELECT id, username, phone FROM users WHERE LOWER(username)=LOWER(?)').get(username);
-    if (!user || normalizePhone(user.phone) !== phone) {
-        return res.status(404).json({ error: 'User or phone number not found' });
+    const user = db.prepare('SELECT id, username, email FROM users WHERE LOWER(username)=LOWER(?)').get(username);
+    if (!user || (user.email || '').toLowerCase() !== email) {
+        // Vague error to prevent enumeration
+        return res.status(404).json({ error: 'ไม่พบ username หรือ email ไม่ตรงกัน' });
     }
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = Date.now() + 10 * 60 * 1000;
     db.prepare('UPDATE password_otps SET used_at=? WHERE user_id=? AND used_at=0').run(Date.now(), user.id);
-    db.prepare('INSERT INTO password_otps (user_id, phone, code, expires_at) VALUES (?, ?, ?, ?)').run(user.id, phone, code, expiresAt);
+    db.prepare('INSERT INTO password_otps (user_id, email, code, expires_at) VALUES (?, ?, ?, ?)').run(user.id, email, code, expiresAt);
 
-    const payload = {
-        success: true,
-        phone_masked: maskPhone(phone),
-        expires_in_seconds: 600,
-        delivery: process.env.SMS_PROVIDER ? 'sms' : 'demo',
-    };
-    if (!process.env.SMS_PROVIDER) payload.demo_code = code;
+    const emailSent = await sendOtpEmail(email, code, user.username);
+    const maskedEmail = email.replace(/(.{2}).+(@.+)/, '$1***$2');
+
+    const payload = { success: true, email_masked: maskedEmail, expires_in_seconds: 600 };
+    if (!emailSent) payload.demo_code = code; // dev fallback if no Gmail configured
     res.json(payload);
 });
 
 app.post('/api/auth/reset-password', async (req, res) => {
     const username = String(req.body.username || '').trim();
-    const phone = normalizePhone(req.body.phone);
+    const email = String(req.body.email || '').trim().toLowerCase();
     const code = String(req.body.code || '').trim();
     const newPassword = String(req.body.new_password || '').trim();
-    if (!username || !phone || !code || !newPassword) return res.status(400).json({ error: 'Missing reset fields' });
-    if (newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    if (!username || !email || !code || !newPassword) return res.status(400).json({ error: 'Missing reset fields' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'Password ต้องมีอย่างน้อย 6 ตัวอักษร' });
 
-    const user = db.prepare('SELECT id, username, phone FROM users WHERE LOWER(username)=LOWER(?)').get(username);
-    if (!user || normalizePhone(user.phone) !== phone) return res.status(404).json({ error: 'User or phone number not found' });
+    const user = db.prepare('SELECT id, username, email FROM users WHERE LOWER(username)=LOWER(?)').get(username);
+    if (!user || (user.email || '').toLowerCase() !== email) return res.status(404).json({ error: 'ไม่พบ username หรือ email ไม่ตรงกัน' });
 
     const otp = db.prepare(`
-        SELECT *
-        FROM password_otps
-        WHERE user_id=? AND phone=? AND code=? AND used_at=0
-        ORDER BY id DESC
-        LIMIT 1
-    `).get(user.id, phone, code);
-    if (!otp || otp.expires_at < Date.now()) return res.status(400).json({ error: 'OTP is invalid or expired' });
+        SELECT * FROM password_otps
+        WHERE user_id=? AND email=? AND code=? AND used_at=0
+        ORDER BY id DESC LIMIT 1
+    `).get(user.id, email, code);
+    if (!otp || otp.expires_at < Date.now()) return res.status(400).json({ error: 'OTP ไม่ถูกต้องหรือหมดอายุ' });
 
     const hash = await bcrypt.hash(newPassword, 10);
-    db.prepare('UPDATE users SET password_hash=?, phone_verified=1 WHERE id=?').run(hash, user.id);
+    db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(hash, user.id);
     db.prepare('UPDATE password_otps SET used_at=? WHERE id=?').run(Date.now(), otp.id);
     res.json({ success: true });
 });
@@ -385,18 +415,18 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '').trim();
-    const phone = normalizePhone(req.body.phone);
-    if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-    if (!phone) return res.status(400).json({ error: 'Invalid phone number' });
-    if (username.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
-    if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: 'Username can only use a-z, 0-9 and _' });
+    const email = String(req.body.email || '').trim().toLowerCase();
+    if (!username || !password) return res.status(400).json({ error: 'กรุณากรอก username และ password' });
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'กรุณากรอก email ที่ถูกต้อง' });
+    if (username.length < 3) return res.status(400).json({ error: 'Username ต้องมีอย่างน้อย 3 ตัวอักษร' });
+    if (password.length < 6) return res.status(400).json({ error: 'Password ต้องมีอย่างน้อย 6 ตัวอักษร' });
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: 'Username ใช้ได้แค่ a-z, 0-9, _' });
 
     const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
-    if (existing) return res.status(400).json({ error: 'Username already exists' });
+    if (existing) return res.status(400).json({ error: 'Username นี้ถูกใช้ไปแล้ว' });
 
     const hash = await bcrypt.hash(password, 10);
-    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed, phone, phone_verified, coins) VALUES (?, ?, 'guest', ?, ?, 1, 10)").run(username, hash, username + Math.random(), phone);
+    const result = db.prepare("INSERT INTO users (username, password_hash, role, avatar_seed, email, coins) VALUES (?, ?, 'guest', ?, ?, 10)").run(username, hash, username + Math.random(), email);
     req.session.userId = result.lastInsertRowid;
     req.session.username = username;
     req.session.role = 'guest';
@@ -1268,6 +1298,17 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
     res.json({ success: true });
 });
 
+app.post('/api/admin/users/:id/reset-password', requireAdmin, async (req, res) => {
+    const newPassword = String(req.body.new_password || '').trim();
+    if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password ต้องมีอย่างน้อย 6 ตัวอักษร' });
+    const user = db.prepare('SELECT id, role FROM users WHERE id=?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.role === 'admin') return res.status(400).json({ error: 'ไม่สามารถรีเซ็ต Admin ได้' });
+    const hash = await bcrypt.hash(newPassword, 10);
+    db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(hash, user.id);
+    res.json({ success: true });
+});
+
 // Role upgrade requests
 app.post('/api/role-request', requireAuth, (req, res) => {
     const userId = req.session.userId;
@@ -1385,9 +1426,12 @@ const micState = {
   djUsername: null,
   djAvatarSeed: null,
   djAvatarUrl: null,
+  requestsOpen: false,
   requests: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
   speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
 };
+// typing state per room: roomId → Map of socketId → { username, display_name, timer }
+const typingInRoom = new Map();
 const stageState = { active: false, djUsername: null, djAvatarSeed: '', djAvatarUrl: '' };
 let micAudioHeader = null; // stored for late-joining HTTP stream clients
 let micAudioMime = 'audio/webm;codecs=opus';
@@ -1418,6 +1462,18 @@ function closeMicStream() {
 
 const io = new Server(httpServer, { cors: { origin: '*' } });
 
+function broadcastTyping(room, excludeSocketId) {
+  const roomTyping = typingInRoom.get(room);
+  const users = roomTyping ? [...roomTyping.values()].map(t => t.username) : [];
+  if (excludeSocketId) {
+    io.sockets.sockets.forEach((s) => {
+      if (s.id !== excludeSocketId) s.emit('chat:typing_update', { room, users });
+    });
+  } else {
+    io.emit('chat:typing_update', { room, users });
+  }
+}
+
 io.on('connection', (socket) => {
   socket.on('auth', ({ userId, username, role, avatar_seed, avatar_url }) => {
     socketToUser.set(socket.id, { userId, username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
@@ -1443,6 +1499,7 @@ io.on('connection', (socket) => {
     micState.djUsername = null;
     micState.djAvatarSeed = null;
     micState.djAvatarUrl = null;
+    micState.requestsOpen = false;
     micState.requests = [];
     micState.speakers = [];
     micAudioHeader = null;
@@ -1483,10 +1540,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Raise hand
+  // DJ toggles whether listeners can request to speak
+  socket.on('mic:toggle_requests', () => {
+    if (socket.id !== micState.djSocketId) return;
+    micState.requestsOpen = !micState.requestsOpen;
+    io.emit('mic:status', micState);
+  });
+
+  // Raise hand — only allowed when DJ has opened requests
   socket.on('hand:raise', () => {
     const user = socketToUser.get(socket.id);
-    if (!user || !micState.isLive) return;
+    if (!user || !micState.isLive || !micState.requestsOpen) return;
     if (!micState.requests.find(r => r.socketId === socket.id) && !micState.speakers.find(s => s.socketId === socket.id)) {
       micState.requests.push({ socketId: socket.id, userId: user.userId, username: user.username, avatar_seed: user.avatar_seed, avatar_url: user.avatar_url });
       io.emit('mic:status', micState);
@@ -1527,6 +1591,32 @@ io.on('connection', (socket) => {
   // ── WebRTC signaling ──────────────────────────────────────────────────
   socket.on('mic:sync', () => {
     socket.emit('mic:status', micState);
+  });
+
+  // Typing indicator
+  socket.on('chat:typing', ({ room }) => {
+    const user = socketToUser.get(socket.id);
+    if (!user || !room) return;
+    if (!typingInRoom.has(room)) typingInRoom.set(room, new Map());
+    const roomTyping = typingInRoom.get(room);
+    const existing = roomTyping.get(socket.id);
+    if (existing?.timer) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      roomTyping.delete(socket.id);
+      broadcastTyping(room);
+    }, 3000);
+    roomTyping.set(socket.id, { username: user.username, timer });
+    broadcastTyping(room, socket.id);
+  });
+
+  socket.on('chat:stop_typing', ({ room }) => {
+    if (!room) return;
+    const roomTyping = typingInRoom.get(room);
+    if (!roomTyping) return;
+    const existing = roomTyping.get(socket.id);
+    if (existing?.timer) clearTimeout(existing.timer);
+    roomTyping.delete(socket.id);
+    broadcastTyping(room, socket.id);
   });
 
   socket.on('rtc:request', () => {
@@ -1572,6 +1662,15 @@ io.on('connection', (socket) => {
       closeMicStream();
     }
     io.emit('mic:status', micState);
+    // Clear typing state for disconnected socket
+    typingInRoom.forEach((roomTyping, room) => {
+      const entry = roomTyping.get(sid);
+      if (entry) {
+        if (entry.timer) clearTimeout(entry.timer);
+        roomTyping.delete(sid);
+        broadcastTyping(room);
+      }
+    });
     socketToUser.delete(sid);
   });
 });

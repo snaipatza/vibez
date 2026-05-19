@@ -656,12 +656,17 @@ a { color: inherit; text-decoration: none; }
   flex: 1 1 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
 }
-.content.no-chat { grid-template-columns: 1fr; }
+.content.with-chat { grid-template-columns: minmax(0, 1fr) 360px; }
+.content.no-chat { grid-template-columns: minmax(0, 1fr); }
+.content.with-chat.with-ads { grid-template-columns: minmax(0, 1fr) 360px 220px; }
+.content.no-chat.with-ads { grid-template-columns: minmax(0, 1fr) 220px; }
 @media (max-width: 1100px) {
-  .content { grid-template-columns: minmax(0, 1fr) 320px; }
+  .content.with-chat { grid-template-columns: minmax(0, 1fr) 320px; }
+  .content.with-chat.with-ads { grid-template-columns: minmax(0, 1fr) 320px 200px; }
+  .content.no-chat.with-ads { grid-template-columns: minmax(0, 1fr) 200px; }
 }
 
 /* ============================================
@@ -865,6 +870,17 @@ a { color: inherit; text-decoration: none; }
 }
 .right-rail::-webkit-scrollbar { width: 6px; }
 .right-rail::-webkit-scrollbar-thumb { background: var(--line-soft); border-radius: 3px; }
+
+.ads-rail {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 20px 14px 28px;
+  border-left: 1px solid var(--line-faint);
+}
+.ads-rail::-webkit-scrollbar { width: 6px; }
+.ads-rail::-webkit-scrollbar-thumb { background: var(--line-soft); border-radius: 3px; }
 
 .rail-section {
   margin-bottom: 22px;
@@ -4404,7 +4420,10 @@ a { color: inherit; text-decoration: none; }
 
   /* ── CONTENT ── */
   .content,
-  .content.no-chat {
+  .content.no-chat,
+  .content.with-chat,
+  .content.no-chat.with-ads,
+  .content.with-chat.with-ads {
     grid-template-columns: 1fr;
     overflow: visible;
     height: auto;
@@ -4446,6 +4465,13 @@ a { color: inherit; text-decoration: none; }
     border-top: 1px solid var(--line);
     height: auto;
     max-height: none;
+    overflow: visible;
+    padding: 12px;
+  }
+  .ads-rail {
+    border-left: none;
+    border-top: 1px solid var(--line-faint);
+    height: auto;
     overflow: visible;
     padding: 12px;
   }

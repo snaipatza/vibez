@@ -279,14 +279,12 @@ function LivePage({
     return () => clearInterval(id);
   }, []);
 
-  // Load ads once
+  // Load ads + refresh every 2 minutes
   useEffect(() => {
-    fetch('/api/ads')
-      .then(r => r.json())
-      .then(d => {
-        if (Array.isArray(d)) setAds(d);
-      })
-      .catch(() => {});
+    const loadAds = () => fetch('/api/ads').then(r => r.json()).then(d => { if (Array.isArray(d)) setAds(d); }).catch(() => {});
+    loadAds();
+    const id = setInterval(loadAds, 120000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -595,7 +593,7 @@ function LivePage({
         chatOpen={chatOpen}
       />
 
-      <div className={`content ${chatOpen ? '' : 'no-chat'}`}>
+      <div className={`content ${chatOpen ? 'with-chat' : 'no-chat'}${ads.length > 0 ? ' with-ads' : ''}`}>
         <div className="stage">
           {/* Player */}
           <div className="player">
@@ -953,7 +951,12 @@ function LivePage({
               )}
             </div>
 
-            {/* Ads — always visible */}
+          </aside>
+        )}
+
+        {/* Ads — always visible regardless of chatOpen */}
+        {ads.length > 0 && (
+          <aside className="ads-rail">
             <div className="rail-section">
               <div className="rail-head">
                 <div>
@@ -962,30 +965,24 @@ function LivePage({
                 </div>
                 <span className="right">{ads.length} ช่อง</span>
               </div>
-              {ads.length === 0 ? (
-                <div style={{ padding: '14px 10px', color: 'var(--ink-mute)', fontSize: 13 }}>
-                  ยังไม่มีโฆษณาที่เปิดใช้งานอยู่
-                </div>
-              ) : (
-                <div className="ads-list">
-                  {ads.map(ad => (
-                    <div key={ad.id} className="ad-card" onClick={() => setOpenAd(ad)}>
-                      <span className="ad-badge">AD</span>
-                      <div className={`ad-img ${ad.image_url ? '' : 'placeholder'}`}>
-                        {ad.image_url
-                          ? <img src={ad.image_url} alt={ad.title} />
-                          : <i className={adIcon(ad)}></i>
-                        }
-                      </div>
-                      <div className="ad-copy">
-                        <h4>{ad.title}</h4>
-                        <p>{ad.body}</p>
-                        <span className="ad-cta">{ad.cta_text || 'ดูเพิ่มเติม'} →</span>
-                      </div>
+              <div className="ads-list">
+                {ads.map(ad => (
+                  <div key={ad.id} className="ad-card" onClick={() => setOpenAd(ad)}>
+                    <span className="ad-badge">AD</span>
+                    <div className={`ad-img ${ad.image_url ? '' : 'placeholder'}`}>
+                      {ad.image_url
+                        ? <img src={ad.image_url} alt={ad.title} />
+                        : <i className={adIcon(ad)}></i>
+                      }
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="ad-copy">
+                      <h4>{ad.title}</h4>
+                      <p>{ad.body}</p>
+                      <span className="ad-cta">{ad.cta_text || 'ดูเพิ่มเติม'} →</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </aside>
         )}

@@ -407,7 +407,7 @@ function MicPanel({ user, socket, onMicLive }) {
 // ── Compact stage overlay: circular mic button + speaker avatars ──────
 function MicStageCompact({ user, socket, onMicLive }) {
   const mic = useMic(user, socket, onMicLive);
-  const { micState, djMicOn, needsClick, canBroadcast, isActiveStreamer } = mic;
+  const { micState, djMicOn, hasRaised, needsClick, canBroadcast, isActiveStreamer } = mic;
 
   if (!socket) return null;
 
@@ -436,6 +436,20 @@ function MicStageCompact({ user, socket, onMicLive }) {
       {!isActiveStreamer && micState.isLive && needsClick && (
         <button className="mic-circle-btn listen" onClick={mic.clickToListen} title="กดเพื่อฟัง">
           <i className="fas fa-volume-up" />
+        </button>
+      )}
+
+      {/* Raise-hand button — shown to non-DJ users when requests are open */}
+      {!canBroadcast && micState.isLive && micState.requestsOpen && (
+        <button
+          className={`mic-raise-btn${hasRaised ? ' raised' : ''}`}
+          onClick={hasRaised ? mic.lowerHand : mic.raiseHand}
+          title={hasRaised ? 'ยกเลิกขอพูด' : 'ขอพูดกับ DJ'}
+        >
+          {hasRaised
+            ? <><i className="fas fa-hand-paper" /><span>กำลังขอพูด... (ยกเลิก)</span></>
+            : <><i className="fas fa-hand-paper" /><span>ขอพูดกับ DJ</span></>
+          }
         </button>
       )}
 

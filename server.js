@@ -1470,7 +1470,7 @@ const io = new Server(httpServer, { cors: { origin: '*' } });
 
 function broadcastTyping(room, excludeSocketId) {
   const roomTyping = typingInRoom.get(room);
-  const users = roomTyping ? [...roomTyping.values()].map(t => t.username) : [];
+  const users = roomTyping ? [...roomTyping.values()].map(t => ({ username: t.username, display_name: t.display_name || t.username })) : [];
   if (excludeSocketId) {
     io.sockets.sockets.forEach((s) => {
       if (s.id !== excludeSocketId) s.emit('chat:typing_update', { room, users });
@@ -1600,9 +1600,10 @@ io.on('connection', (socket) => {
   });
 
   // Typing indicator
-  socket.on('chat:typing', ({ room, username: clientUsername }) => {
+  socket.on('chat:typing', ({ room, username: clientUsername, display_name: clientDisplayName }) => {
     const user = socketToUser.get(socket.id);
     const uname = (user && user.username) || clientUsername;
+    const dname = (user && (user.display_name || user.username)) || clientDisplayName || uname;
     if (!uname || !room) return;
     if (!typingInRoom.has(room)) typingInRoom.set(room, new Map());
     const roomTyping = typingInRoom.get(room);
@@ -1612,7 +1613,7 @@ io.on('connection', (socket) => {
       roomTyping.delete(socket.id);
       broadcastTyping(room);
     }, 4000);
-    roomTyping.set(socket.id, { username: uname, timer });
+    roomTyping.set(socket.id, { username: uname, display_name: dname, timer });
     broadcastTyping(room, socket.id);
   });
 

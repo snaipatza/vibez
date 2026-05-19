@@ -1444,6 +1444,11 @@ io.on('connection', (socket) => {
     io.to(targetSocketId).emit('rtc:ice', { fromSocketId: socket.id, candidate });
   });
 
+  socket.on('user:frame_update', ({ username, chat_frame, avatar_frame }) => {
+    if (typeof username !== 'string') return;
+    socket.broadcast.emit('user:frame_update', { username, chat_frame: chat_frame || '', avatar_frame: avatar_frame || '' });
+  });
+
   socket.on('disconnect', () => {
     const sid = socket.id;
     // Notify DJ when a listener leaves so it can clean up its RTCPeerConnection

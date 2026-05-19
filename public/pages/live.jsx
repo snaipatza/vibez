@@ -184,6 +184,9 @@ function LivePage({
       avatar_seed: user.avatar_seed || user.name,
       avatar_url: user.avatar_url || '',
     });
+    s.on('user:frame_update', ({ username, chat_frame, avatar_frame }) => {
+      setChat(prev => prev.map(m => m.name === username ? { ...m, chat_frame, avatar_frame } : m));
+    });
     return () => s.disconnect();
   }, []);
 
@@ -754,8 +757,14 @@ function LivePage({
               </div>
               <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <ColorPickerPanel user={user} toast={toast} />
-                <ChatFramePicker user={user} toast={toast} onFrameChange={frame => setChat(prev => prev.map(m => m.name === user.name ? { ...m, chat_frame: frame } : m))} />
-                <AvatarFramePicker user={user} toast={toast} onFrameChange={frame => setChat(prev => prev.map(m => m.name === user.name ? { ...m, avatar_frame: frame } : m))} />
+                <ChatFramePicker user={user} toast={toast} onFrameChange={frame => {
+                  setChat(prev => prev.map(m => m.name === user.name ? { ...m, chat_frame: frame } : m));
+                  socketRef.current?.emit('user:frame_update', { username: user.name, chat_frame: frame, avatar_frame: user.avatar_frame || '' });
+                }} />
+                <AvatarFramePicker user={user} toast={toast} onFrameChange={frame => {
+                  setChat(prev => prev.map(m => m.name === user.name ? { ...m, avatar_frame: frame } : m));
+                  socketRef.current?.emit('user:frame_update', { username: user.name, chat_frame: user.chat_frame || '', avatar_frame: frame });
+                }} />
                 <button className={`chat-header-btn${chatSoundOn ? ' active' : ''}`} onClick={toggleChatSound} title={chatSoundOn ? 'ปิดเสียงแจ้งเตือน' : 'เปิดเสียงแจ้งเตือน'}>
                   <i className={`fas fa-${chatSoundOn ? 'bell' : 'bell-slash'}`} />
                 </button>

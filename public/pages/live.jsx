@@ -180,6 +180,7 @@ function LivePage({
   const lastMsgIdRef = useRef(0);
   const activeRoomRef = useRef(activeRoom); // avoid stale closure in poll
   const socketRef = useRef(null);
+  const [socketReady, setSocketReady] = useState(false);
 
   useEffect(() => { activeRoomRef.current = activeRoom; }, [activeRoom]);
 
@@ -191,6 +192,7 @@ function LivePage({
   useEffect(() => {
     const s = io();
     socketRef.current = s;
+    setSocketReady(true);
     s.emit('auth', {
       userId: user.id || 0,
       username: user.name,
@@ -619,7 +621,7 @@ function LivePage({
                 {nowPlaying?.youtube_id && <div className="corner-label bottom">YOUTUBE LIVE</div>}
 
                 <BeatWaves />
-                <MicStageCompact user={user} socket={socketRef.current} onMicLive={onMicLive} />
+                <MicStageCompact user={user} socket={socketReady ? socketRef.current : null} onMicLive={onMicLive} />
                 <div className="dj-portrait">
                   <div className={`ring-outer ${playerPlaying ? '' : 'paused'}`}></div>
                   <div className="ring-mid"></div>

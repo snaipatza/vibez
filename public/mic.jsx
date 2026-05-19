@@ -118,9 +118,11 @@ function useMic(user, socket, onMicLive) {
         setHasRaised(false);
         if (!amIStreamer) stopListening();
         if (amIStreamer) closeDJPeers();
-      } else if (state.isLive && !amIStreamer && !wasLive) {
-        // Mic just went live and I'm not the streamer → request audio
-        socket.emit('rtc:request');
+      } else if (state.isLive && !amIStreamer) {
+        // Request audio if not yet connected (handles initial load + DJ went live)
+        if (!peerConnectionRef.current || !wasLive) {
+          socket.emit('rtc:request');
+        }
       }
       onMicLive?.(state.isLive);
     });
@@ -187,6 +189,9 @@ function useMic(user, socket, onMicLive) {
     socket.on('mic:approved', () => setHasRaised(false));
     socket.on('mic:rejected', () => setHasRaised(false));
     socket.on('mic:removed', () => {});
+
+    // Sync current mic state — handles race where mic:status arrived before this effect ran
+    socket.emit('mic:sync');
 
     return () => {
       socket.off('mic:status');

@@ -1516,6 +1516,10 @@ io.on('connection', (socket) => {
   });
 
   // ── WebRTC signaling ──────────────────────────────────────────────────
+  socket.on('mic:sync', () => {
+    socket.emit('mic:status', micState);
+  });
+
   socket.on('rtc:request', () => {
     if (micState.isLive && micState.djSocketId && socket.id !== micState.djSocketId) {
       io.to(micState.djSocketId).emit('rtc:new-listener', { listenerSocketId: socket.id });

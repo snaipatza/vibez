@@ -1006,6 +1006,7 @@ function LivePage({
               <div style={{ fontSize: 32, marginBottom: 6 }}>💎</div>
               <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 2 }}>อัปเกรด VIP</div>
               <div style={{ fontSize: 12, opacity: 0.85 }}>รับสิทธิพิเศษทันทีหลังแอดมินยืนยัน</div>
+              <div style={{ fontSize: 11, opacity: 0.75, marginTop: 6 }}>🙏 ฝากสนับสนุนเว็บไซต์เพื่อเป็นกำลังใจให้แอดมินครับ</div>
             </div>
             <div style={{ padding: '20px 24px 24px' }}>
               {donateStep === 1 && (

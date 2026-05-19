@@ -173,6 +173,8 @@ function LivePage({
   const [donateSaving, setDonateSaving] = useState(false);
   const [vipPackages, setVipPackages] = useState([]);
 
+  const isDJ = liveRoleLevel(user.role) >= 3; // dj (3) or admin (4)
+
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
   const activeRoomRef = useRef(activeRoom); // avoid stale closure in poll
@@ -851,7 +853,7 @@ function LivePage({
                 <span className="right">{(djQueue.length + userQueue.length)} เพลง</span>
               </div>
 
-              {user.role === 'dj' && (
+              {isDJ && (
                 <div className="queue-tabs">
                   <button className={`qtab ${qTab === 'dj' ? 'active' : ''}`} onClick={() => setQTab('dj')}>
                     🎧 Playlist ({djQueue.length})
@@ -863,9 +865,9 @@ function LivePage({
               )}
 
               {/* DJ Playlist Tab */}
-              {(user.role !== 'dj' || qTab === 'dj') && (
+              {(!isDJ || qTab === 'dj') && (
                 <div className="queue compact">
-                  {user.role === 'dj' && (
+                  {isDJ && (
                     <form className="dj-add-form" onSubmit={submitDjSong}>
                       <input
                         placeholder="+ เพิ่มเพลงใน Playlist..."
@@ -875,23 +877,23 @@ function LivePage({
                       <button type="submit"><i className="fas fa-plus"></i></button>
                     </form>
                   )}
-                  {djQueue.length === 0 && user.role === 'dj' && (
+                  {djQueue.length === 0 && isDJ && (
                     <div style={{ padding: '10px', color: 'var(--ink-mute)', fontSize: 12, textAlign: 'center' }}>
                       ยังไม่มีเพลงใน Playlist — เพิ่มเพลงด้านบน
                     </div>
                   )}
-                  {(user.role === 'dj' ? djQueue : queue).map((q, i) => (
+                  {(isDJ ? djQueue : queue).map((q, i) => (
                     <div
                       key={q.id}
                       className={`queue-row ${dragOverIdx === i && dragIdx !== i ? 'drag-over' : ''}`}
-                      draggable={user.role === 'dj' && q.type === 'dj'}
+                      draggable={isDJ && q.type === 'dj'}
                       onDragStart={() => { setDragIdx(i); setDragOverIdx(i); }}
                       onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
                       onDragLeave={() => setDragOverIdx(null)}
                       onDrop={() => handleDrop(i)}
-                      style={{ opacity: dragIdx === i ? 0.45 : 1, cursor: user.role === 'dj' && q.type === 'dj' ? 'grab' : 'default' }}
+                      style={{ opacity: dragIdx === i ? 0.45 : 1, cursor: isDJ && q.type === 'dj' ? 'grab' : 'default' }}
                     >
-                      {user.role === 'dj' && q.type === 'dj' && (
+                      {isDJ && q.type === 'dj' && (
                         <div className="drag-handle" title="ลากเพื่อเรียงลำดับ">⠿</div>
                       )}
                       <div className="pos">{q.status === 'playing' ? '▶' : String(i + 1).padStart(2, '0')}</div>
@@ -899,7 +901,7 @@ function LivePage({
                         <div className="t">{q.title}</div>
                         <div className="a">{q.artist}{q.artist && q.requester ? ' · ' : ''}{q.requester ? `@${q.requester}` : ''}</div>
                       </div>
-                      {user.role === 'dj' ? (
+                      {isDJ ? (
                         <div className="row-actions">
                           {q.youtube_url && (
                             <a className="btn-mini" href={q.youtube_url} target="_blank" rel="noreferrer">YT</a>
@@ -920,8 +922,8 @@ function LivePage({
                 </div>
               )}
 
-              {/* User Requests Tab (DJ only) */}
-              {user.role === 'dj' && qTab === 'requests' && (
+              {/* User Requests Tab (DJ/Admin) */}
+              {isDJ && qTab === 'requests' && (
                 <div className="queue compact">
                   {userQueue.length === 0 && (
                     <div style={{ padding: '10px', color: 'var(--ink-mute)', fontSize: 12, textAlign: 'center' }}>

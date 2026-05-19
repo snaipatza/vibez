@@ -77,10 +77,8 @@ function roleLevel(role) { return ROLE_LEVEL[role] || 0; }
 
 // VIP donation packages — edit prices here
 const VIP_PACKAGES = [
-    { id: '1month',  label: '1 เดือน',  days: 30,  price: 99  },
-    { id: '3months', label: '3 เดือน',  days: 90,  price: 249 },
-    { id: '6months', label: '6 เดือน',  days: 180, price: 449 },
-    { id: '1year',   label: '1 ปี',     days: 365, price: 799 },
+    { id: '1month',  label: '1 เดือน', days: 30, price: 19 },
+    { id: '3months', label: '3 เดือน', days: 90, price: 49 },
 ];
 
 function normalizePhone(phone) {

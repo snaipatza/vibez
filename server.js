@@ -595,7 +595,7 @@ app.patch('/api/me/colors', requireAuth, (req, res) => {
 
     const nameColor = String(req.body.name_color || '').trim();
     const chatColor = String(req.body.chat_color || '').trim();
-    const chatFrame = String(req.body.chat_frame ?? req.body.chat_frame === undefined ? '__SKIP__' : req.body.chat_frame || '').trim();
+    const chatFrame = String(req.body.chat_frame !== undefined ? req.body.chat_frame || '' : '').trim();
     const VALID_FRAMES = ['', 'glow-orange', 'glow-pink', 'rainbow', 'neon-blue', 'gold', 'purple', 'green', 'fire', 'ice', 'galaxy', 'red-alert'];
     const VALID_AVATAR_FRAMES = ['', 'electric', 'fire-av', 'ice-av', 'galaxy-av', 'holo', 'neon-pink', 'matrix', 'gold-cool',
         'cat', 'panda', 'bunny', 'frog', 'fox', 'bear', 'penguin', 'unicorn'];

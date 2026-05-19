@@ -178,6 +178,8 @@ function LivePage({
   const [micLive, setMicLive] = useState(false);
   const [micRequestsOpen, setMicRequestsOpen] = useState(false);
   const [micIsLive, setMicIsLive] = useState(false);
+  const [micSpeakers, setMicSpeakers] = useState([]);
+  const [micDJInfo, setMicDJInfo] = useState(null);
   const [pageHasRaised, setPageHasRaised] = useState(false);
 
   const tipBtnRef = useRef(null);
@@ -200,6 +202,7 @@ function LivePage({
     s.emit('auth', {
       userId: user.id || 0,
       username: user.name,
+      display_name: user.display_name || user.name,
       role: user.role,
       avatar_seed: user.avatar_seed || user.name,
       avatar_url: user.avatar_url || '',
@@ -216,6 +219,8 @@ function LivePage({
     s.on('mic:status', (state) => {
       setMicIsLive(!!state.isLive);
       setMicRequestsOpen(!!state.requestsOpen);
+      setMicSpeakers(state.speakers || []);
+      setMicDJInfo(state.isLive ? { username: state.djUsername, avatar_seed: state.djAvatarSeed, avatar_url: state.djAvatarUrl } : null);
       if (!state.isLive) setPageHasRaised(false);
     });
     s.on('mic:approved', () => setPageHasRaised(false));
@@ -803,10 +808,10 @@ function LivePage({
                 )}
                 {liveRoleLevel(user.role) >= 2 && (
                   <button
-                    className={`btn-mini raise-hand-btn${!micIsLive || !micRequestsOpen ? ' locked' : pageHasRaised ? ' raised' : ''}`}
-                    title={!micIsLive ? 'DJ ยังไม่เปิดไมค์' : !micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}
+                    className={`btn-mini raise-hand-btn${!micRequestsOpen ? ' locked' : pageHasRaised ? ' raised' : ''}`}
+                    title={!micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}
                     onClick={() => {
-                      if (!micIsLive || !micRequestsOpen) return;
+                      if (!micRequestsOpen) return;
                       const s = socketRef.current;
                       if (!s) return;
                       if (pageHasRaised) { s.emit('hand:lower'); setPageHasRaised(false); }
@@ -814,7 +819,7 @@ function LivePage({
                     }}
                   >
                     <i className="fas fa-hand-paper" />
-                    {!micIsLive ? ' ขอพูด' : !micRequestsOpen ? ' รอ DJ' : pageHasRaised ? ' กำลังรอ...' : ' ขอพูด'}
+                    {!micRequestsOpen ? ' ขอพูด' : pageHasRaised ? ' กำลังรอ...' : ' ขอพูด'}
                   </button>
                 )}
                 <ColorPickerPanel user={user} toast={toast} />
@@ -836,6 +841,27 @@ function LivePage({
                 <span style={{ color: 'var(--orange-deep)' }}>● LIVE</span>
               </div>
             </div>
+
+            {micIsLive && (micDJInfo || micSpeakers.length > 0) && (
+              <div className="mic-on-air-bar">
+                <span className="mic-on-air-label"><span className="mic-on-air-dot" /> ON AIR</span>
+                <div className="mic-on-air-avatars">
+                  {micDJInfo && (
+                    <div className="mic-on-air-user" title={`DJ: ${micDJInfo.username}`}>
+                      <img src={micDJInfo.avatar_url || AVATAR(micDJInfo.avatar_seed || micDJInfo.username)} alt="" />
+                      <span>{micDJInfo.username}</span>
+                      <span className="mic-on-air-crown">🎧</span>
+                    </div>
+                  )}
+                  {micSpeakers.map(s => (
+                    <div key={s.socketId} className="mic-on-air-user" title={s.username}>
+                      <img src={s.avatar_url || AVATAR(s.avatar_seed || s.username)} alt="" />
+                      <span>{s.display_name || s.username}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="chat-card">
               <ChatPanelInline messages={chat} onSend={onSendChat} user={user} soundOn={chatSoundOn} typeSoundOn={typeSoundOn} socket={socketReady ? socketRef.current : null} activeRoom={activeRoom} />

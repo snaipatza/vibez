@@ -1481,8 +1481,8 @@ function broadcastTyping(room, excludeSocketId) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('auth', ({ userId, username, role, avatar_seed, avatar_url }) => {
-    socketToUser.set(socket.id, { userId, username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
+  socket.on('auth', ({ userId, username, display_name, role, avatar_seed, avatar_url }) => {
+    socketToUser.set(socket.id, { userId, username, display_name: display_name || username, role, avatar_seed: avatar_seed || username, avatar_url: avatar_url || '' });
     socket.emit('mic:status', micState);
   });
 
@@ -1553,12 +1553,12 @@ io.on('connection', (socket) => {
     io.emit('mic:status', micState);
   });
 
-  // Raise hand — only allowed when DJ has opened requests
+  // Raise hand — allowed when DJ has opened requests (mic does not need to be live)
   socket.on('hand:raise', () => {
     const user = socketToUser.get(socket.id);
-    if (!user || !micState.isLive || !micState.requestsOpen) return;
+    if (!user || !micState.requestsOpen) return;
     if (!micState.requests.find(r => r.socketId === socket.id) && !micState.speakers.find(s => s.socketId === socket.id)) {
-      micState.requests.push({ socketId: socket.id, userId: user.userId, username: user.username, avatar_seed: user.avatar_seed, avatar_url: user.avatar_url });
+      micState.requests.push({ socketId: socket.id, userId: user.userId, username: user.username, display_name: user.display_name || user.username, avatar_seed: user.avatar_seed, avatar_url: user.avatar_url });
       io.emit('mic:status', micState);
     }
   });

@@ -916,7 +916,7 @@ app.post('/api/collab', requireDJ, (req, res) => {
         db.prepare("UPDATE now_playing SET collab_dj_username='', collab_dj_user_id=0, collab_dj_avatar_seed='', collab_dj_avatar_url='' WHERE id=1").run();
         return res.json({ success: true, cleared: true });
     }
-    const collab = db.prepare(`SELECT id, username, avatar_seed, avatar_url FROM users WHERE LOWER(username)=LOWER(?) AND role IN ('dj', 'admin')`).get(username);
+    const collab = db.prepare(`SELECT id, username, display_name, avatar_seed, avatar_url FROM users WHERE LOWER(username)=LOWER(?) AND role IN ('dj', 'admin')`).get(username);
     if (!collab) return res.status(404).json({ error: 'Collaborator not found' });
     db.prepare(`
         UPDATE now_playing SET
@@ -938,7 +938,17 @@ app.get('/api/now-playing', (req, res) => {
         ? Math.max(0, now - row.started_at)
         : Math.max(0, row.paused_elapsed);
 
-    res.json({ ...row, elapsed_seconds: elapsed, stage_active: stageState.active, stage_dj: stageState.djUsername });
+    const djUser = row.dj_username ? db.prepare('SELECT display_name FROM users WHERE username=?').get(row.dj_username) : null;
+    const collabUser = row.collab_dj_username ? db.prepare('SELECT display_name FROM users WHERE username=?').get(row.collab_dj_username) : null;
+
+    res.json({
+        ...row,
+        elapsed_seconds: elapsed,
+        stage_active: stageState.active,
+        stage_dj: stageState.djUsername,
+        dj_display_name: djUser?.display_name || '',
+        collab_dj_display_name: collabUser?.display_name || '',
+    });
 });
 
 // DJ: set now playing
@@ -1167,7 +1177,7 @@ app.get('/api/messages', (req, res) => {
         ? new Date(Date.now() - 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
         : '2000-01-01 00:00:00';
     const messages = db.prepare(`
-        SELECT messages.*, users.avatar_seed, users.avatar_url
+        SELECT messages.*, users.avatar_seed, users.avatar_url, users.display_name
         FROM messages
         LEFT JOIN users ON users.id = messages.user_id
         WHERE messages.id > ? AND messages.room_id = ? AND messages.created_at >= ?

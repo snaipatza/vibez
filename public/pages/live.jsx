@@ -41,6 +41,7 @@ function msgFromApi(m) {
   }
   return {
     name: m.username,
+    display_name: m.display_name || '',
     role: m.role,
     dj: m.role === 'dj',
     text: m.message,
@@ -513,7 +514,7 @@ function LivePage({
 
   const djSeed = nowPlaying?.dj_avatar_seed || 'IMVURADIO';
   const djAvatarUrl = nowPlaying?.dj_avatar_url || '';
-  const djName = nowPlaying?.dj_username || 'IIMV Society Radio';
+  const djName = nowPlaying?.dj_display_name || nowPlaying?.dj_username || 'IIMV Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
   const isFollowingCurrentDj = !!djName && followedDjs.includes(djName);
@@ -561,11 +562,12 @@ function LivePage({
       const data = await res.json();
       if (!res.ok) { toast(data.error || 'Collab update failed'); return; }
       if (!collabName) {
-        setStationNowPlaying(prev => prev ? { ...prev, collab_dj_username: '', collab_dj_avatar_seed: '', collab_dj_avatar_url: '' } : prev);
+        setStationNowPlaying(prev => prev ? { ...prev, collab_dj_username: '', collab_dj_display_name: '', collab_dj_avatar_seed: '', collab_dj_avatar_url: '' } : prev);
       } else {
         setStationNowPlaying(prev => prev ? {
           ...prev,
           collab_dj_username: data.collab.username,
+          collab_dj_display_name: data.collab.display_name || '',
           collab_dj_avatar_seed: data.collab.avatar_seed,
           collab_dj_avatar_url: data.collab.avatar_url,
         } : prev);
@@ -657,7 +659,7 @@ function LivePage({
                   {nowPlaying?.collab_dj_username && (
                     <div className="collab-banner">
                       <i className="fas fa-user-friends"></i>
-                      <span>Collab DJ: @{nowPlaying.collab_dj_username}</span>
+                      <span>Collab DJ: @{nowPlaying.collab_dj_display_name || nowPlaying.collab_dj_username}</span>
                     </div>
                   )}
                 </div>
@@ -1279,7 +1281,7 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                     <span
                       className={`name ${m.dj ? 'dj' : ''}`}
                       style={m.name_color ? { color: m.name_color } : undefined}
-                    >{m.name}</span>
+                    >{m.display_name || m.name}</span>
                     <span className="time">{m.time}</span>
                     <button
                       className="msg-reply-btn"

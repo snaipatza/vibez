@@ -226,13 +226,16 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, dmUnread, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
+function Sidebar({ page, onNav, user, queueCount, dmUnread, onAvatarSave, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
   const { useState: useSt } = React;
   const [showCreateRoom, setShowCreateRoom] = useSt(false);
   const [newRoomName, setNewRoomName] = useSt('');
   const [newRoomSkin, setNewRoomSkin] = useSt('pink');
   const [createError, setCreateError] = useSt('');
   const [creating, setCreating] = useSt(false);
+  const [showMobileSettings, setShowMobileSettings] = useSt(false);
+  const [mobileAvatarPreview, setMobileAvatarPreview] = useSt(null);
+  const [mobileAvatarSaving, setMobileAvatarSaving] = useSt(false);
   const canManageRooms = user && (user.role === 'dj' || user.role === 'admin');
 
   const submitCreateRoom = async () => {
@@ -268,6 +271,7 @@ function Sidebar({ page, onNav, user, queueCount, dmUnread, rooms, activeRoom, o
   }, []);
 
   return (
+    <>
     <aside className="sidebar">
       <div className="brand">
         <div className="brand-mark orange">V</div>
@@ -343,6 +347,12 @@ function Sidebar({ page, onNav, user, queueCount, dmUnread, rooms, activeRoom, o
             <i className="fas fa-clipboard-list nav-icon"></i>
             <span>กฎห้อง</span>
           </div>
+          {user && (
+            <div className={`nav-item mobile-only ${showMobileSettings ? 'active' : ''}`} onClick={() => setShowMobileSettings(v => !v)}>
+              <img src={mobileAvatarPreview || user.avatar_url || AVATAR(user.avatar_seed || user.name)} alt="" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} />
+              <span>ฉัน</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -514,6 +524,61 @@ function Sidebar({ page, onNav, user, queueCount, dmUnread, rooms, activeRoom, o
         </div>
       </div>
     </aside>
+
+    {showMobileSettings && user && (
+      <div className="mobile-settings-overlay" onClick={() => setShowMobileSettings(false)}>
+        <div className="mobile-settings-sheet" onClick={e => e.stopPropagation()}>
+          <div className="mobile-settings-handle" />
+
+          {/* Avatar + info */}
+          <div className="mobile-settings-profile">
+            <label className="mobile-settings-avatar-label">
+              <img src={mobileAvatarPreview || user.avatar_url || AVATAR(user.avatar_seed || user.name)} alt="" />
+              <div className="mobile-settings-avatar-overlay">
+                <i className="fas fa-camera" />
+              </div>
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file || !onAvatarSave) return;
+                const reader = new FileReader();
+                reader.onload = async ev => {
+                  const b64 = ev.target.result;
+                  setMobileAvatarPreview(b64);
+                  setMobileAvatarSaving(true);
+                  await onAvatarSave(b64);
+                  setMobileAvatarSaving(false);
+                };
+                reader.readAsDataURL(file);
+              }} />
+            </label>
+            {mobileAvatarSaving && <div style={{ fontSize: 11, color: 'var(--pink)', marginTop: 4 }}>กำลังบันทึก...</div>}
+            <div className="mobile-settings-display-name">{user.display_name || user.name}</div>
+            <div className="mobile-settings-role">{roleMeta(user.role).emoji} {roleMeta(user.role).label}</div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="mobile-settings-actions">
+            <button className="mobile-settings-btn" onClick={onToggleTheme}>
+              <i className={`fas fa-${theme === 'dark' ? 'sun' : 'moon'}`} />
+              <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
+            {onOpenProfile && (
+              <button className="mobile-settings-btn" onClick={() => { setShowMobileSettings(false); onOpenProfile(); }}>
+                <i className="fas fa-user-edit" />
+                <span>แก้ไขโปรไฟล์</span>
+              </button>
+            )}
+            {onLogout && (
+              <button className="mobile-settings-btn danger" onClick={onLogout}>
+                <i className="fas fa-sign-out-alt" />
+                <span>ออกจากระบบ</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

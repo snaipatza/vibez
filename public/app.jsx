@@ -352,6 +352,19 @@ function App() {
     });
   };
 
+  const handleAvatarSave = async (base64) => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar_seed: user.avatar_seed || user.name, display_name: user.display_name || '', avatar_image: base64 }),
+      });
+      const data = await res.json();
+      if (res.ok) setUser(prev => ({ ...prev, avatar_url: data.avatar_url }));
+    } catch {}
+  };
+
   const openDirectMessage = (username) => {
     if (!username) return;
     const lvl = { guest: 0, user: 1, member: 1, vip: 2, dj: 3, admin: 4 }[user?.role] || 0;
@@ -433,6 +446,7 @@ function App() {
         user={user}
         queueCount={queueCount}
         dmUnread={dmUnread}
+        onAvatarSave={handleAvatarSave}
         rooms={rooms.map(r => r.id === DEFAULT_ROOM_ID ? { ...r, listeners } : r)}
         activeRoom={activeRoom}
         onRoomClick={(id) => { setActiveRoom(id); setPage('live'); }}

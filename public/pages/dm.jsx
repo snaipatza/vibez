@@ -109,8 +109,10 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
         setText(t);
         return;
       }
+      const newId = data.id || Date.now();
+      if (data.id) lastMsgIdRef.current = Math.max(lastMsgIdRef.current, data.id);
       setMessages(prev => [...prev, {
-        id: data.id || Date.now(),
+        id: newId,
         from_username: user.name,
         to_username: activeId,
         message: t,
@@ -266,6 +268,7 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
                   pendingMedia={pendingMedia}
                   onPickMedia={setPendingMedia}
                   onClearMedia={() => setPendingMedia(null)}
+                  userRole={user.role}
                 />
               </div>
             </section>

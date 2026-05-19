@@ -2998,7 +2998,7 @@ a { color: inherit; text-decoration: none; }
   min-width: 80px;
 }
 .dm-msg.theirs .bubble { background: var(--bg-soft); color: var(--ink); }
-.dm-msg.mine .bubble { background: var(--ink); color: #fff; }
+.dm-msg.mine .bubble { background: var(--orange); color: #fff; }
 .dm-msg .stamp {
   font-family: var(--font-mono);
   font-size: 10px;

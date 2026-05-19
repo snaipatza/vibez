@@ -1374,6 +1374,8 @@ const micState = {
   isLive: false,
   djSocketId: null,
   djUsername: null,
+  djAvatarSeed: null,
+  djAvatarUrl: null,
   requests: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
   speakers: [],  // [{socketId, userId, username, avatar_seed, avatar_url}]
 };
@@ -1419,6 +1421,8 @@ io.on('connection', (socket) => {
     micState.isLive = true;
     micState.djSocketId = socket.id;
     micState.djUsername = user.username;
+    micState.djAvatarSeed = user.avatar_seed || user.username;
+    micState.djAvatarUrl = user.avatar_url || '';
     micAudioHeader = null;
     io.emit('mic:status', micState);
   });
@@ -1427,6 +1431,9 @@ io.on('connection', (socket) => {
     if (socket.id !== micState.djSocketId) return;
     micState.isLive = false;
     micState.djSocketId = null;
+    micState.djUsername = null;
+    micState.djAvatarSeed = null;
+    micState.djAvatarUrl = null;
     micState.requests = [];
     micState.speakers = [];
     micAudioHeader = null;

@@ -311,7 +311,7 @@ function MicPanel({ user, socket, onMicLive }) {
           <div className="mic-stage-row">
             {micState.isLive && (
               <div className="mic-avatar-bubble active" title={`DJ: ${micState.djUsername}`}>
-                <img src={AVATAR(micState.djUsername || 'DJ')} alt="" />
+                <img src={micState.djAvatarUrl || AVATAR(micState.djAvatarSeed || micState.djUsername || 'DJ')} alt="" />
                 <span className="mic-avatar-name">{micState.djUsername}</span>
                 <span className="mic-on-dot"></span>
               </div>
@@ -423,7 +423,7 @@ function MicStageCompact({ user, socket, onMicLive }) {
             <div key="dj-self" className="mic-stage-spk mic-stage-spk-dj" title={micState.djUsername}>
               <span className="spk-voice-ring" />
               <span className="spk-voice-ring" style={{ animationDelay: '0.5s' }} />
-              <img src={AVATAR(micState.djUsername)} alt="" />
+              <img src={micState.djAvatarUrl || AVATAR(micState.djAvatarSeed || micState.djUsername)} alt="" />
               <span className="spk-label">{(micState.djUsername || '').slice(0, 8)}</span>
             </div>
           )}

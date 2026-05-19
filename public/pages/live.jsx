@@ -801,7 +801,7 @@ function LivePage({
                     💎 VIP
                   </button>
                 )}
-                {!isDJ && micIsLive && (
+                {liveRoleLevel(user.role) >= 2 && micIsLive && (
                   <button
                     className={`btn-mini raise-hand-btn${micRequestsOpen ? (pageHasRaised ? ' raised' : '') : ' locked'}`}
                     title={!micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}

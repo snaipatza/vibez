@@ -176,6 +176,9 @@ function LivePage({
 
   const isDJ = liveRoleLevel(user.role) >= 3; // dj (3) or admin (4)
   const [micLive, setMicLive] = useState(false);
+  const [micRequestsOpen, setMicRequestsOpen] = useState(false);
+  const [micIsLive, setMicIsLive] = useState(false);
+  const [pageHasRaised, setPageHasRaised] = useState(false);
 
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
@@ -210,6 +213,14 @@ function LivePage({
         return next;
       }));
     });
+    s.on('mic:status', (state) => {
+      setMicIsLive(!!state.isLive);
+      setMicRequestsOpen(!!state.requestsOpen);
+      if (!state.isLive) setPageHasRaised(false);
+    });
+    s.on('mic:approved', () => setPageHasRaised(false));
+    s.on('mic:rejected', () => setPageHasRaised(false));
+    s.emit('mic:sync');
     return () => s.disconnect();
   }, []);
 
@@ -788,6 +799,22 @@ function LivePage({
                 {liveRoleLevel(user.role) < 2 && (
                   <button className="btn-mini" style={{ background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff', border: 'none' }} onClick={() => { setDonateStep(1); setDonatePackage(null); setDonateSlip(null); setDonateOpen(true); }}>
                     💎 VIP
+                  </button>
+                )}
+                {!isDJ && micIsLive && (
+                  <button
+                    className={`btn-mini raise-hand-btn${micRequestsOpen ? (pageHasRaised ? ' raised' : '') : ' locked'}`}
+                    title={!micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}
+                    onClick={() => {
+                      if (!micRequestsOpen) return;
+                      const s = socketRef.current;
+                      if (!s) return;
+                      if (pageHasRaised) { s.emit('hand:lower'); setPageHasRaised(false); }
+                      else { s.emit('hand:raise'); setPageHasRaised(true); }
+                    }}
+                  >
+                    <i className="fas fa-hand-paper" />
+                    {!micRequestsOpen ? ' รอ DJ' : pageHasRaised ? ' กำลังรอ...' : ' ขอพูด'}
                   </button>
                 )}
                 <ColorPickerPanel user={user} toast={toast} />

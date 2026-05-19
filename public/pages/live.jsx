@@ -175,6 +175,7 @@ function LivePage({
   const [vipPackages, setVipPackages] = useState([]);
 
   const isDJ = liveRoleLevel(user.role) >= 3; // dj (3) or admin (4)
+  const [micLive, setMicLive] = useState(false);
 
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
@@ -621,7 +622,7 @@ function LivePage({
                 {nowPlaying?.youtube_id && <div className="corner-label bottom">YOUTUBE LIVE</div>}
 
                 <BeatWaves />
-                <MicStageCompact user={user} socket={socketReady ? socketRef.current : null} onMicLive={onMicLive} />
+                <MicStageCompact user={user} socket={socketReady ? socketRef.current : null} onMicLive={(live) => { setMicLive(live); onMicLive?.(live); }} />
                 <div className="dj-portrait">
                   <div className={`ring-outer ${playerPlaying ? '' : 'paused'}`}></div>
                   <div className="ring-mid"></div>
@@ -702,6 +703,13 @@ function LivePage({
                       />
                       <span className="volume-val">{playerVolume}</span>
                     </div>
+                    {micLive && (
+                      <div className="duck-badge" title="ลดเสียงเพลงอัตโนมัติขณะ DJ พูด">
+                        <i className="fas fa-microphone-alt"></i>
+                        <span className="duck-wave"><span/><span/><span/></span>
+                        <span>DJ ON AIR</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -803,7 +811,7 @@ function LivePage({
             </div>
 
             <div className="chat-card">
-              <ChatPanelInline messages={chat} onSend={onSendChat} user={user} soundOn={chatSoundOn} typeSoundOn={typeSoundOn} />
+              <ChatPanelInline messages={chat} onSend={onSendChat} user={user} soundOn={chatSoundOn} typeSoundOn={typeSoundOn} socket={socketReady ? socketRef.current : null} activeRoom={activeRoom} />
             </div>
 
             {poll && <LivePoll poll={poll} onVote={(idx) => {
@@ -1156,13 +1164,16 @@ function LivePage({
 }
 
 // Inline chat (no header — header lives in section above)
-function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn = true }) {
+function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn = true, socket, activeRoom }) {
   const { useState, useEffect, useRef, useCallback } = React;
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
   const [newCount, setNewCount] = useState(0);
   const [atBottom, setAtBottom] = useState(true);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const typingTimerRef = useRef(null);
+  const isTypingRef = useRef(false);
   const bodyRef = useRef(null);
   const bottomRef = useRef(null);
   const prevMsgsRef = useRef(messages);
@@ -1172,6 +1183,39 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
   const atBottomRef = useRef(true);
   useEffect(() => { soundOnRef.current = soundOn; }, [soundOn]);
   useEffect(() => { typeSoundOnRef.current = typeSoundOn; }, [typeSoundOn]);
+
+  // Socket: listen for typing updates in this room
+  useEffect(() => {
+    if (!socket) return;
+    const handler = ({ room, users }) => {
+      if (room !== activeRoom) return;
+      setTypingUsers(users.filter(u => u !== user.name));
+    };
+    socket.on('chat:typing_update', handler);
+    return () => socket.off('chat:typing_update', handler);
+  }, [socket, activeRoom]);
+
+  const handleTextChange = (val) => {
+    setText(val);
+    if (!socket) return;
+    if (val.trim()) {
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        socket.emit('chat:typing', { room: activeRoom });
+      }
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        isTypingRef.current = false;
+        socket.emit('chat:stop_typing', { room: activeRoom });
+      }, 3000);
+    } else {
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        clearTimeout(typingTimerRef.current);
+        socket.emit('chat:stop_typing', { room: activeRoom });
+      }
+    }
+  };
 
   const playDing = useCallback(() => {
     try {
@@ -1252,6 +1296,11 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
     e.preventDefault();
     if (!text.trim() && !pendingMedia) return;
     if (typeSoundOnRef.current) playTypeSound();
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      clearTimeout(typingTimerRef.current);
+      socket?.emit('chat:stop_typing', { room: activeRoom });
+    }
     onSend({ message: text.trim(), media: pendingMedia, replyTo });
     setText('');
     setPendingMedia(null);
@@ -1318,6 +1367,13 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
         )}
       </div>
 
+      {typingUsers.length > 0 && (
+        <div className="typing-indicator">
+          <span className="typing-dots"><span/><span/><span/></span>
+          <span>{typingUsers.length === 1 ? typingUsers[0] : typingUsers.length === 2 ? typingUsers.join(', ') : `${typingUsers.length} คน`} กำลังพิม...</span>
+        </div>
+      )}
+
       {replyTo && (
         <div className="reply-preview-strip">
           <i className="fas fa-reply" style={{ color: 'var(--orange)', fontSize: 11 }}></i>
@@ -1331,7 +1387,7 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
 
       <ChatComposer
         value={text}
-        onChange={setText}
+        onChange={handleTextChange}
         onSubmit={submit}
         placeholder={replyTo ? `ตอบ @${replyTo.name}...` : 'Message the room...'}
         maxLength={300}

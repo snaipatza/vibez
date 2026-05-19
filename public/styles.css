@@ -5419,3 +5419,75 @@ a { color: inherit; text-decoration: none; }
   .profile-stat-grid { grid-template-columns: 1fr 1fr; }
   .shoutout-pop { right: auto; left: 50%; transform: translateX(-50%); top: 12px; }
 }
+
+/* ── Duck badge (DJ on air indicator) ─────────────────────── */
+.duck-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255,60,0,0.12);
+  border: 1px solid rgba(255,60,0,0.35);
+  color: #ff3c00;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  animation: duckPulse 2s ease-in-out infinite;
+}
+.duck-badge i { font-size: 12px; }
+.duck-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.duck-wave span {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: #ff3c00;
+  animation: duckBar 0.9s ease-in-out infinite;
+}
+.duck-wave span:nth-child(1) { height: 6px; animation-delay: 0s; }
+.duck-wave span:nth-child(2) { height: 12px; animation-delay: 0.18s; }
+.duck-wave span:nth-child(3) { height: 8px; animation-delay: 0.36s; }
+@keyframes duckBar {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1.1); }
+}
+@keyframes duckPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,60,0,0.25); }
+  50%       { box-shadow: 0 0 0 5px rgba(255,60,0,0); }
+}
+
+/* ── Typing indicator ──────────────────────────────────────── */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.typing-dots span {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(1) { animation-delay: 0s; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%            { transform: translateY(-5px); opacity: 1; }
+}

@@ -38,6 +38,7 @@ function App() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [offlineUsers, setOfflineUsers] = useState([]);
   const [queueCount, setQueueCount] = useState(0);
+  const [dmUnread, setDmUnread] = useState(0);
   const [nowPlaying, setNowPlaying] = useState(null);
   const [dmTarget, setDmTarget] = useState(null);
   const [rooms, setRooms] = useState([{ id: DEFAULT_ROOM_ID, name: 'main-stage', skin: 'pink', is_default: 1 }]);
@@ -115,7 +116,15 @@ function App() {
 
     syncMe(true);
     const id = setInterval(() => syncMe(false), 30000);
-    return () => clearInterval(id);
+
+    const syncDmUnread = () =>
+      fetch('/api/dm/inbox').then(r => r.json()).then(data => {
+        if (Array.isArray(data)) setDmUnread(data.reduce((s, c) => s + (c.unread || 0), 0));
+      }).catch(() => {});
+    syncDmUnread();
+    const dmId = setInterval(syncDmUnread, 15000);
+
+    return () => { clearInterval(id); clearInterval(dmId); };
   }, []);
 
   useEffect(() => {
@@ -423,6 +432,7 @@ function App() {
         onNav={setPage}
         user={user}
         queueCount={queueCount}
+        dmUnread={dmUnread}
         rooms={rooms.map(r => r.id === DEFAULT_ROOM_ID ? { ...r, listeners } : r)}
         activeRoom={activeRoom}
         onRoomClick={(id) => { setActiveRoom(id); setPage('live'); }}

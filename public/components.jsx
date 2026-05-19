@@ -226,7 +226,7 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
 }
 
 // -------- SIDEBAR -----------------------------------------------------------
-function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
+function Sidebar({ page, onNav, user, queueCount, dmUnread, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
   const { useState: useSt } = React;
   const [showCreateRoom, setShowCreateRoom] = useSt(false);
   const [newRoomName, setNewRoomName] = useSt('');
@@ -329,7 +329,7 @@ function Sidebar({ page, onNav, user, queueCount, rooms, activeRoom, onRoomClick
             <div className={`nav-item ${page === 'dm' ? 'active' : ''}`} onClick={() => onNav('dm')}>
               <i className="fas fa-comment-dots nav-icon"></i>
               <span>Messages</span>
-              {page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
+              {dmUnread > 0 && page !== 'dm' ? <span className="badge">{dmUnread}</span> : page === 'dm' && <div className="pulse-bars"><span /><span /><span /></div>}
             </div>
           )}
           {(user.role === 'admin' || user.can_admin) && (

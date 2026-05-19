@@ -13,12 +13,9 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
   const [vipDonations, setVipDonations] = useState([]);
   const prevVipCountRef = useRef(0);
   const [adForm, setAdForm] = useState({
-    title: '',
-    body: '',
-    cta_text: '',
-    cta_url: '',
-    image_url: '',
+    title: '', body: '', cta_text: '', cta_url: '', image_url: '', fb_url: '', image_data: null,
   });
+  const [adImagePreview, setAdImagePreview] = useState(null);
 
   const loadAll = () => {
     fetch('/api/admin/stats').then(r => r.json()).then(setStats).catch(() => {});
@@ -177,10 +174,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
 
   const createAd = async (e) => {
     e.preventDefault();
-    if (!adForm.title.trim()) {
-      toast('กรุณาใส่หัวข้อโฆษณา');
-      return;
-    }
+    if (!adForm.title.trim()) { toast('กรุณาใส่ชื่อโฆษณา'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/admin/ads', {
@@ -191,16 +185,28 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
           body: adForm.body.trim(),
           cta_text: adForm.cta_text.trim(),
           cta_url: adForm.cta_url.trim(),
-          image_url: adForm.image_url.trim(),
+          image_url: adForm.image_data ? '' : adForm.image_url.trim(),
+          image_data: adForm.image_data || undefined,
+          fb_url: adForm.fb_url.trim(),
         }),
       });
       const data = await res.json();
       if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
-      setAdForm({ title: '', body: '', cta_text: '', cta_url: '', image_url: '' });
-      toast('สร้างโฆษณาแล้ว', 'success');
+      setAdForm({ title: '', body: '', cta_text: '', cta_url: '', image_url: '', fb_url: '', image_data: null });
+      setAdImagePreview(null);
+      toast('สร้างโฆษณาแล้ว ✓', 'success');
       loadAll();
     } catch { toast('เกิดข้อผิดพลาด'); }
     finally { setLoading(false); }
+  };
+
+  const deleteAd = async (id) => {
+    if (!confirm('ลบโฆษณานี้?')) return;
+    try {
+      await fetch(`/api/admin/ads/${id}`, { method: 'DELETE' });
+      setAds(prev => prev.filter(a => a.id !== id));
+      toast('ลบโฆษณาแล้ว');
+    } catch { toast('เกิดข้อผิดพลาด'); }
   };
 
   return (
@@ -405,48 +411,114 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
                 </div>
               </div>
 
-              <form onSubmit={createAd} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginBottom: 18 }}>
-                <div className="field">
-                  <label>Title</label>
-                  <input value={adForm.title} onChange={e => setAdForm(f => ({ ...f, title: e.target.value }))} />
+              {/* ── Create Ad Form ── */}
+              <form onSubmit={createAd} style={{ background: 'var(--bg)', border: '1px solid var(--line-faint)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16 }}>+ สร้างโฆษณาใหม่</div>
+
+                {/* Image upload zone */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', display: 'block', marginBottom: 6 }}>รูปภาพโฆษณา</label>
+                  <label style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    border: `2px dashed ${adImagePreview ? 'var(--orange)' : 'var(--line)'}`,
+                    borderRadius: 10, cursor: 'pointer', overflow: 'hidden',
+                    height: adImagePreview ? 'auto' : 100, minHeight: 80, background: 'var(--bg-card)', transition: 'border-color 0.15s',
+                  }}>
+                    {adImagePreview
+                      ? <img src={adImagePreview} alt="" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ textAlign: 'center', color: 'var(--ink-3)', fontSize: 13, padding: 16 }}>
+                          <i className="fas fa-image" style={{ fontSize: 28, marginBottom: 6, display: 'block', color: 'var(--line)' }} />
+                          คลิกเพื่ออัปโหลดรูปภาพ
+                        </div>
+                    }
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" style={{ display: 'none' }} onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        setAdImagePreview(ev.target.result);
+                        setAdForm(f => ({ ...f, image_data: ev.target.result, image_url: '' }));
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                  {adImagePreview && (
+                    <button type="button" onClick={() => { setAdImagePreview(null); setAdForm(f => ({ ...f, image_data: null })); }}
+                      style={{ marginTop: 6, fontSize: 11, color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      ✕ ลบรูป
+                    </button>
+                  )}
+                  {!adImagePreview && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        placeholder="หรือวาง URL รูปภาพ..."
+                        value={adForm.image_url}
+                        onChange={e => setAdForm(f => ({ ...f, image_url: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line-faint)', background: 'var(--bg)', fontSize: 13 }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="field">
-                  <label>CTA text</label>
-                  <input value={adForm.cta_text} onChange={e => setAdForm(f => ({ ...f, cta_text: e.target.value }))} />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>ชื่อโฆษณา / ร้านค้า *</label>
+                    <input placeholder="เช่น ร้าน Gift Idea Print" value={adForm.title} onChange={e => setAdForm(f => ({ ...f, title: e.target.value }))} required />
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>รายละเอียด</label>
+                    <input placeholder="บอกสั้นๆ ว่าร้านขายอะไร..." value={adForm.body} onChange={e => setAdForm(f => ({ ...f, body: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label>ข้อความปุ่ม CTA</label>
+                    <input placeholder="เช่น ดูสินค้า, ติดต่อเลย" value={adForm.cta_text} onChange={e => setAdForm(f => ({ ...f, cta_text: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label>ลิงก์ปุ่ม CTA</label>
+                    <input placeholder="https://..." value={adForm.cta_url} onChange={e => setAdForm(f => ({ ...f, cta_url: e.target.value }))} />
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label><i className="fab fa-facebook" style={{ color: '#1877f2', marginRight: 6 }}></i>ลิงก์ Facebook Page</label>
+                    <input placeholder="https://facebook.com/yourpage" value={adForm.fb_url} onChange={e => setAdForm(f => ({ ...f, fb_url: e.target.value }))} />
+                  </div>
                 </div>
-                <div className="field" style={{ gridColumn: '1 / -1' }}>
-                  <label>Body</label>
-                  <input value={adForm.body} onChange={e => setAdForm(f => ({ ...f, body: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <label>CTA URL</label>
-                  <input value={adForm.cta_url} onChange={e => setAdForm(f => ({ ...f, cta_url: e.target.value }))} />
-                </div>
-                <div className="field">
-                  <label>Image URL</label>
-                  <input value={adForm.image_url} onChange={e => setAdForm(f => ({ ...f, image_url: e.target.value }))} />
-                </div>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <button className="btn-mini solid" type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : 'Create Ad'}
+                <div style={{ marginTop: 14 }}>
+                  <button className="btn-mini solid" type="submit" disabled={loading} style={{ padding: '10px 24px', fontSize: 13 }}>
+                    {loading ? 'กำลังบันทึก...' : '+ สร้างโฆษณา'}
                   </button>
                 </div>
               </form>
 
+              {/* ── Ad cards ── */}
               {ads.length === 0 && (
-                <div style={{ padding: '20px', color: 'var(--ink-mute)', fontSize: 13 }}>ยังไม่มีโฆษณา</div>
+                <div style={{ padding: '20px', color: 'var(--ink-mute)', fontSize: 13, textAlign: 'center' }}>ยังไม่มีโฆษณา</div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                 {ads.map(ad => (
-                  <div key={ad.id} style={{ border: '1px solid var(--line)', padding: 18, borderRadius: 3, background: 'var(--bg-card)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 10 }}>
-                      <span className={`tag ${ad.active ? 'orange' : ''}`}>{ad.active ? 'ACTIVE' : 'PAUSED'}</span>
-                    </div>
-                    <h4 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 800, marginBottom: 4 }}>{ad.title}</h4>
-                    <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 12 }}>{ad.body}</p>
-                    <div className="row-actions">
-                      <button className="btn-mini" onClick={() => toggleAd(ad)}>{ad.active ? 'PAUSE' : 'ACTIVATE'}</button>
-                      {ad.cta_url && <a className="btn-mini" href={ad.cta_url} target="_blank" rel="noreferrer">Open</a>}
+                  <div key={ad.id} style={{ border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg-card)' }}>
+                    {ad.image_url && (
+                      <img src={ad.image_url} alt={ad.title} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                    )}
+                    <div style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span className={`tag ${ad.active ? 'orange' : ''}`} style={{ fontSize: 10 }}>{ad.active ? '● ACTIVE' : 'PAUSED'}</span>
+                        {ad.fb_url && (
+                          <a href={ad.fb_url} target="_blank" rel="noreferrer" title="Facebook Page" style={{ color: '#1877f2', fontSize: 18 }}>
+                            <i className="fab fa-facebook"></i>
+                          </a>
+                        )}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{ad.title}</div>
+                      {ad.body && <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 10, lineHeight: 1.5 }}>{ad.body}</div>}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button className="btn-mini" onClick={() => toggleAd(ad)} style={{ flex: 1 }}>
+                          {ad.active ? '⏸ หยุดแสดง' : '▶ เปิดแสดง'}
+                        </button>
+                        {ad.cta_url && ad.cta_url !== '#' && (
+                          <a className="btn-mini" href={ad.cta_url} target="_blank" rel="noreferrer">🔗 เปิด</a>
+                        )}
+                        <button className="btn-mini danger" onClick={() => deleteAd(ad.id)} title="ลบ">🗑</button>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -866,21 +866,31 @@ app.get('/api/admin/ads', requireAdmin, (req, res) => {
 });
 
 app.post('/api/admin/ads', requireAdmin, (req, res) => {
-    const { title, body, cta_text, cta_url, image_url } = req.body;
+    const { title, body, cta_text, cta_url, fb_url } = req.body;
     if (!title) return res.status(400).json({ error: 'กรุณาใส่หัวข้อโฆษณา' });
-    const result = db.prepare('INSERT INTO ads (title,body,cta_text,cta_url,image_url,active) VALUES (?,?,?,?,?,0)')
-        .run(title, body||'', cta_text||'คลิกดู', cta_url||'#', image_url||'');
+    let imageUrl = String(req.body.image_url || '').trim();
+    if (req.body.image_data) {
+        try { const saved = saveChatMedia(`ad-${Date.now()}`, req.body.image_data); imageUrl = saved.mediaUrl || imageUrl; }
+        catch (e) { return res.status(400).json({ error: 'รูปภาพไม่ถูกต้อง: ' + e.message }); }
+    }
+    const result = db.prepare('INSERT INTO ads (title,body,cta_text,cta_url,image_url,fb_url,active) VALUES (?,?,?,?,?,?,0)')
+        .run(title, body||'', cta_text||'คลิกดู', cta_url||'#', imageUrl, fb_url||'');
     res.json({ success: true, id: result.lastInsertRowid });
 });
 
 app.patch('/api/admin/ads/:id', requireAdmin, (req, res) => {
-    const { title, body, cta_text, cta_url, image_url, active } = req.body;
+    const { title, body, cta_text, cta_url, fb_url, active } = req.body;
     if (active === 1) {
         const activeCount = db.prepare('SELECT COUNT(*) as c FROM ads WHERE active=1 AND id<>?').get(req.params.id).c;
         if (activeCount >= 4) return res.status(400).json({ error: 'เปิดแสดงโฆษณาได้สูงสุด 4 ช่อง' });
     }
-    db.prepare('UPDATE ads SET title=COALESCE(?,title), body=COALESCE(?,body), cta_text=COALESCE(?,cta_text), cta_url=COALESCE(?,cta_url), image_url=COALESCE(?,image_url), active=COALESCE(?,active) WHERE id=?')
-        .run(title, body, cta_text, cta_url, image_url, active, req.params.id);
+    let imageUrl = req.body.image_url !== undefined ? String(req.body.image_url || '').trim() : undefined;
+    if (req.body.image_data) {
+        try { const saved = saveChatMedia(`ad-${req.params.id}`, req.body.image_data); imageUrl = saved.mediaUrl; }
+        catch (e) { return res.status(400).json({ error: 'รูปภาพไม่ถูกต้อง: ' + e.message }); }
+    }
+    db.prepare('UPDATE ads SET title=COALESCE(?,title), body=COALESCE(?,body), cta_text=COALESCE(?,cta_text), cta_url=COALESCE(?,cta_url), image_url=COALESCE(?,image_url), fb_url=COALESCE(?,fb_url), active=COALESCE(?,active) WHERE id=?')
+        .run(title, body, cta_text, cta_url, imageUrl, fb_url, active, req.params.id);
     res.json({ success: true });
 });
 

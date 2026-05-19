@@ -1556,7 +1556,7 @@ io.on('connection', (socket) => {
   // Raise hand — allowed when DJ has opened requests (mic does not need to be live)
   socket.on('hand:raise', () => {
     const user = socketToUser.get(socket.id);
-    if (!user || !micState.requestsOpen) return;
+    if (!user) return;
     if (!micState.requests.find(r => r.socketId === socket.id) && !micState.speakers.find(s => s.socketId === socket.id)) {
       micState.requests.push({ socketId: socket.id, userId: user.userId, username: user.username, display_name: user.display_name || user.username, avatar_seed: user.avatar_seed, avatar_url: user.avatar_url });
       io.emit('mic:status', micState);

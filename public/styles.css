@@ -857,9 +857,11 @@ a { color: inherit; text-decoration: none; }
 .chat-card .chat-head {
   padding: 18px 22px;
   border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
 }
 .chat-card .chat-body { padding: 18px 22px; }
-.chat-card .chat-input { padding: 14px 18px; border-top: 1px solid var(--line-soft); }
+.chat-card .chat-input { padding: 14px 18px; border-top: 1px solid var(--line-soft); flex-shrink: 0; }
+.chat-card .typing-indicator { flex-shrink: 0; }
 
 /* ============================================
    RIGHT RAIL — Request + Queue compact
@@ -5466,30 +5468,34 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 5px 20px 5px;
   font-size: 12px;
-  color: var(--ink-3);
-  font-style: italic;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  min-height: 28px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg-card);
 }
 .typing-dots {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  flex-shrink: 0;
 }
 .typing-dots span {
   display: block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--ink-3);
+  background: var(--orange);
   animation: typingBounce 1.2s ease-in-out infinite;
 }
 .typing-dots span:nth-child(1) { animation-delay: 0s; }
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes typingBounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30%            { transform: translateY(-5px); opacity: 1; }
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30%            { transform: translateY(-4px); opacity: 1; }
 }
 
 /* ═══════════════════════════════════════════════════════════

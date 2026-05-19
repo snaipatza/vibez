@@ -1594,9 +1594,10 @@ io.on('connection', (socket) => {
   });
 
   // Typing indicator
-  socket.on('chat:typing', ({ room }) => {
+  socket.on('chat:typing', ({ room, username: clientUsername }) => {
     const user = socketToUser.get(socket.id);
-    if (!user || !room) return;
+    const uname = (user && user.username) || clientUsername;
+    if (!uname || !room) return;
     if (!typingInRoom.has(room)) typingInRoom.set(room, new Map());
     const roomTyping = typingInRoom.get(room);
     const existing = roomTyping.get(socket.id);
@@ -1604,8 +1605,8 @@ io.on('connection', (socket) => {
     const timer = setTimeout(() => {
       roomTyping.delete(socket.id);
       broadcastTyping(room);
-    }, 3000);
-    roomTyping.set(socket.id, { username: user.username, timer });
+    }, 4000);
+    roomTyping.set(socket.id, { username: uname, timer });
     broadcastTyping(room, socket.id);
   });
 

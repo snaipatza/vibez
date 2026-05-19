@@ -1189,10 +1189,14 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
     if (!socket) return;
     const handler = ({ room, users }) => {
       if (room !== activeRoom) return;
-      setTypingUsers(users.filter(u => u !== user.name));
+      // server already excludes the sender, just filter any stale self-entry
+      setTypingUsers((users || []).filter(u => u !== user.name));
     };
     socket.on('chat:typing_update', handler);
-    return () => socket.off('chat:typing_update', handler);
+    return () => {
+      socket.off('chat:typing_update', handler);
+      setTypingUsers([]);
+    };
   }, [socket, activeRoom]);
 
   const handleTextChange = (val) => {
@@ -1201,13 +1205,13 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
     if (val.trim()) {
       if (!isTypingRef.current) {
         isTypingRef.current = true;
-        socket.emit('chat:typing', { room: activeRoom });
+        socket.emit('chat:typing', { room: activeRoom, username: user.name });
       }
       clearTimeout(typingTimerRef.current);
       typingTimerRef.current = setTimeout(() => {
         isTypingRef.current = false;
         socket.emit('chat:stop_typing', { room: activeRoom });
-      }, 3000);
+      }, 3500);
     } else {
       if (isTypingRef.current) {
         isTypingRef.current = false;

@@ -1266,8 +1266,8 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                 <div className="body"><div className="text">{m.text}</div></div>
               </div>
             ) : (
-              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={m.chat_frame || undefined}>
-                <div className={`av ${m.avatar_frame ? 'av-frame-custom av-frame-' + m.avatar_frame : (m.role === 'admin' ? 'av-frame-admin' : m.role === 'dj' ? 'av-frame-dj' : m.role === 'vip+' ? 'av-frame-vipplus' : m.role === 'vip' ? 'av-frame-vip' : m.role === 'co-admin' ? 'av-frame-coadmin' : '')}`}>
+              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={(m.chat_frame || (m.name === user?.name ? user?.chat_frame || '' : '')) || undefined}>
+                <div className={`av ${(m.avatar_frame || (m.name === user?.name ? user?.avatar_frame || '' : '')) ? 'av-frame-custom av-frame-' + (m.avatar_frame || (m.name === user?.name ? user?.avatar_frame || '' : '')) : (m.role === 'admin' ? 'av-frame-admin' : m.role === 'dj' ? 'av-frame-dj' : m.role === 'vip+' ? 'av-frame-vipplus' : m.role === 'vip' ? 'av-frame-vip' : m.role === 'co-admin' ? 'av-frame-coadmin' : '')}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />
                     : <img src={AVATAR(m.avatar_seed || m.name)} alt="" />

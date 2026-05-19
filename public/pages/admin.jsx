@@ -214,7 +214,7 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
       <TopBar
         crumb="CONTROL ROOM / ADMIN"
         title="Dashboard"
-        meta="เครื่องมือดูแล IIMVU Society Radio"
+        meta="เครื่องมือดูแล IIMV Society Radio"
         listeners={listeners}
         onToggleChat={() => setChatOpen(v => !v)}
         chatOpen={chatOpen}

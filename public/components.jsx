@@ -1,4 +1,4 @@
-/* Shared building blocks for IIMVU Society Radio */
+/* Shared building blocks for IIMV Society Radio */
 
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -253,7 +253,7 @@ function Sidebar({ page, onNav, user, queueCount, dmUnread, onAvatarSave, rooms,
     }
   };
 
-  const np = nowPlaying || { dj: 'IIMVU Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
+  const np = nowPlaying || { dj: 'IIMV Society Radio', track: 'Waiting for DJ', progress: 0, djSeed: 'imvu-society-radio', djAvatarUrl: '' };
   const allOnlineUsers = Array.isArray(onlineUsers)
     ? onlineUsers.filter((person) => person?.username)
     : [];
@@ -274,8 +274,9 @@ function Sidebar({ page, onNav, user, queueCount, dmUnread, onAvatarSave, rooms,
     <>
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark orange">V</div>
-        <div className="brand-name">IIMVU Society Radio</div>
+        <img src="/logo.png" alt="IIMV" className="brand-logo-img" onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+        <div className="brand-mark orange" style={{display:'none'}}>V</div>
+        <div className="brand-name">IIMV Society Radio</div>
         <div className="brand-tag">FM/01</div>
       </div>
 

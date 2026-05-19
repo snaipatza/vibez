@@ -801,12 +801,12 @@ function LivePage({
                     💎 VIP
                   </button>
                 )}
-                {liveRoleLevel(user.role) >= 2 && micIsLive && (
+                {liveRoleLevel(user.role) >= 2 && (
                   <button
-                    className={`btn-mini raise-hand-btn${micRequestsOpen ? (pageHasRaised ? ' raised' : '') : ' locked'}`}
-                    title={!micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}
+                    className={`btn-mini raise-hand-btn${!micIsLive || !micRequestsOpen ? ' locked' : pageHasRaised ? ' raised' : ''}`}
+                    title={!micIsLive ? 'DJ ยังไม่เปิดไมค์' : !micRequestsOpen ? 'DJ ยังไม่เปิดรับขอพูด' : pageHasRaised ? 'กำลังขอพูด — กดยกเลิก' : 'ขอพูดกับ DJ'}
                     onClick={() => {
-                      if (!micRequestsOpen) return;
+                      if (!micIsLive || !micRequestsOpen) return;
                       const s = socketRef.current;
                       if (!s) return;
                       if (pageHasRaised) { s.emit('hand:lower'); setPageHasRaised(false); }
@@ -814,7 +814,7 @@ function LivePage({
                     }}
                   >
                     <i className="fas fa-hand-paper" />
-                    {!micRequestsOpen ? ' รอ DJ' : pageHasRaised ? ' กำลังรอ...' : ' ขอพูด'}
+                    {!micIsLive ? ' ขอพูด' : !micRequestsOpen ? ' รอ DJ' : pageHasRaised ? ' กำลังรอ...' : ' ขอพูด'}
                   </button>
                 )}
                 <ColorPickerPanel user={user} toast={toast} />

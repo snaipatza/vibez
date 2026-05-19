@@ -75,6 +75,14 @@ app.use(session({
 const ROLE_LEVEL = { guest: 0, user: 1, member: 1, vip: 2, dj: 3, admin: 4 };
 function roleLevel(role) { return ROLE_LEVEL[role] || 0; }
 
+// VIP donation packages — edit prices here
+const VIP_PACKAGES = [
+    { id: '1month',  label: '1 เดือน',  days: 30,  price: 99  },
+    { id: '3months', label: '3 เดือน',  days: 90,  price: 249 },
+    { id: '6months', label: '6 เดือน',  days: 180, price: 449 },
+    { id: '1year',   label: '1 ปี',     days: 365, price: 799 },
+];
+
 function normalizePhone(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
     if (!digits) return '';
@@ -1270,6 +1278,63 @@ app.post('/api/admin/role-requests/:id/reject', requireAdmin, (req, res) => {
     db.prepare("INSERT INTO direct_messages (from_user, to_user, message) VALUES (?,?,?)").run(
         'ADMIN', row.username, '❌ คำขอยศของคุณถูกปฏิเสธ หากมีข้อสงสัยกรุณาติดต่อแอดมิน'
     );
+    res.json({ success: true });
+});
+
+// ── VIP Donation System ──────────────────────────────────────────────────
+
+app.get('/api/vip-packages', (req, res) => {
+    res.json(VIP_PACKAGES);
+});
+
+app.post('/api/vip-donations', requireAuth, (req, res) => {
+    const pkgId = String(req.body.package || '');
+    const pkg = VIP_PACKAGES.find(p => p.id === pkgId);
+    if (!pkg) return res.status(400).json({ error: 'แพ็กเกจไม่ถูกต้อง' });
+    const existing = db.prepare("SELECT id FROM vip_donations WHERE user_id=? AND status='pending'").get(req.session.userId);
+    if (existing) return res.status(400).json({ error: 'คุณมีคำขออยู่แล้ว กรุณารอการยืนยัน' });
+    let slipUrl = '';
+    if (req.body.slip_data) {
+        try { const saved = saveChatMedia(req.session.username, req.body.slip_data); slipUrl = saved.mediaUrl || ''; }
+        catch (e) { return res.status(400).json({ error: 'ไฟล์สลิปไม่ถูกต้อง (รองรับ JPG, PNG, WEBP, GIF)' }); }
+    }
+    db.prepare('INSERT INTO vip_donations (user_id,username,package,amount,duration_days,slip_url,status,created_at) VALUES (?,?,?,?,?,?,?,?)')
+        .run(req.session.userId, req.session.username, pkg.id, pkg.price, pkg.days, slipUrl, 'pending', Date.now());
+    const admins = db.prepare("SELECT username FROM users WHERE role='admin'").all();
+    for (const admin of admins) {
+        db.prepare("INSERT INTO direct_messages (from_user,to_user,message,created_at) VALUES (?,?,?,?)")
+            .run('SYSTEM', admin.username, `💰 @${req.session.username} ส่งสลิปขอ VIP (${pkg.label} · ${pkg.price}฿) รออนุมัติ`, new Date().toISOString());
+    }
+    res.json({ success: true });
+});
+
+app.get('/api/admin/vip-donations', requireAdmin, (req, res) => {
+    const rows = db.prepare("SELECT * FROM vip_donations WHERE status='pending' ORDER BY created_at DESC").all();
+    res.json(rows);
+});
+
+app.post('/api/admin/vip-donations/:id/approve', requireAdmin, (req, res) => {
+    const donation = db.prepare('SELECT * FROM vip_donations WHERE id=?').get(req.params.id);
+    if (!donation) return res.status(404).json({ error: 'ไม่พบรายการ' });
+    const now = Date.now();
+    const urow = db.prepare('SELECT vip_expires_at, role FROM users WHERE id=?').get(donation.user_id);
+    const base = (urow && urow.role === 'vip' && urow.vip_expires_at > now) ? urow.vip_expires_at : now;
+    const newExpiry = base + donation.duration_days * 24 * 60 * 60 * 1000;
+    db.prepare("UPDATE users SET role='vip', vip_expires_at=? WHERE id=?").run(newExpiry, donation.user_id);
+    db.prepare("UPDATE vip_donations SET status='approved' WHERE id=?").run(donation.id);
+    const pkg = VIP_PACKAGES.find(p => p.id === donation.package);
+    const expDate = new Date(newExpiry).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    db.prepare("INSERT INTO direct_messages (from_user,to_user,message,created_at) VALUES (?,?,?,?)")
+        .run('ADMIN', donation.username, `✅ ยืนยันการโอนแล้ว! คุณได้รับยศ 💎 VIP (${pkg?.label || donation.package}) หมดอายุ ${expDate} ยินดีต้อนรับ 🎉`, new Date().toISOString());
+    res.json({ success: true });
+});
+
+app.post('/api/admin/vip-donations/:id/reject', requireAdmin, (req, res) => {
+    const donation = db.prepare('SELECT * FROM vip_donations WHERE id=?').get(req.params.id);
+    if (!donation) return res.status(404).json({ error: 'ไม่พบรายการ' });
+    db.prepare("UPDATE vip_donations SET status='rejected' WHERE id=?").run(donation.id);
+    db.prepare("INSERT INTO direct_messages (from_user,to_user,message,created_at) VALUES (?,?,?,?)")
+        .run('ADMIN', donation.username, `❌ ไม่สามารถยืนยันการโอนได้ กรุณาตรวจสอบสลิปแล้วส่งใหม่ หรือติดต่อแอดมิน`, new Date().toISOString());
     res.json({ success: true });
 });
 

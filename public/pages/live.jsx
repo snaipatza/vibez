@@ -166,12 +166,23 @@ function LivePage({
   const toggleChatSound = () => setChatSoundOn(v => { const n = !v; try { localStorage.setItem('chatSoundOff', n ? '0' : '1'); } catch {} return n; });
   const toggleTypeSound = () => setTypeSoundOn(v => { const n = !v; try { localStorage.setItem('typeSoundOff', n ? '0' : '1'); } catch {} return n; });
 
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [donateStep, setDonateStep] = useState(1); // 1=packages, 2=payment
+  const [donatePackage, setDonatePackage] = useState(null);
+  const [donateSlip, setDonateSlip] = useState(null); // base64
+  const [donateSaving, setDonateSaving] = useState(false);
+  const [vipPackages, setVipPackages] = useState([]);
+
   const tipBtnRef = useRef(null);
   const lastMsgIdRef = useRef(0);
   const activeRoomRef = useRef(activeRoom); // avoid stale closure in poll
   const socketRef = useRef(null);
 
   useEffect(() => { activeRoomRef.current = activeRoom; }, [activeRoom]);
+
+  useEffect(() => {
+    fetch('/api/vip-packages').then(r => r.json()).then(d => { if (Array.isArray(d)) setVipPackages(d); }).catch(() => {});
+  }, []);
 
   // Initialize Socket.io + auth
   useEffect(() => {
@@ -756,6 +767,11 @@ function LivePage({
                 <h2>แชทห้อง {activeRoom}</h2>
               </div>
               <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                {liveRoleLevel(user.role) < 2 && (
+                  <button className="btn-mini" style={{ background: 'linear-gradient(135deg,#a855f7,#ec4899)', color: '#fff', border: 'none' }} onClick={() => { setDonateStep(1); setDonatePackage(null); setDonateSlip(null); setDonateOpen(true); }}>
+                    💎 VIP
+                  </button>
+                )}
                 <ColorPickerPanel user={user} toast={toast} />
                 <ChatFramePicker user={user} toast={toast} onFrameChange={frame => {
                   setChat(prev => prev.map(m => m.name === user.name ? { ...m, chat_frame: frame } : m));
@@ -978,6 +994,121 @@ function LivePage({
       <FloatLayer items={floats} />
       <FlyingHearts items={hearts} />
       <ConfettiLayer active={confetti} />
+
+      {/* VIP Donate modal */}
+      {donateOpen && (
+        <div className="modal-backdrop" onClick={() => setDonateOpen(false)}>
+          <div className="ad-modal" style={{ maxWidth: 420, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <button className="close-btn" style={{ position: 'absolute', top: 12, right: 12, zIndex: 2 }} onClick={() => setDonateOpen(false)}>
+              <i className="fas fa-times"></i>
+            </button>
+            <div style={{ background: 'linear-gradient(135deg,#a855f7,#ec4899)', padding: '24px 24px 16px', textAlign: 'center', color: '#fff' }}>
+              <div style={{ fontSize: 32, marginBottom: 6 }}>💎</div>
+              <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 2 }}>อัปเกรด VIP</div>
+              <div style={{ fontSize: 12, opacity: 0.85 }}>รับสิทธิพิเศษทันทีหลังแอดมินยืนยัน</div>
+            </div>
+            <div style={{ padding: '20px 24px 24px' }}>
+              {donateStep === 1 && (
+                <>
+                  <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>เลือกแพ็กเกจ</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                    {vipPackages.map(pkg => (
+                      <button
+                        key={pkg.id}
+                        onClick={() => setDonatePackage(pkg)}
+                        style={{
+                          padding: '14px 10px', borderRadius: 10, border: `2px solid ${donatePackage?.id === pkg.id ? '#a855f7' : 'var(--line-faint)'}`,
+                          background: donatePackage?.id === pkg.id ? 'rgba(168,85,247,0.1)' : 'var(--bg-card)',
+                          cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 15, color: '#a855f7' }}>{pkg.price}฿</div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{pkg.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    disabled={!donatePackage}
+                    onClick={() => setDonateStep(2)}
+                    style={{
+                      width: '100%', padding: '12px', borderRadius: 8, border: 'none',
+                      background: donatePackage ? 'linear-gradient(135deg,#a855f7,#ec4899)' : 'var(--line-faint)',
+                      color: '#fff', fontWeight: 700, fontSize: 14, cursor: donatePackage ? 'pointer' : 'default'
+                    }}
+                  >
+                    ถัดไป →
+                  </button>
+                </>
+              )}
+              {donateStep === 2 && donatePackage && (
+                <>
+                  <div style={{ background: 'var(--bg-card)', borderRadius: 10, padding: 16, marginBottom: 16, border: '1px solid var(--line-faint)' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 13 }}>ช่องทางการชำระเงิน</div>
+                    <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                      <img
+                        src={`https://promptpay.io/0948188894/${donatePackage.price}.png`}
+                        alt="QR PromptPay"
+                        style={{ width: 160, height: 160, borderRadius: 8, border: '1px solid var(--line-faint)' }}
+                        onError={e => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 12, lineHeight: 1.8 }}>
+                      <div>🏦 <b>SCB</b> · 436-139675-8</div>
+                      <div>📱 <b>PromptPay</b> · 094-818-8894</div>
+                      <div>👤 น.ส. ณัธูณิชา ม.</div>
+                      <div style={{ marginTop: 6, color: '#a855f7', fontWeight: 600 }}>ยอด: {donatePackage.price}฿ · {donatePackage.label}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>แนบสลิปการโอน</div>
+                    <label style={{ display: 'block', padding: '10px 14px', borderRadius: 8, border: '2px dashed var(--line-faint)', textAlign: 'center', cursor: 'pointer', fontSize: 13, color: 'var(--ink-3)' }}>
+                      {donateSlip ? <span style={{ color: 'var(--green)' }}>✓ เลือกสลิปแล้ว</span> : <span>📎 คลิกเพื่อแนบสลิป (JPG/PNG)</span>}
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => setDonateSlip(ev.target.result);
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 14 }}>
+                    หลังส่งสลิป แอดมินจะยืนยันและ DM แจ้งคุณเมื่อได้รับยศ VIP แล้ว
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setDonateStep(1)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid var(--line-faint)', background: 'none', cursor: 'pointer', fontSize: 13 }}>← ย้อนกลับ</button>
+                    <button
+                      disabled={!donateSlip || donateSaving}
+                      onClick={async () => {
+                        setDonateSaving(true);
+                        try {
+                          const res = await fetch('/api/vip-donations', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ package: donatePackage.id, slip_data: donateSlip }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) { toast(data.error || 'เกิดข้อผิดพลาด'); return; }
+                          toast('ส่งสลิปแล้ว! รอแอดมินยืนยัน 💎', 'success');
+                          setDonateOpen(false);
+                        } catch { toast('เกิดข้อผิดพลาด'); }
+                        finally { setDonateSaving(false); }
+                      }}
+                      style={{
+                        flex: 2, padding: '11px', borderRadius: 8, border: 'none',
+                        background: donateSlip && !donateSaving ? 'linear-gradient(135deg,#a855f7,#ec4899)' : 'var(--line-faint)',
+                        color: '#fff', fontWeight: 700, fontSize: 13, cursor: donateSlip && !donateSaving ? 'pointer' : 'default'
+                      }}
+                    >
+                      {donateSaving ? 'กำลังส่ง...' : '✅ ส่งสลิป'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ad modal */}
       {openAd && (

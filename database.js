@@ -150,6 +150,18 @@ db.exec(`
     read_at INTEGER DEFAULT 0,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
+
+  CREATE TABLE IF NOT EXISTS vip_donations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    package TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    duration_days INTEGER NOT NULL,
+    slip_url TEXT DEFAULT '',
+    status TEXT DEFAULT 'pending',
+    created_at INTEGER NOT NULL
+  );
 `);
 
 // Add new columns to existing databases (safe to run multiple times)

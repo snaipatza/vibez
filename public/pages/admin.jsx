@@ -10,6 +10,8 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
   const [stats, setStats] = useState(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [vipDonations, setVipDonations] = useState([]);
+  const prevVipCountRef = useRef(0);
   const [adForm, setAdForm] = useState({
     title: '',
     body: '',
@@ -25,10 +27,40 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
     fetch('/api/online').then(r => r.json()).then(d => { if (d.users) setOnlineUsers(d.users); }).catch(() => {});
     fetch('/api/admin/ads').then(r => r.json()).then(d => { if (Array.isArray(d)) setAds(d); }).catch(() => {});
     fetch('/api/admin/role-requests').then(r => r.json()).then(d => { if (Array.isArray(d)) setRoleRequests(d); }).catch(() => {});
+    fetch('/api/admin/vip-donations').then(r => r.json()).then(d => { if (Array.isArray(d)) setVipDonations(d); }).catch(() => {});
   };
 
   useEffect(() => {
     loadAll();
+  }, []);
+
+  // Poll for new VIP donations every 10s and play sound alert
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch('/api/admin/vip-donations').then(r => r.json()).then(d => {
+        if (!Array.isArray(d)) return;
+        if (d.length > prevVipCountRef.current) {
+          try {
+            const ac = new (window.AudioContext || window.webkitAudioContext)();
+            [880, 1100, 1320, 880].forEach((freq, i) => {
+              const osc = ac.createOscillator();
+              const gain = ac.createGain();
+              osc.type = 'sine';
+              osc.frequency.value = freq;
+              const t = ac.currentTime + i * 0.12;
+              gain.gain.setValueAtTime(0, t);
+              gain.gain.linearRampToValueAtTime(0.25, t + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+              osc.connect(gain); gain.connect(ac.destination);
+              osc.start(t); osc.stop(t + 0.22);
+            });
+          } catch {}
+        }
+        prevVipCountRef.current = d.length;
+        setVipDonations(d);
+      }).catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const filtered = users.filter(u => u.username.toLowerCase().includes(search.toLowerCase()));
@@ -196,6 +228,9 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             ))}
             <button className={`tab-btn ${tab === 'role-requests' ? 'active' : ''}`} onClick={() => setTab('role-requests')}>
               ขอยศ {roleRequests.length > 0 && <span className="tab-badge">{roleRequests.length}</span>}
+            </button>
+            <button className={`tab-btn ${tab === 'vip-donations' ? 'active' : ''}`} onClick={() => setTab('vip-donations')}>
+              💎 โดเนท VIP {vipDonations.length > 0 && <span className="tab-badge" style={{ background: 'var(--orange)' }}>{vipDonations.length}</span>}
             </button>
           </div>
 
@@ -450,6 +485,54 @@ function AdminPage({ user, listeners, chatOpen, setChatOpen, toast }) {
             )}
           </div>
         )}
+
+          {tab === 'vip-donations' && (
+            <div className="admin-section">
+              <h3>คำขอโดเนท VIP ({vipDonations.length})</h3>
+              {vipDonations.length === 0 ? (
+                <div style={{ color: 'var(--ink-3)', padding: 20 }}>ไม่มีคำขอที่รอดำเนินการ</div>
+              ) : (
+                <div className="role-req-list">
+                  {vipDonations.map(d => (
+                    <div key={d.id} className="role-req-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 8 }}>
+                        <div className="role-req-info">
+                          <span className="role-req-name">@{d.username}</span>
+                          <span className="role-req-meta">
+                            💎 VIP {d.package === '1month' ? '1 เดือน' : d.package === '3months' ? '3 เดือน' : d.package === '6months' ? '6 เดือน' : '1 ปี'}
+                            {' · '}{d.amount}฿ · {new Date(d.created_at).toLocaleString('th-TH')}
+                          </span>
+                        </div>
+                        <div className="role-req-actions">
+                          <button className="btn-approve" onClick={async () => {
+                            const res = await fetch(`/api/admin/vip-donations/${d.id}/approve`, { method: 'POST' });
+                            if (res.ok) { toast(`✅ อนุมัติ VIP ให้ @${d.username} แล้ว`, 'success'); loadAll(); }
+                            else toast('เกิดข้อผิดพลาด');
+                          }}>✅ ยืนยัน</button>
+                          <button className="btn-reject" onClick={async () => {
+                            const res = await fetch(`/api/admin/vip-donations/${d.id}/reject`, { method: 'POST' });
+                            if (res.ok) { toast(`ปฏิเสธคำขอของ @${d.username}`, ''); loadAll(); }
+                            else toast('เกิดข้อผิดพลาด');
+                          }}>❌ ปฏิเสธ</button>
+                        </div>
+                      </div>
+                      {d.slip_url && (
+                        <div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 4 }}>สลิปการโอน</div>
+                          <img
+                            src={d.slip_url}
+                            alt="slip"
+                            style={{ maxWidth: 280, maxHeight: 360, borderRadius: 8, border: '1px solid var(--line-faint)', cursor: 'pointer' }}
+                            onClick={() => window.open(d.slip_url, '_blank')}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {tab === 'online' && (
             <div className="admin-card">

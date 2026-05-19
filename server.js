@@ -1327,7 +1327,7 @@ app.post('/api/vip-donations', requireAuth, (req, res) => {
     }
     db.prepare('INSERT INTO vip_donations (user_id,username,package,amount,duration_days,slip_url,status,created_at) VALUES (?,?,?,?,?,?,?,?)')
         .run(req.session.userId, req.session.username, pkg.id, pkg.price, pkg.days, slipUrl, 'pending', Date.now());
-    const admins = db.prepare("SELECT username FROM users WHERE role='admin'").all();
+    const admins = db.prepare("SELECT username FROM users WHERE role='admin' OR (role='dj' AND can_admin=1)").all();
     for (const admin of admins) {
         db.prepare("INSERT INTO direct_messages (from_user,to_user,message,created_at) VALUES (?,?,?,?)")
             .run('SYSTEM', admin.username, `💰 @${req.session.username} ส่งสลิปขอ VIP (${pkg.label} · ${pkg.price}฿) รออนุมัติ`, new Date().toISOString());

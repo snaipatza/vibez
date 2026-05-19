@@ -593,7 +593,7 @@ function LivePage({
         chatOpen={chatOpen}
       />
 
-      <div className={`content ${chatOpen ? 'with-chat' : 'no-chat'}${ads.length > 0 ? ' with-ads' : ''}`}>
+      <div className={`content ${chatOpen ? '' : 'no-chat'}`}>
         <div className="stage">
           {/* Player */}
           <div className="player">
@@ -951,12 +951,7 @@ function LivePage({
               )}
             </div>
 
-          </aside>
-        )}
-
-        {/* Ads — always visible regardless of chatOpen */}
-        {ads.length > 0 && (
-          <aside className="ads-rail">
+            {/* Ads */}
             <div className="rail-section">
               <div className="rail-head">
                 <div>
@@ -965,24 +960,30 @@ function LivePage({
                 </div>
                 <span className="right">{ads.length} ช่อง</span>
               </div>
-              <div className="ads-list">
-                {ads.map(ad => (
-                  <div key={ad.id} className="ad-card" onClick={() => setOpenAd(ad)}>
-                    <span className="ad-badge">AD</span>
-                    <div className={`ad-img ${ad.image_url ? '' : 'placeholder'}`}>
-                      {ad.image_url
-                        ? <img src={ad.image_url} alt={ad.title} />
-                        : <i className={adIcon(ad)}></i>
-                      }
+              {ads.length === 0 ? (
+                <div style={{ padding: '14px 10px', color: 'var(--ink-mute)', fontSize: 13 }}>
+                  ยังไม่มีโฆษณาที่เปิดใช้งานอยู่
+                </div>
+              ) : (
+                <div className="ads-list">
+                  {ads.map(ad => (
+                    <div key={ad.id} className="ad-card" onClick={() => setOpenAd(ad)}>
+                      <span className="ad-badge">AD</span>
+                      <div className={`ad-img ${ad.image_url ? '' : 'placeholder'}`}>
+                        {ad.image_url
+                          ? <img src={ad.image_url} alt={ad.title} />
+                          : <i className={adIcon(ad)}></i>
+                        }
+                      </div>
+                      <div className="ad-copy">
+                        <h4>{ad.title}</h4>
+                        <p>{ad.body}</p>
+                        <span className="ad-cta">{ad.cta_text || 'ดูเพิ่มเติม'} →</span>
+                      </div>
                     </div>
-                    <div className="ad-copy">
-                      <h4>{ad.title}</h4>
-                      <p>{ad.body}</p>
-                      <span className="ad-cta">{ad.cta_text || 'ดูเพิ่มเติม'} →</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </aside>
         )}

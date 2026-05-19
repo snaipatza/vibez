@@ -1177,14 +1177,23 @@ app.get('/api/messages', (req, res) => {
         ? new Date(Date.now() - 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
         : '2000-01-01 00:00:00';
     const messages = db.prepare(`
-        SELECT messages.*, users.avatar_seed, users.avatar_url, users.display_name
+        SELECT messages.*,
+            users.avatar_seed, users.avatar_url, users.display_name,
+            users.chat_frame as user_chat_frame,
+            users.avatar_frame as user_avatar_frame
         FROM messages
         LEFT JOIN users ON users.id = messages.user_id
         WHERE messages.id > ? AND messages.room_id = ? AND messages.created_at >= ?
         ORDER BY messages.created_at ASC
         LIMIT 60
     `).all(after, roomId, cutoff);
-    res.json(messages.map(m => ({ ...m, name_color: m.name_color || '', chat_color: m.chat_color || '', chat_frame: m.chat_frame || '', avatar_frame: m.avatar_frame || '' })));
+    res.json(messages.map(m => ({
+        ...m,
+        name_color: m.name_color || '',
+        chat_color: m.chat_color || '',
+        chat_frame: m.chat_frame || m.user_chat_frame || '',
+        avatar_frame: m.avatar_frame || m.user_avatar_frame || '',
+    })));
 });
 
 app.post('/api/messages', requireAuth, (req, res) => {
@@ -1540,7 +1549,10 @@ io.on('connection', (socket) => {
 
   socket.on('user:frame_update', ({ username, chat_frame, avatar_frame }) => {
     if (typeof username !== 'string') return;
-    socket.broadcast.emit('user:frame_update', { username, chat_frame: chat_frame || '', avatar_frame: avatar_frame || '' });
+    const payload = { username };
+    if (chat_frame !== undefined) payload.chat_frame = chat_frame || '';
+    if (avatar_frame !== undefined) payload.avatar_frame = avatar_frame || '';
+    socket.broadcast.emit('user:frame_update', payload);
   });
 
   socket.on('disconnect', () => {

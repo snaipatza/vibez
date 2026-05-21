@@ -137,7 +137,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="lp-station">
-            <div className="lp-station-name">IIMV<br /><span>SOCIETY</span></div>
+            <div className="lp-station-name">CHAT<br /><span>SOCIETY</span></div>
             <div className="lp-station-sub">Radio · Live · Social Club</div>
           </div>
 
@@ -161,7 +161,7 @@ function LoginPage({ onLogin }) {
           </h1>
           <p className="lp-form-sub">
             {tab === 'login'
-              ? 'เข้าสู่ห้องสดของ IIMV Society Radio'
+              ? 'เข้าสู่ห้องสดของ Chat Society Radio'
               : 'เข้าร่วม community ของเรา'}
           </p>
 

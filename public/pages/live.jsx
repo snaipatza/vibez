@@ -533,7 +533,7 @@ function LivePage({
 
   const djSeed = nowPlaying?.dj_avatar_seed || 'IMVURADIO';
   const djAvatarUrl = nowPlaying?.dj_avatar_url || '';
-  const djName = nowPlaying?.dj_display_name || nowPlaying?.dj_username || 'IIMV Society Radio';
+  const djName = nowPlaying?.dj_display_name || nowPlaying?.dj_username || 'Chat Society Radio';
   const trackTitle = nowPlaying?.title || 'รอ VJ เปิดเพลง...';
   const trackArtist = nowPlaying?.artist || '';
   const isFollowingCurrentDj = !!djName && followedDjs.includes(djName);
@@ -615,7 +615,7 @@ function LivePage({
     <>
       <TopBar
         crumb="ROOM ⁄ MAIN-STAGE"
-        title="IIMV Society Radio"
+        title="Chat Society Radio"
         meta={nowPlaying?.title ? `🎧 ${nowPlaying.title}` : 'รอ VJ เปิดเพลง...'}
         listeners={listeners}
         onToggleChat={() => setChatOpen(v => !v)}
@@ -664,7 +664,7 @@ function LivePage({
                 <div className="now-row">
                   <div className="live-tag"><div className="dot"></div> ON AIR</div>
                   {nowPlaying && <div className="eq"><span /><span /><span /><span /><span /></div>}
-                  <div className="meta">— IIMV Society Radio</div>
+                  <div className="meta">— Chat Society Radio</div>
                 </div>
 
                 <div>

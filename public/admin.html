@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IIMV Society Radio – Admin</title>
+    <title>Chat Society Radio – Admin</title>
     <link rel="icon" type="image/png" href="/logo.png">
     <link rel="apple-touch-icon" href="/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -16,19 +16,19 @@
             <div class="admin-logo">
                 <div class="logo-icon"><img src="/logo.png" alt="logo" style="width:36px;height:36px;border-radius:10px;object-fit:cover;" onerror="this.style.display='none'"></div>
                 <div>
-                    <div class="logo-text">IIMV Society Radio</div>
+                    <div class="logo-text">Chat Society Radio</div>
                     <div class="logo-sub">Admin Panel</div>
                 </div>
             </div>
             <nav class="admin-nav">
                 <a href="#" class="admin-nav-item active" data-tab="dashboard"><i class="fas fa-chart-bar"></i> Dashboard</a>
-                <a href="#" class="admin-nav-item" data-tab="users"><i class="fas fa-users"></i> จัดการผู้ใช้</a>
-                <a href="#" class="admin-nav-item" data-tab="queue"><i class="fas fa-list-ol"></i> คิวเพลง</a>
-                <a href="#" class="admin-nav-item" data-tab="ads"><i class="fas fa-bullhorn"></i> โฆษณา</a>
-                <a href="#" class="admin-nav-item" data-tab="online"><i class="fas fa-users"></i> คนออนไลน์</a>
+                <a href="#" class="admin-nav-item" data-tab="users"><i class="fas fa-users"></i> ��ัด��าร��ู��������</a>
+                <a href="#" class="admin-nav-item" data-tab="queue"><i class="fas fa-list-ol"></i> ��ิวเ��ล��</a>
+                <a href="#" class="admin-nav-item" data-tab="ads"><i class="fas fa-bullhorn"></i> ����ษณา</a>
+                <a href="#" class="admin-nav-item" data-tab="online"><i class="fas fa-users"></i> ����ออ����ล����</a>
             </nav>
             <div class="admin-sidebar-footer">
-                <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก</a>
+                <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> ��ลั��ห����าหลั��</a>
             </div>
         </aside>
         <main class="admin-main">
@@ -42,28 +42,28 @@
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <div class="stat-info">
                             <div class="stat-value" id="statUsers">-</div>
-                            <div class="stat-label">ผู้ใช้ทั้งหมด</div>
+                            <div class="stat-label">��ู��������ทั����หมด</div>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-comments"></i></div>
                         <div class="stat-info">
                             <div class="stat-value" id="statMessages">-</div>
-                            <div class="stat-label">ข้อความทั้งหมด</div>
+                            <div class="stat-label">����อ��วามทั����หมด</div>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-music"></i></div>
                         <div class="stat-info">
                             <div class="stat-value" id="statQueue">-</div>
-                            <div class="stat-label">เพลงในคิว</div>
+                            <div class="stat-label">เ��ล��������ิว</div>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-broadcast-tower"></i></div>
                         <div class="stat-info">
                             <div class="stat-value" id="statLive">-</div>
-                            <div class="stat-label">สถานะ Live</div>
+                            <div class="stat-label">สถา��ะ Live</div>
                         </div>
                     </div>
                 </div>
@@ -72,17 +72,17 @@
             <!-- Users Tab -->
             <div class="admin-tab" id="tab-users">
                 <div class="admin-header">
-                    <h1><i class="fas fa-users"></i> จัดการผู้ใช้</h1>
-                    <input type="text" class="admin-search" id="userSearch" placeholder="ค้นหาผู้ใช้...">
+                    <h1><i class="fas fa-users"></i> ��ัด��าร��ู��������</h1>
+                    <input type="text" class="admin-search" id="userSearch" placeholder="������หา��ู��������...">
                 </div>
                 <div class="admin-table-wrapper">
                     <table class="admin-table">
                         <thead>
                             <tr>
-                                <th>ผู้ใช้</th>
+                                <th>��ู��������</th>
                                 <th>ยศ/Role</th>
-                                <th>วันที่สมัคร</th>
-                                <th>จัดการ</th>
+                                <th>วั��ที��สมั��ร</th>
+                                <th>��ัด��าร</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody"></tbody>
@@ -93,7 +93,7 @@
             <!-- Queue Tab -->
             <div class="admin-tab" id="tab-queue">
                 <div class="admin-header">
-                    <h1><i class="fas fa-list-ol"></i> คิวเพลง</h1>
+                    <h1><i class="fas fa-list-ol"></i> ��ิวเ��ล��</h1>
                 </div>
                 <div id="adminQueueList" class="admin-queue-list"></div>
             </div>
@@ -101,23 +101,23 @@
             <!-- Ads Tab -->
             <div class="admin-tab" id="tab-ads">
                 <div class="admin-header">
-                    <h1><i class="fas fa-bullhorn"></i> จัดการโฆษณา</h1>
-                    <button class="admin-add-btn" id="showAdFormBtn"><i class="fas fa-plus"></i> เพิ่มโฆษณา</button>
+                    <h1><i class="fas fa-bullhorn"></i> ��ัด��าร����ษณา</h1>
+                    <button class="admin-add-btn" id="showAdFormBtn"><i class="fas fa-plus"></i> เ��ิ��ม����ษณา</button>
                 </div>
 
                 <!-- Form -->
                 <div class="ad-form-card" id="adFormCard" style="display:none">
-                    <h3 style="margin-bottom:16px;font-size:15px;font-weight:700">➕ โฆษณาใหม่</h3>
+                    <h3 style="margin-bottom:16px;font-size:15px;font-weight:700">��� ����ษณา��หม��</h3>
                     <div class="ad-form-grid">
-                        <label>หัวข้อ <span style="color:#ef4444">*</span><input type="text" id="adFormTitle" placeholder="ชื่อโฆษณา..."></label>
-                        <label>คำอธิบาย<input type="text" id="adFormBody" placeholder="รายละเอียดสั้นๆ..."></label>
-                        <label>ข้อความปุ่ม<input type="text" id="adFormCta" placeholder="คลิกดู" value="คลิกดู"></label>
-                        <label>URL ลิงก์<input type="url" id="adFormUrl" placeholder="https://..."></label>
-                        <label>URL รูปภาพ (ไม่บังคับ)<input type="url" id="adFormImg" placeholder="https://..."></label>
+                        <label>หัว����อ <span style="color:#ef4444">*</span><input type="text" id="adFormTitle" placeholder="��ื��อ����ษณา..."></label>
+                        <label>��ำอ��ิ��าย<input type="text" id="adFormBody" placeholder="รายละเอียดสั������..."></label>
+                        <label>����อ��วาม��ุ��ม<input type="text" id="adFormCta" placeholder="��ลิ��ดู" value="��ลิ��ดู"></label>
+                        <label>URL ลิ������<input type="url" id="adFormUrl" placeholder="https://..."></label>
+                        <label>URL รู��ภา�� (��ม����ั����ั��)<input type="url" id="adFormImg" placeholder="https://..."></label>
                     </div>
                     <div style="display:flex;gap:8px;margin-top:16px">
-                        <button class="save-role-btn" id="adFormSave">บันทึก</button>
-                        <button class="delete-user-btn" id="adFormCancel">ยกเลิก</button>
+                        <button class="save-role-btn" id="adFormSave">��ั��ทึ��</button>
+                        <button class="delete-user-btn" id="adFormCancel">ย��เลิ��</button>
                     </div>
                 </div>
 
@@ -127,8 +127,8 @@
             <!-- Online Tab -->
             <div class="admin-tab" id="tab-online">
                 <div class="admin-header">
-                    <h1><i class="fas fa-users"></i> คนออนไลน์ตอนนี้</h1>
-                    <span id="adminOnlineCount" style="font-size:14px;color:var(--text-muted)">กำลังโหลด...</span>
+                    <h1><i class="fas fa-users"></i> ����ออ����ล����ตอ����ี��</h1>
+                    <span id="adminOnlineCount" style="font-size:14px;color:var(--text-muted)">��ำลั����หลด...</span>
                 </div>
                 <div id="adminOnlineList" class="admin-online-grid"></div>
             </div>

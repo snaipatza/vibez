@@ -1,4 +1,4 @@
-// ── ADMIN PANEL ────────────────────────────────────────────────────────
+// โ”€โ”€ ADMIN PANEL โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 async function api(url, method = 'GET', body = null) {
     const opts = { method, headers: {} };
     if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
@@ -39,7 +39,7 @@ async function loadDashboard() {
     document.getElementById('statMessages').textContent = stats.totalMessages ?? '-';
     document.getElementById('statQueue').textContent = stats.totalQueue ?? '-';
     const np = stats.nowPlaying;
-    document.getElementById('statLive').textContent = np?.youtube_id ? `🔴 ${np.title || 'กำลังเล่น'}` : '⚫ ไม่มีการเล่น';
+    document.getElementById('statLive').textContent = np?.youtube_id ? `๐�”ด ${np.title || 'เธ�เธณเธฅเธฑเธ�เน€เธฅเน�เธ�'}` : 'โ�ซ เน�เธกเน�เธกเธตเธ�เธฒเธฃเน€เธฅเน�เธ�';
 }
 
 let allUsers = [];
@@ -56,7 +56,7 @@ function renderUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     const roles = ['user', 'vip', 'dj', 'admin'];
     if (!Array.isArray(users) || !users.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px">ไม่พบผู้ใช้</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px">เน�เธกเน�เธ�เธ�เธ�เธนเน�เน�เธ�เน�</td></tr>';
         return;
     }
     tbody.innerHTML = users.map(u => `
@@ -74,12 +74,12 @@ function renderUsers(users) {
                 <select class="role-select role-${u.role}" id="role-${u.id}" onchange="this.className='role-select role-'+this.value">
                     ${roles.map(r => `<option value="${r}" ${u.role===r?'selected':''}>${r.toUpperCase()}</option>`).join('')}
                 </select>
-                <button class="save-role-btn" onclick="saveRole(${u.id})">บันทึก</button>
+                <button class="save-role-btn" onclick="saveRole(${u.id})">เธ�เธฑเธ�เธ—เธถเธ�</button>
             </td>
             <td style="color:var(--text-muted);font-size:12px">${new Date(u.created_at).toLocaleDateString('th-TH')}</td>
             <td>
                 <button class="delete-user-btn" onclick="deleteUser(${u.id}, '${escHtml(u.username)}')">
-                    <i class="fas fa-trash"></i> ลบ
+                    <i class="fas fa-trash"></i> เธฅเธ�
                 </button>
             </td>
         </tr>`).join('');
@@ -89,21 +89,21 @@ async function saveRole(userId) {
     const role = document.getElementById(`role-${userId}`).value;
     const data = await api(`/api/admin/users/${userId}`, 'PATCH', { role });
     if (data.error) showToast('error', data.error);
-    else { showToast('success', `เปลี่ยนยศเป็น ${role.toUpperCase()} แล้ว`); await loadUsers(); }
+    else { showToast('success', `เน€เธ�เธฅเธตเน�เธขเธ�เธขเธจเน€เธ�เน�เธ� ${role.toUpperCase()} เน�เธฅเน�เธง`); await loadUsers(); }
 }
 
 async function deleteUser(userId, username) {
-    if (!confirm(`ลบผู้ใช้ "${username}" ออกจากระบบ?`)) return;
+    if (!confirm(`เธฅเธ�เธ�เธนเน�เน�เธ�เน� "${username}" เธญเธญเธ�เธ�เธฒเธ�เธฃเธฐเธ�เธ�?`)) return;
     const data = await api(`/api/admin/users/${userId}`, 'DELETE');
     if (data.error) showToast('error', data.error);
-    else { showToast('success', `ลบผู้ใช้ ${username} แล้ว`); await loadUsers(); }
+    else { showToast('success', `เธฅเธ�เธ�เธนเน�เน�เธ�เน� ${username} เน�เธฅเน�เธง`); await loadUsers(); }
 }
 
 async function loadQueue() {
     const queue = await api('/api/queue');
     const list = document.getElementById('adminQueueList');
     if (!Array.isArray(queue) || !queue.length) {
-        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">ไม่มีเพลงในคิว</p>';
+        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">เน�เธกเน�เธกเธตเน€เธ�เธฅเธ�เน�เธ�เธ�เธดเธง</p>';
         return;
     }
     list.innerHTML = queue.map(item => `
@@ -111,37 +111,37 @@ async function loadQueue() {
             ${item.thumbnail ? `<img class="admin-queue-thumb" src="${escHtml(item.thumbnail)}" alt="">` : ''}
             <div class="admin-queue-info">
                 <div class="admin-queue-title">${escHtml(item.title)}</div>
-                <div class="admin-queue-artist">${escHtml(item.artist)} • ขอโดย @${escHtml(item.requested_by)}</div>
+                <div class="admin-queue-artist">${escHtml(item.artist)} โ€ข เธ�เธญเน�เธ”เธข @${escHtml(item.requested_by)}</div>
             </div>
             <span class="admin-queue-status ${item.status === 'playing' ? 'status-playing' : 'status-pending'}">
-                ${item.status === 'playing' ? '🔴 กำลังเล่น' : '⏳ รอ'}
+                ${item.status === 'playing' ? '๐�”ด เธ�เธณเธฅเธฑเธ�เน€เธฅเน�เธ�' : 'โ�ณ เธฃเธญ'}
             </span>
-            <span style="font-size:13px;font-weight:700;color:var(--accent-primary)">▲ ${item.votes}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--accent-primary)">โ–ฒ ${item.votes}</span>
         </div>`).join('');
 }
 
-// ── ADS ────────────────────────────────────────────────────────────────
+// โ”€โ”€ ADS โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 let editingAdId = null;
 
 async function loadAds() {
     const ads = await api('/api/admin/ads');
     const list = document.getElementById('adsList');
     if (!Array.isArray(ads) || !ads.length) {
-        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">ยังไม่มีโฆษณา — กดเพิ่มโฆษณาด้านบน</p>';
+        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">เธขเธฑเธ�เน�เธกเน�เธกเธตเน�เธ�เธฉเธ“เธฒ โ€” เธ�เธ”เน€เธ�เธดเน�เธกเน�เธ�เธฉเธ“เธฒเธ”เน�เธฒเธ�เธ�เธ�</p>';
     } else {
         list.innerHTML = ads.map(ad => `
             <div class="ad-admin-card ${ad.active ? 'ad-active' : ''}">
-                <div class="ad-admin-status">${ad.active ? '<span class="ad-on-badge">🟢 กำลังแสดง</span>' : '<span class="ad-off-badge">⚫ ปิดอยู่</span>'}</div>
+                <div class="ad-admin-status">${ad.active ? '<span class="ad-on-badge">๐��ข เธ�เธณเธฅเธฑเธ�เน�เธชเธ”เธ�</span>' : '<span class="ad-off-badge">โ�ซ เธ�เธดเธ”เธญเธขเธนเน�</span>'}</div>
                 ${ad.image_url ? `<img class="ad-admin-img" src="${escHtml(ad.image_url)}" alt="">` : ''}
                 <div class="ad-admin-info">
                     <div class="ad-admin-title">${escHtml(ad.title)}</div>
                     <div class="ad-admin-body">${escHtml(ad.body)}</div>
-                    <a class="ad-admin-link" href="${escHtml(ad.cta_url)}" target="_blank">${escHtml(ad.cta_text)} →</a>
+                    <a class="ad-admin-link" href="${escHtml(ad.cta_url)}" target="_blank">${escHtml(ad.cta_text)} โ�’</a>
                 </div>
                 <div class="ad-admin-actions">
                     ${ad.active
-                        ? `<button class="save-role-btn" onclick="setAdActive(${ad.id},0)">ปิด</button>`
-                        : `<button class="save-role-btn" onclick="setAdActive(${ad.id},1)">เปิดแสดง</button>`}
+                        ? `<button class="save-role-btn" onclick="setAdActive(${ad.id},0)">เธ�เธดเธ”</button>`
+                        : `<button class="save-role-btn" onclick="setAdActive(${ad.id},1)">เน€เธ�เธดเธ”เน�เธชเธ”เธ�</button>`}
                     <button class="delete-user-btn" onclick="deleteAd(${ad.id})"><i class="fas fa-trash"></i></button>
                 </div>
             </div>`).join('');
@@ -162,7 +162,7 @@ async function loadAds() {
 function clearAdForm() {
     ['adFormTitle','adFormBody','adFormCta','adFormUrl','adFormImg'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = id === 'adFormCta' ? 'คลิกดู' : '';
+        if (el) el.value = id === 'adFormCta' ? 'เธ�เธฅเธดเธ�เธ”เธน' : '';
     });
 }
 
@@ -170,14 +170,14 @@ async function saveAd() {
     const payload = {
         title: document.getElementById('adFormTitle').value.trim(),
         body: document.getElementById('adFormBody').value.trim(),
-        cta_text: document.getElementById('adFormCta').value.trim() || 'คลิกดู',
+        cta_text: document.getElementById('adFormCta').value.trim() || 'เธ�เธฅเธดเธ�เธ”เธน',
         cta_url: document.getElementById('adFormUrl').value.trim() || '#',
         image_url: document.getElementById('adFormImg').value.trim()
     };
-    if (!payload.title) { showToast('error', 'กรุณาใส่หัวข้อ'); return; }
+    if (!payload.title) { showToast('error', 'เธ�เธฃเธธเธ“เธฒเน�เธชเน�เธซเธฑเธงเธ�เน�เธญ'); return; }
     const data = await api('/api/admin/ads', 'POST', payload);
     if (data.error) { showToast('error', data.error); return; }
-    showToast('success', 'เพิ่มโฆษณาแล้ว');
+    showToast('success', 'เน€เธ�เธดเน�เธกเน�เธ�เธฉเธ“เธฒเน�เธฅเน�เธง');
     clearAdForm();
     document.getElementById('adFormCard').style.display = 'none';
     document.getElementById('showAdFormBtn').style.display = 'flex';
@@ -187,27 +187,27 @@ async function saveAd() {
 async function setAdActive(id, active) {
     const data = await api(`/api/admin/ads/${id}`, 'PATCH', { active });
     if (data.error) { showToast('error', data.error); return; }
-    showToast('success', active ? '🟢 เปิดโฆษณาแล้ว' : '⚫ ปิดโฆษณาแล้ว');
+    showToast('success', active ? '๐��ข เน€เธ�เธดเธ”เน�เธ�เธฉเธ“เธฒเน�เธฅเน�เธง' : 'โ�ซ เธ�เธดเธ”เน�เธ�เธฉเธ“เธฒเน�เธฅเน�เธง');
     await loadAds();
 }
 
 async function deleteAd(id) {
-    if (!confirm('ลบโฆษณานี้?')) return;
+    if (!confirm('เธฅเธ�เน�เธ�เธฉเธ“เธฒเธ�เธตเน�?')) return;
     await api(`/api/admin/ads/${id}`, 'DELETE');
-    showToast('success', 'ลบโฆษณาแล้ว');
+    showToast('success', 'เธฅเธ�เน�เธ�เธฉเธ“เธฒเน�เธฅเน�เธง');
     await loadAds();
 }
 
-// ── ONLINE USERS ────────────────────────────────────────────────────────
+// โ”€โ”€ ONLINE USERS โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€โ”€
 async function loadOnlineUsers() {
     const data = await api('/api/online');
     const el = document.getElementById('adminOnlineCount');
     const list = document.getElementById('adminOnlineList');
     if (!data || !data.users) return;
-    if (el) el.textContent = `${data.online} คนออนไลน์`;
+    if (el) el.textContent = `${data.online} เธ�เธ�เธญเธญเธ�เน�เธฅเธ�เน�`;
     const roleMap = { admin: ['role-admin-badge','ADMIN'], dj: ['role-dj-badge','DJ'], vip: ['role-vip-badge','VIP'] };
     if (!data.users.length) {
-        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;grid-column:1/-1">ไม่มีคนออนไลน์ในขณะนี้</p>';
+        list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;grid-column:1/-1">เน�เธกเน�เธกเธตเธ�เธ�เธญเธญเธ�เน�เธฅเธ�เน�เน�เธ�เธ�เธ“เธฐเธ�เธตเน�</p>';
         return;
     }
     list.innerHTML = data.users.map(u => {

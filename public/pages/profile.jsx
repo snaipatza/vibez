@@ -65,7 +65,6 @@ function MicTestCard() {
 function ProfilePage({ user, onUpdate, toast }) {
   const { useState, useEffect, useRef } = React;
   const [displayName, setDisplayName] = useState(user.display_name || '');
-  const [phone, setPhone] = useState(user.phone || '');
   const [email, setEmail] = useState(user.email || '');
   const [avatarPreview, setAvatarPreview] = useState(user.avatar_url || '');
   const [avatarData, setAvatarData] = useState(null);
@@ -113,7 +112,6 @@ function ProfilePage({ user, onUpdate, toast }) {
         body: JSON.stringify({
           avatar_seed: user.avatar_seed || user.name,
           display_name: displayName,
-          phone,
           email,
           avatar_image: avatarData || undefined,
         }),

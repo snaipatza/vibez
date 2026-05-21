@@ -46,16 +46,13 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
     }
   }, [conversations, activeId]);
 
+  const initialTargetApplied = useRef(false);
   useEffect(() => {
-    if (!initialTarget) return;
+    if (!initialTarget || initialTargetApplied.current) return;
     const targetUsername = typeof initialTarget === 'string' ? initialTarget : initialTarget.username;
     if (!targetUsername) return;
+    initialTargetApplied.current = true;
     setActiveId(targetUsername);
-    const match = conversations.find(c => c.username === targetUsername);
-    if (match) {
-      setActiveUser(match);
-      return;
-    }
     if (typeof initialTarget === 'object') {
       setActiveUser({
         username: targetUsername,
@@ -65,7 +62,7 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
         online: true,
       });
     }
-  }, [initialTarget, conversations]);
+  }, [initialTarget]);
 
   useEffect(() => {
     if (!activeId) return;

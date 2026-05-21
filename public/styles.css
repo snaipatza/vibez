@@ -6022,3 +6022,114 @@ a { color: inherit; text-decoration: none; }
   .lp-visual { display: none; }
   .lp-form-panel { padding: 32px 20px; min-height: 100vh; }
 }
+
+/* ============================================
+   MESSAGE REACTIONS
+   ============================================ */
+
+/* Picker popup */
+.reaction-picker {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2, #1a1b25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 5px 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  white-space: nowrap;
+}
+.dm-msg.mine .reaction-picker { left: auto; right: 0; }
+
+.react-pick-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  padding: 3px 4px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: transform .12s, background .12s;
+}
+.react-pick-btn:hover { transform: scale(1.35); background: rgba(255,255,255,0.08); }
+
+/* Reaction pills row */
+.reaction-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 2px 7px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  line-height: 1.4;
+}
+.reaction-pill:hover { background: rgba(255,255,255,0.12); }
+.reaction-pill.mine {
+  background: rgba(255,159,28,0.15);
+  border-color: var(--orange, #ff9f1c);
+}
+.reaction-count {
+  font-size: 11px;
+  color: var(--ink-2, #888);
+  min-width: 10px;
+}
+
+/* Live chat — react trigger button */
+.msg-react-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  opacity: 0;
+  color: var(--ink-3, #555);
+  transition: opacity .15s, background .15s;
+  margin-left: 2px;
+  line-height: 1;
+}
+.msg:hover .msg-react-trigger,
+.msg-react-trigger.active { opacity: 1; }
+.msg-react-trigger:hover { background: rgba(255,255,255,0.08); }
+
+/* DM — row wrapper for bubble + trigger */
+.dm-msg-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.dm-msg.mine .dm-msg-inner { flex-direction: row-reverse; }
+
+.dm-bubble-wrap { position: relative; }
+
+.dm-react-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  opacity: 0;
+  color: var(--ink-3, #555);
+  transition: opacity .15s, background .15s;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 4px;
+}
+.dm-msg:hover .dm-react-trigger,
+.dm-react-trigger.active { opacity: 1; }
+.dm-react-trigger:hover { background: rgba(255,255,255,0.08); }

@@ -8,6 +8,8 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
   const [text, setText] = useState('');
   const [pendingMedia, setPendingMedia] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reactions, setReactions] = useState({});   // { [dmId]: { [emoji]: [usernames] } }
+  const [pickerMsgId, setPickerMsgId] = useState(null);
   const bodyRef = useRef(null);
   const lastMsgIdRef = useRef(0);
 
@@ -88,6 +90,41 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [messages]);
+
+  // Poll DM reactions every 5s when a conversation is open
+  useEffect(() => {
+    if (!activeId) return;
+    setReactions({});
+    const fetchRx = async () => {
+      try {
+        const r = await fetch(`/api/dm/${encodeURIComponent(activeId)}/reactions`);
+        const data = await r.json();
+        if (data && typeof data === 'object') setReactions(data);
+      } catch {}
+    };
+    fetchRx();
+    const id = setInterval(fetchRx, 5000);
+    return () => clearInterval(id);
+  }, [activeId]);
+
+  const onReact = async (dmId, emoji) => {
+    setReactions(prev => {
+      const msgRx = { ...(prev[dmId] || {}) };
+      const users = [...(msgRx[emoji] || [])];
+      const idx = users.indexOf(user.name);
+      if (idx >= 0) users.splice(idx, 1); else users.push(user.name);
+      if (users.length === 0) { delete msgRx[emoji]; } else { msgRx[emoji] = users; }
+      return { ...prev, [dmId]: msgRx };
+    });
+    setPickerMsgId(null);
+    try {
+      await fetch(`/api/dm/message/${dmId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+    } catch {}
+  };
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -237,10 +274,39 @@ function DMPage({ user, listeners, chatOpen, setChatOpen, toast, initialTarget }
                 {messages.map((m) => {
                   const mine = m.from_username === user.name;
                   return (
-                    <div key={m.id} className={`dm-msg ${mine ? 'mine' : 'theirs'}`}>
-                      <div className="bubble">
-                        {m.message ? <div>{m.message}</div> : null}
-                        <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                    <div key={m.id} className={`dm-msg ${mine ? 'mine' : 'theirs'}`} style={{ position: 'relative' }}>
+                      <div className="dm-msg-inner">
+                        {!mine && (
+                          <button
+                            className={`dm-react-trigger${pickerMsgId === m.id ? ' active' : ''}`}
+                            onClick={() => setPickerMsgId(pickerMsgId === m.id ? null : m.id)}
+                            title="React"
+                          >😊</button>
+                        )}
+                        <div className="dm-bubble-wrap">
+                          <div className="bubble">
+                            {m.message ? <div>{m.message}</div> : null}
+                            <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                          </div>
+                          <ReactionRow
+                            reactions={reactions[m.id]}
+                            myUsername={user.name}
+                            onReact={(emoji) => onReact(m.id, emoji)}
+                          />
+                          {pickerMsgId === m.id && (
+                            <ReactionPicker
+                              onPick={(emoji) => onReact(m.id, emoji)}
+                              onClose={() => setPickerMsgId(null)}
+                            />
+                          )}
+                        </div>
+                        {mine && (
+                          <button
+                            className={`dm-react-trigger${pickerMsgId === m.id ? ' active' : ''}`}
+                            onClick={() => setPickerMsgId(pickerMsgId === m.id ? null : m.id)}
+                            title="React"
+                          >😊</button>
+                        )}
                       </div>
                       <div className="stamp">
                         {m.created_at ? new Date(m.created_at).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}

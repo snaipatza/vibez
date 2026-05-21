@@ -1261,6 +1261,83 @@ app.post('/api/messages', requireAuth, (req, res) => {
     res.json({ success: true, id: result.lastInsertRowid, media_url: media.mediaUrl, media_type: media.mediaType });
 });
 
+// ── REACTIONS ─────────────────────────────────────────────────────────
+const REACTION_EMOJIS = new Set(['❤️','🔥','😂','😮','😢','👍','😍','🎉']);
+
+// GET all reactions for recent live-chat messages in a room
+app.get('/api/messages/reactions', requireAuth, (req, res) => {
+    const roomId = String(req.query.room || 'main-stage').slice(0, 80);
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const rows = db.prepare(`
+        SELECT mr.message_id, mr.emoji, GROUP_CONCAT(mr.username) AS users
+        FROM message_reactions mr
+        JOIN messages m ON m.id = mr.message_id
+        WHERE m.room_id = ? AND m.created_at >= ?
+        GROUP BY mr.message_id, mr.emoji
+    `).all(roomId, cutoff);
+    const map = {};
+    rows.forEach(r => {
+        if (!map[r.message_id]) map[r.message_id] = {};
+        map[r.message_id][r.emoji] = r.users.split(',');
+    });
+    res.json(map);
+});
+
+// POST toggle reaction on a live-chat message
+app.post('/api/messages/:id/react', requireAuth, (req, res) => {
+    const msgId = parseInt(req.params.id);
+    const emoji  = String(req.body.emoji || '').trim();
+    const username = req.session.username;
+    if (!REACTION_EMOJIS.has(emoji)) return res.status(400).json({ error: 'invalid emoji' });
+    const msg = db.prepare('SELECT id FROM messages WHERE id=?').get(msgId);
+    if (!msg) return res.status(404).json({ error: 'not found' });
+    const existing = db.prepare('SELECT id FROM message_reactions WHERE message_id=? AND username=? AND emoji=?').get(msgId, username, emoji);
+    if (existing) {
+        db.prepare('DELETE FROM message_reactions WHERE id=?').run(existing.id);
+        res.json({ ok: true, action: 'removed' });
+    } else {
+        db.prepare('INSERT OR IGNORE INTO message_reactions (message_id, username, emoji) VALUES (?,?,?)').run(msgId, username, emoji);
+        res.json({ ok: true, action: 'added' });
+    }
+});
+
+// GET all reactions for a DM thread
+app.get('/api/dm/:with/reactions', requireAuth, (req, res) => {
+    const me    = req.session.username;
+    const other = req.params.with;
+    const rows = db.prepare(`
+        SELECT dr.dm_id, dr.emoji, GROUP_CONCAT(dr.username) AS users
+        FROM dm_reactions dr
+        JOIN direct_messages dm ON dm.id = dr.dm_id
+        WHERE (dm.from_user=? AND dm.to_user=?) OR (dm.from_user=? AND dm.to_user=?)
+        GROUP BY dr.dm_id, dr.emoji
+    `).all(me, other, other, me);
+    const map = {};
+    rows.forEach(r => {
+        if (!map[r.dm_id]) map[r.dm_id] = {};
+        map[r.dm_id][r.emoji] = r.users.split(',');
+    });
+    res.json(map);
+});
+
+// POST toggle reaction on a DM message
+app.post('/api/dm/message/:id/react', requireAuth, (req, res) => {
+    const dmId   = parseInt(req.params.id);
+    const emoji   = String(req.body.emoji || '').trim();
+    const username = req.session.username;
+    if (!REACTION_EMOJIS.has(emoji)) return res.status(400).json({ error: 'invalid emoji' });
+    const msg = db.prepare('SELECT id FROM direct_messages WHERE id=? AND (from_user=? OR to_user=?)').get(dmId, username, username);
+    if (!msg) return res.status(404).json({ error: 'not found' });
+    const existing = db.prepare('SELECT id FROM dm_reactions WHERE dm_id=? AND username=? AND emoji=?').get(dmId, username, emoji);
+    if (existing) {
+        db.prepare('DELETE FROM dm_reactions WHERE id=?').run(existing.id);
+        res.json({ ok: true, action: 'removed' });
+    } else {
+        db.prepare('INSERT OR IGNORE INTO dm_reactions (dm_id, username, emoji) VALUES (?,?,?)').run(dmId, username, emoji);
+        res.json({ ok: true, action: 'added' });
+    }
+});
+
 // ADMIN
 app.get('/api/admin/users', requireAdmin, (req, res) => {
     const users = db.prepare('SELECT id, username, display_name, role, avatar_seed, avatar_url, vip_expires_at, created_at FROM users ORDER BY created_at DESC').all();

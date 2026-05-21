@@ -225,6 +225,50 @@ function ChatComposer({ value, onChange, onSubmit, placeholder, maxLength, pendi
   );
 }
 
+// ── REACTIONS ─────────────────────────────────────────────────────────────
+const MSG_REACT_EMOJIS = ['❤️','🔥','😂','😮','😢','👍','😍','🎉'];
+
+function ReactionPicker({ onPick, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose?.(); };
+    document.addEventListener('mousedown', handler, true);
+    return () => document.removeEventListener('mousedown', handler, true);
+  }, [onClose]);
+  return (
+    <div className="reaction-picker" ref={ref}>
+      {MSG_REACT_EMOJIS.map(e => (
+        <button
+          key={e}
+          className="react-pick-btn"
+          onMouseDown={ev => { ev.preventDefault(); ev.stopPropagation(); onPick(e); onClose?.(); }}
+        >{e}</button>
+      ))}
+    </div>
+  );
+}
+
+function ReactionRow({ reactions, myUsername, onReact }) {
+  if (!reactions || Object.keys(reactions).length === 0) return null;
+  return (
+    <div className="reaction-row">
+      {Object.entries(reactions).map(([emoji, users]) => {
+        const mine = Array.isArray(users) && users.includes(myUsername);
+        return (
+          <button
+            key={emoji}
+            className={`reaction-pill${mine ? ' mine' : ''}`}
+            onClick={() => onReact(emoji)}
+            title={Array.isArray(users) ? users.join(', ') : ''}
+          >
+            {emoji}<span className="reaction-count">{Array.isArray(users) ? users.length : 0}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // -------- SIDEBAR -----------------------------------------------------------
 function Sidebar({ page, onNav, user, queueCount, dmUnread, onAvatarSave, rooms, activeRoom, onRoomClick, onCreateRoom, onDeleteRoom, nowPlaying, onlineUsers, offlineUsers, onOpenDM, onLogout, onOpenProfile, theme, onToggleTheme }) {
   const { useState: useSt } = React;

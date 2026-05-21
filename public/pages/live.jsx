@@ -1224,6 +1224,8 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
   const [newCount, setNewCount] = useState(0);
   const [atBottom, setAtBottom] = useState(true);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [reactions, setReactions] = useState({});   // { [msgId]: { [emoji]: [usernames] } }
+  const [pickerMsgId, setPickerMsgId] = useState(null);
   const typingTimerRef = useRef(null);
   const isTypingRef = useRef(false);
   const bodyRef = useRef(null);
@@ -1271,6 +1273,39 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
         socket.emit('chat:stop_typing', { room: activeRoom });
       }
     }
+  };
+
+  // Poll reactions for visible chat messages every 5s
+  useEffect(() => {
+    const fetchRx = async () => {
+      try {
+        const r = await fetch(`/api/messages/reactions?room=${encodeURIComponent(activeRoom)}`);
+        const data = await r.json();
+        if (data && typeof data === 'object') setReactions(data);
+      } catch {}
+    };
+    fetchRx();
+    const id = setInterval(fetchRx, 5000);
+    return () => clearInterval(id);
+  }, [activeRoom]);
+
+  const onReact = async (msgId, emoji) => {
+    setReactions(prev => {
+      const msgRx = { ...(prev[msgId] || {}) };
+      const users = [...(msgRx[emoji] || [])];
+      const idx = users.indexOf(user.name);
+      if (idx >= 0) users.splice(idx, 1); else users.push(user.name);
+      if (users.length === 0) { delete msgRx[emoji]; } else { msgRx[emoji] = users; }
+      return { ...prev, [msgId]: msgRx };
+    });
+    setPickerMsgId(null);
+    try {
+      await fetch(`/api/messages/${msgId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+    } catch {}
   };
 
   const playDing = useCallback(() => {
@@ -1375,7 +1410,7 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                 <div className="body"><div className="text">{m.text}</div></div>
               </div>
             ) : (
-              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={(m.chat_frame || (m.name === user?.name ? user?.chat_frame || '' : '')) || undefined}>
+              <div key={m.id ? `msg-${m.id}` : `msg-${i}`} className={`msg msg-role-${m.role || 'guest'}`} data-frame={(m.chat_frame || (m.name === user?.name ? user?.chat_frame || '' : '')) || undefined} style={{ position: 'relative' }}>
                 <div className={`av ${(m.avatar_frame || (m.name === user?.name ? user?.avatar_frame || '' : '')) ? 'av-frame-custom av-frame-' + (m.avatar_frame || (m.name === user?.name ? user?.avatar_frame || '' : '')) : (m.role === 'admin' ? 'av-frame-admin' : m.role === 'dj' ? 'av-frame-dj' : m.role === 'vip+' ? 'av-frame-vipplus' : m.role === 'vip' ? 'av-frame-vip' : m.role === 'co-admin' ? 'av-frame-coadmin' : '')}`}>
                   {m.avatar_url
                     ? <img src={m.avatar_url} alt="" />
@@ -1397,6 +1432,13 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                     >
                       <i className="fas fa-reply"></i>
                     </button>
+                    {m.id && (
+                      <button
+                        className={`msg-react-trigger${pickerMsgId === m.id ? ' active' : ''}`}
+                        onClick={() => setPickerMsgId(pickerMsgId === m.id ? null : m.id)}
+                        title="React"
+                      >😊</button>
+                    )}
                   </div>
                   {m.reply_to_id > 0 && m.reply_to_name && (
                     <div className="msg-reply-quote">
@@ -1409,6 +1451,17 @@ function ChatPanelInline({ messages, onSend, user, soundOn = true, typeSoundOn =
                     style={m.chat_color ? { background: m.chat_color + '22', borderLeft: `2px solid ${m.chat_color}`, paddingLeft: 6, borderRadius: 4 } : undefined}
                   >{m.text}</div>
                   <ChatMessageMedia mediaUrl={m.media_url} mediaType={m.media_type} />
+                  <ReactionRow
+                    reactions={reactions[m.id]}
+                    myUsername={user?.name}
+                    onReact={(emoji) => onReact(m.id, emoji)}
+                  />
+                  {pickerMsgId === m.id && (
+                    <ReactionPicker
+                      onPick={(emoji) => onReact(m.id, emoji)}
+                      onClose={() => setPickerMsgId(null)}
+                    />
+                  )}
                 </div>
               </div>
             )

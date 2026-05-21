@@ -97,6 +97,24 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS message_reactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    UNIQUE(message_id, username, emoji)
+  );
+
+  CREATE TABLE IF NOT EXISTS dm_reactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dm_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    UNIQUE(dm_id, username, emoji)
+  );
+
   CREATE TABLE IF NOT EXISTS role_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
